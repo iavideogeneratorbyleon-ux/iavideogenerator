@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import WizardStep1, { type WizardData } from './WizardStep1';
 import WizardStep2 from './WizardStep2';
 import WizardStep3 from './WizardStep3';
+import WizardStep4 from './WizardStep4';
 
 export default function WizardContainer() {
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -47,7 +48,7 @@ export default function WizardContainer() {
           <div className="mb-6 md:mb-8">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                {currentStep > 1 && (
+                {currentStep > 1 && currentStep < 4 && (
                   <button
                     onClick={prevStep}
                     className="text-xs text-text-muted hover:text-brand-primary transition-colors flex items-center gap-1 cursor-pointer mr-2"
@@ -99,16 +100,13 @@ export default function WizardContainer() {
           )}
 
           {currentStep === 4 && (
-            <div className="py-12 text-center text-text-muted flex-1 flex flex-col items-center justify-center space-y-4">
-              <p className="text-lg font-semibold text-text-main">Paso 4: Confirmación y Generación</p>
-              <p className="text-xs max-w-sm">Próximo paso: Generar el video final.</p>
-              <button
-                onClick={prevStep}
-                className="bg-bg-main border border-border-subtle text-text-main px-4 py-2 rounded-xl text-xs hover:border-brand-primary transition-colors cursor-pointer"
-              >
-                Volver atrás
-              </button>
-            </div>
+            <WizardStep4
+              data={formData}
+              onPrev={prevStep}
+              toneLabels={toneLabels}
+              voiceLabels={voiceLabels}
+              styleLabels={styleLabels}
+            />
           )}
         </div>
 
