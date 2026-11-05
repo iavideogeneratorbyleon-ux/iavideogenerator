@@ -1,3 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    /* Tipografía */
+    --font-main: 'Plus Jakarta Sans', sans-serif;
+
+    /* Paleta Cempasúchil Dark Mode */
+    --color-bg-main: #0B0F19;       /* Azul Noche Profundo (Fondo principal) */
+    --color-bg-surface: #1E293B;    /* Gris Pizarra Azulado (Tarjetas y módulos) */
+    --color-bg-hover: #334155;      /* Estado hover para tarjetas/botones */
+    
+    --color-brand-primary: #FF6B00; /* Naranja Cempasúchil (Acción principal / CTA) */
+    --color-brand-hover: #E05D00;   /* Naranja Cempasúchil oscuro para hover */
+    
+    --color-text-primary: #F8FAFC;  /* Blanco Cálido / Marfil */
+    --color-text-secondary: #94A3B8;/* Gris neutro para textos secundarios */
+    
+    --color-border: #1E293B;        /* Bordes sutiles */
+  }
+}
+
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;
