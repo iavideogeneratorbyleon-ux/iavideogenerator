@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import WizardStep1, { type WizardData } from './WizardStep1';
 import WizardStep2 from './WizardStep2';
+import WizardStep3 from './WizardStep3';
 
 export default function WizardContainer() {
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -8,6 +9,8 @@ export default function WizardContainer() {
     scriptIdea: '',
     tone: 'professional',
     voiceId: '',
+    aspectRatio: '9:16',
+    visualStyle: 'cinematic',
   });
 
   const updateFormData = (fields: Partial<WizardData>) => {
@@ -27,6 +30,12 @@ export default function WizardContainer() {
     carlos: 'Carlos (Narrativo)',
     sofia: 'Sofía (Comercial)',
     alex: 'Alex (Joven / Casual)',
+  };
+
+  const styleLabels: Record<string, string> = {
+    cinematic: 'Cinematográfico',
+    '3d-render': 'Render 3D',
+    vector: 'Vector Minimalista',
   };
 
   return (
@@ -80,9 +89,19 @@ export default function WizardContainer() {
             />
           )}
 
-          {currentStep >= 3 && (
+          {currentStep === 3 && (
+            <WizardStep3
+              data={formData}
+              onUpdate={updateFormData}
+              onNext={nextStep}
+              onPrev={prevStep}
+            />
+          )}
+
+          {currentStep === 4 && (
             <div className="py-12 text-center text-text-muted flex-1 flex flex-col items-center justify-center space-y-4">
-              <p className="text-lg font-semibold text-text-main">Paso {currentStep}: Próximamente</p>
+              <p className="text-lg font-semibold text-text-main">Paso 4: Confirmación y Generación</p>
+              <p className="text-xs max-w-sm">Próximo paso: Generar el video final.</p>
               <button
                 onClick={prevStep}
                 className="bg-bg-main border border-border-subtle text-text-main px-4 py-2 rounded-xl text-xs hover:border-brand-primary transition-colors cursor-pointer"
@@ -93,7 +112,7 @@ export default function WizardContainer() {
           )}
         </div>
 
-        {/* COLUMNA DERECHA: Panel Lateral de Resumen en Vivo */}
+        {/* COLUMNA DERECHA: Resumen en Vivo */}
         <div className="hidden md:flex md:w-80 lg:w-96 bg-bg-main/60 border-l border-border-subtle p-6 lg:p-8 flex-col justify-between">
           <div className="space-y-6">
             <div>
@@ -112,19 +131,35 @@ export default function WizardContainer() {
               </p>
             </div>
 
-            {/* Resumen Tono */}
-            <div className="bg-bg-surface/80 border border-border-subtle rounded-xl p-4 space-y-1">
-              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Tono</span>
-              <p className="text-xs font-bold text-brand-primary capitalize">
-                {toneLabels[formData.tone] || formData.tone}
-              </p>
+            {/* Resumen Tono y Formato */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-bg-surface/80 border border-border-subtle rounded-xl p-3 space-y-1">
+                <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Tono</span>
+                <p className="text-xs font-bold text-brand-primary truncate">
+                  {toneLabels[formData.tone] || formData.tone}
+                </p>
+              </div>
+              <div className="bg-bg-surface/80 border border-border-subtle rounded-xl p-3 space-y-1">
+                <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Formato</span>
+                <p className="text-xs font-bold text-brand-primary truncate">
+                  {formData.aspectRatio || '9:16'}
+                </p>
+              </div>
             </div>
 
             {/* Resumen Voz */}
             <div className="bg-bg-surface/80 border border-border-subtle rounded-xl p-4 space-y-1">
               <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Locutor ElevenLabs</span>
-              <p className="text-xs font-bold text-brand-primary">
+              <p className="text-xs font-bold text-brand-primary truncate">
                 {formData.voiceId ? voiceLabels[formData.voiceId] : <span className="italic text-text-muted font-normal">No seleccionada</span>}
+              </p>
+            </div>
+
+            {/* Resumen Estilo Visual */}
+            <div className="bg-bg-surface/80 border border-border-subtle rounded-xl p-4 space-y-1">
+              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Estilo Visual</span>
+              <p className="text-xs font-bold text-brand-primary">
+                {formData.visualStyle ? styleLabels[formData.visualStyle] : <span className="italic text-text-muted font-normal">Sin definir</span>}
               </p>
             </div>
           </div>

@@ -5,7 +5,10 @@ export type WizardData = {
   scriptIdea: string;
   tone: string;
   voiceId?: string;
+  aspectRatio?: string;
+  visualStyle?: string;
 };
+
 
 
 interface Step1Props {
