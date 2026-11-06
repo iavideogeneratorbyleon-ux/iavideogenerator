@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useLanguage } from './LanguageContext';
 import VideoShowcaseModal, { type VideoShowcaseItem } from './VideoShowcaseModal';
 import PricingSection from './PricingSection';

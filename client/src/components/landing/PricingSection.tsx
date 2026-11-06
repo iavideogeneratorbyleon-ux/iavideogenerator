@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useLanguage } from './LanguageContext';
 import styles from './PricingSection.module.css';
 
