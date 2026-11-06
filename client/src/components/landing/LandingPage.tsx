@@ -3,6 +3,7 @@ import { useLanguage } from './LanguageContext';
 import VideoShowcaseModal, { type VideoShowcaseItem } from './VideoShowcaseModal';
 import PricingSection from './PricingSection';
 import Logo from '../brand/Logo';
+import styles from './LandingPage.module.css';
 
 interface LandingPageProps {
   onStartWizard: () => void;
@@ -12,91 +13,88 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const { lang, setLang, t } = useLanguage();
   const [selectedVideo, setSelectedVideo] = useState<VideoShowcaseItem | null>(null);
 
-  // Muestra de videos interactivos
   const showcaseVideos: VideoShowcaseItem[] = [
     {
       id: '1',
-      title: 'Estrategia de Finanzas Personales',
+      title: t('showcase_1_title'),
       format: '9:16',
       videoUrl: '',
       thumbnail: '',
-      prompt: 'Video corto explicando cómo ahorrar un 20% de los ingresos mensuales con la regla 50/30/20',
+      prompt: t('showcase_1_prompt'),
       voice: 'Carlos (Narrativo)',
       tone: 'Profesional',
       style: 'Cinematográfico',
     },
     {
       id: '2',
-      title: 'Lanzamiento de Producto Tech',
+      title: t('showcase_2_title'),
       format: '16:9',
       videoUrl: '',
       thumbnail: '',
-      prompt: 'Anuncio dinámico promocionando audífonos inalámbricos de alta definición',
+      prompt: t('showcase_2_prompt'),
       voice: 'Sofía (Comercial)',
       tone: 'Dinámico',
       style: 'Render 3D',
     },
     {
       id: '3',
-      title: 'Consejos de Estilo de Vida',
+      title: t('showcase_3_title'),
       format: '9:16',
       videoUrl: '',
       thumbnail: '',
-      prompt: 'Rutina matutina de 5 minutos para maximizar la productividad diaria',
+      prompt: t('showcase_3_prompt'),
       voice: 'Alex (Joven / Casual)',
       tone: 'Casual',
       style: 'Vector Minimalista',
     },
   ];
 
-  // Reviews simuladas
   const reviews = [
     {
-      name: 'Sarah Jenkins',
-      role: 'Content Creator (US)',
+      name: t('review_1_name'),
+      role: t('review_1_role'),
       avatar: '👩‍💻',
-      text: 'Cempasúchil completely changed how I produce Reels. The ElevenLabs integration is seamlessly voice-synced!',
+      text: t('review_1_text'),
       rating: 5,
     },
     {
-      name: 'Miguel Ángel R.',
-      role: 'Agencia de Marketing',
+      name: t('review_2_name'),
+      role: t('review_2_role'),
       avatar: '👨‍💼',
-      text: 'Poder elegir entre pago por video o suscripción nos da una flexibilidad increíble para campañas con clientes.',
+      text: t('review_2_text'),
       rating: 5,
     },
     {
-      name: 'David K.',
-      role: 'Tech YouTuber',
+      name: t('review_3_name'),
+      role: t('review_3_role'),
       avatar: '🚀',
-      text: 'The 16:9 horizontal format with AI rendering saved me days of editing for my tutorials.',
+      text: t('review_3_text'),
       rating: 5,
     },
   ];
 
   return (
-    <div className="min-h-screen bg-bg-main text-text-main font-sans selection:bg-brand-primary selection:text-white">
+    <div className={styles.landingWrapper}>
       
-      {/* Navbar con Logo Integrado y Selector de Idioma */}
-      <header className="border-b border-border-subtle/40 bg-bg-main/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+      {/* Navbar */}
+      <header className={styles.header}>
+        <div className={styles.headerContainer}>
           <Logo size="md" />
           
-          <div className="flex items-center gap-4">
-            {/* Toggle de Idioma EN / ES */}
+          <div className={styles.headerActions}>
             <button
               type="button"
               onClick={() => setLang(lang === 'en' ? 'es' : 'en')}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border-subtle hover:border-brand-primary/50 text-text-muted hover:text-text-main transition-colors flex items-center gap-1.5 cursor-pointer"
+              className={styles.langBtn}
             >
               <span>🌐</span>
-              <span className="uppercase">{lang}</span>
+              <span style={{ textTransform: 'uppercase' }}>{lang}</span>
             </button>
 
             <button
               type="button"
               onClick={onStartWizard}
-              className="bg-brand-primary hover:bg-brand-hover text-white text-xs md:text-sm font-semibold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-brand-primary/20 cursor-pointer"
+              className={styles.primaryBtn}
             >
               {t('nav_create')}
             </button>
@@ -105,26 +103,26 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-20 pb-24 overflow-hidden">
-        <div className="max-w-5xl mx-auto px-6 text-center space-y-8 relative z-10">
-          <div className="inline-flex items-center gap-2 bg-brand-primary/10 border border-brand-primary/30 px-3.5 py-1.5 rounded-full text-brand-primary text-xs font-semibold">
+      <section className={styles.heroSection}>
+        <div className={styles.heroContainer}>
+          <div className={styles.heroBadge}>
             <span>✨</span> {t('hero_badge')}
           </div>
 
-          <h1 className="text-4xl md:text-6xl font-black tracking-tight text-text-main leading-tight">
+          <h1 className={styles.heroTitle}>
             {t('hero_title_1')} <br />
-            <span className="text-brand-primary">{t('hero_title_2')}</span>
+            <span className={styles.brandHighlight}>{t('hero_title_2')}</span>
           </h1>
 
-          <p className="text-sm md:text-lg text-text-muted max-w-2xl mx-auto leading-relaxed">
+          <p className={styles.heroSub}>
             {t('hero_sub')}
           </p>
 
-          <div className="pt-4">
+          <div>
             <button
               type="button"
               onClick={onStartWizard}
-              className="w-full sm:w-auto bg-brand-primary hover:bg-brand-hover text-white font-bold py-4 px-8 rounded-xl transition-all shadow-xl shadow-brand-primary/25 text-sm md:text-base flex items-center justify-center gap-2 cursor-pointer mx-auto"
+              className={styles.heroCtaBtn}
             >
               {t('hero_cta')} →
             </button>
@@ -133,43 +131,41 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       </section>
 
       {/* Galería Showcase Interactiva */}
-      <section className="py-20 border-t border-border-subtle/40 bg-bg-surface/30">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center space-y-3 mb-16">
-            <h2 className="text-2xl md:text-3xl font-extrabold text-text-main">
+      <section className={`${styles.sectionBordered} ${styles.sectionBgSurface}`}>
+        <div>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>
               {t('showcase_title')}
             </h2>
-            <p className="text-xs md:text-sm text-text-muted max-w-lg mx-auto">
+            <p className={styles.sectionSub}>
               {t('showcase_sub')}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className={styles.gridThreeCols}>
             {showcaseVideos.map((video) => (
               <div
                 key={video.id}
                 onClick={() => setSelectedVideo(video)}
-                className="group bg-bg-surface border border-border-subtle hover:border-brand-primary rounded-2xl p-4 cursor-pointer transition-all shadow-md hover:shadow-xl hover:shadow-brand-primary/5 flex flex-col justify-between"
+                className={styles.showcaseCard}
               >
-                <div className="aspect-video bg-bg-main rounded-xl border border-border-subtle/60 flex items-center justify-center relative overflow-hidden group-hover:border-brand-primary/50 transition-colors">
-                  <span className="text-3xl group-hover:scale-110 transition-transform">🎬</span>
-                  <div className="absolute inset-0 bg-brand-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="bg-brand-primary text-white text-[10px] font-bold px-3 py-1 rounded-full shadow">
-                      Ver Receta IA
-                    </span>
-                  </div>
+                <div className={styles.thumbnailPlaceholder}>
+                  <span style={{ fontSize: '1.875rem' }}>🎬</span>
+                  <span className={styles.recipeBadge}>
+                    {t('view_recipe')}
+                  </span>
                 </div>
 
-                <div className="mt-4 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-text-main group-hover:text-brand-primary transition-colors">
+                <div className={styles.showcaseMeta}>
+                  <div className={styles.showcaseTopRow}>
+                    <span className={styles.showcaseCardTitle}>
                       {video.title}
                     </span>
-                    <span className="text-[10px] bg-bg-main px-2 py-0.5 rounded border border-border-subtle text-text-muted font-mono">
+                    <span className={styles.formatBadge}>
                       {video.format}
                     </span>
                   </div>
-                  <p className="text-[11px] text-text-muted line-clamp-2">
+                  <p className={styles.showcasePrompt}>
                     {video.prompt}
                   </p>
                 </div>
@@ -180,28 +176,28 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       </section>
 
       {/* Sección de Reviews */}
-      <section className="py-20 border-t border-border-subtle/40">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center space-y-3 mb-16">
-            <h2 className="text-2xl md:text-3xl font-extrabold text-text-main">
+      <section className={styles.sectionBordered}>
+        <div>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>
               {t('reviews_title')}
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className={styles.gridThreeCols}>
             {reviews.map((rev, index) => (
-              <div key={index} className="bg-bg-surface border border-border-subtle rounded-2xl p-6 space-y-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{rev.avatar}</span>
+              <div key={index} className={styles.reviewCard}>
+                <div className={styles.reviewerProfile}>
+                  <span className={styles.avatar}>{rev.avatar}</span>
                   <div>
-                    <h4 className="text-xs font-bold text-text-main">{rev.name}</h4>
-                    <p className="text-[10px] text-text-muted">{rev.role}</p>
+                    <h4 className={styles.reviewerName}>{rev.name}</h4>
+                    <p className={styles.reviewerRole}>{rev.role}</p>
                   </div>
                 </div>
-                <div className="flex text-brand-primary text-xs">
+                <div className={styles.stars}>
                   {'★'.repeat(rev.rating)}
                 </div>
-                <p className="text-xs text-text-muted leading-relaxed italic">
+                <p className={styles.reviewText}>
                   "{rev.text}"
                 </p>
               </div>
@@ -214,8 +210,8 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       <PricingSection onSelectPlan={onStartWizard} />
 
       {/* Footer */}
-      <footer className="border-t border-border-subtle/40 py-10 text-center text-xs text-text-muted">
-        <p>© 2026 Cempasúchil.ai • All rights reserved.</p>
+      <footer className={styles.footer}>
+        <p>© 2026 Cempa.ai • All rights reserved.</p>
       </footer>
 
       {/* Modal de Receta en Video */}

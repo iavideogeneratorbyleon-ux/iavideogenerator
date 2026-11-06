@@ -1,4 +1,5 @@
 import React from 'react';
+import styles from './Logo.module.css';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -6,31 +7,22 @@ interface LogoProps {
 }
 
 export default function Logo({ size = 'md', showSlogan = false }: LogoProps) {
-  const sizeClasses = {
-    sm: 'text-base',
-    md: 'text-lg',
-    lg: 'text-2xl',
-  };
-
-  const iconSizes = {
-    sm: 'w-7 h-7 text-sm',
-    md: 'w-9 h-9 text-lg',
-    lg: 'w-12 h-12 text-2xl',
-  };
+  const iconSizeClass = size === 'sm' ? styles.iconSm : size === 'lg' ? styles.iconLg : styles.iconMd;
+  const titleSizeClass = size === 'sm' ? styles.titleSm : size === 'lg' ? styles.titleLg : styles.titleMd;
 
   return (
-    <div className="flex items-center gap-3">
-      {/* Isotipo: Símbolo moderno inspirado en el brillo y energía de la flor */}
-      <div className={`${iconSizes[size]} rounded-xl bg-gradient-to-br from-brand-primary to-[#FF8C33] flex items-center justify-center shadow-lg shadow-brand-primary/25 text-white font-black tracking-tighter`}>
+    <div className={styles.container}>
+      {/* Isotipo: Símbolo moderno de Cempa.ai */}
+      <div className={`${styles.icon} ${iconSizeClass}`}>
         C
       </div>
       
-      <div className="flex flex-col">
-        <span className={`font-extrabold tracking-tight text-text-main ${sizeClasses[size]}`}>
-          Cempa<span className="text-brand-primary">.ai</span>
+      <div className={styles.textWrapper}>
+        <span className={`${styles.brandTitle} ${titleSizeClass}`}>
+          Cempa<span className={styles.accent}>.ai</span>
         </span>
         {showSlogan && (
-          <span className="text-[10px] text-text-muted font-medium tracking-wide">
+          <span className={styles.slogan}>
             Your ideas, brought to brilliant life.
           </span>
         )}
