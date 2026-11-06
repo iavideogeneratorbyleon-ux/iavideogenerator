@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useLanguage } from './LanguageContext';
 import VideoShowcaseModal, { type VideoShowcaseItem } from './VideoShowcaseModal';
 import PricingSection from './PricingSection';
+import Logo from '../brand/Logo';
 
 interface LandingPageProps {
   onStartWizard: () => void;
@@ -76,21 +77,15 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-bg-main text-text-main font-sans selection:bg-brand-primary selection:text-white">
       
-      {/* Navbar con Selector de Idioma */}
+      {/* Navbar con Logo Integrado y Selector de Idioma */}
       <header className="border-b border-border-subtle/40 bg-bg-main/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-brand-primary flex items-center justify-center shadow-lg shadow-brand-primary/20 text-white font-bold text-lg">
-              C
-            </div>
-            <span className="font-extrabold text-lg tracking-tight text-text-main">
-              Cempasúchil<span className="text-brand-primary">.ai</span>
-            </span>
-          </div>
+          <Logo size="md" />
           
           <div className="flex items-center gap-4">
             {/* Toggle de Idioma EN / ES */}
             <button
+              type="button"
               onClick={() => setLang(lang === 'en' ? 'es' : 'en')}
               className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border-subtle hover:border-brand-primary/50 text-text-muted hover:text-text-main transition-colors flex items-center gap-1.5 cursor-pointer"
             >
@@ -99,6 +94,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             </button>
 
             <button
+              type="button"
               onClick={onStartWizard}
               className="bg-brand-primary hover:bg-brand-hover text-white text-xs md:text-sm font-semibold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-brand-primary/20 cursor-pointer"
             >
@@ -126,6 +122,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
           <div className="pt-4">
             <button
+              type="button"
               onClick={onStartWizard}
               className="w-full sm:w-auto bg-brand-primary hover:bg-brand-hover text-white font-bold py-4 px-8 rounded-xl transition-all shadow-xl shadow-brand-primary/25 text-sm md:text-base flex items-center justify-center gap-2 cursor-pointer mx-auto"
             >
@@ -182,7 +179,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Sección de Reviews (Carrusel / Grid) */}
+      {/* Sección de Reviews */}
       <section className="py-20 border-t border-border-subtle/40">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center space-y-3 mb-16">
