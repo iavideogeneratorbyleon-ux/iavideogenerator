@@ -1,0 +1,201 @@
+@reference "../../index.css";
+
+.pricingSection {
+  padding: 6rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: rgba(30, 41, 59, 0.15);
+}
+
+.pricingContainer {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.headerWrapper {
+  text-align: center;
+  margin-bottom: 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--color-text-main, #F8FAFC);
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--color-text-muted, #94A3B8);
+  max-width: 32rem;
+  margin: 0 auto;
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 2rem;
+  max-width: 56rem;
+  margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+  .cardsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.cardStandard {
+  background-color: var(--color-bg-surface, #1E293B);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.25rem;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.5rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.cardStandard:hover {
+  border-color: rgba(255, 107, 0, 0.4);
+}
+
+.cardPro {
+  background-color: var(--color-bg-surface, #1E293B);
+  border: 2px solid var(--color-brand-primary, #FF6B00);
+  border-radius: 1.25rem;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.5rem;
+  position: relative;
+  box-shadow: 0 15px 30px rgba(255, 107, 0, 0.12);
+  cursor: pointer;
+}
+
+/* Estado cuando el usuario selecciona la tarjeta */
+.cardSelected {
+  border-color: var(--color-brand-primary, #FF6B00) !important;
+  box-shadow: 0 0 20px rgba(255, 107, 0, 0.25);
+  background-color: rgba(255, 107, 0, 0.03);
+}
+
+.proBadge {
+  position: absolute;
+  top: -0.75rem;
+  right: 1.5rem;
+  background-color: var(--color-brand-primary, #FF6B00);
+  color: #ffffff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.badgeStandard {
+  display: inline-block;
+  width: fit-content;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted, #94A3B8);
+  background-color: var(--color-bg-main, #0B0F19);
+  padding: 0.375rem 0.875rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.badgePro {
+  display: inline-block;
+  width: fit-content;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-brand-primary, #FF6B00);
+  background-color: rgba(255, 107, 0, 0.1);
+  padding: 0.375rem 0.875rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 107, 0, 0.3);
+}
+
+.cardTitle {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-text-main, #F8FAFC);
+}
+
+.cardDesc {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #94A3B8);
+  line-height: 1.6;
+}
+
+.priceWrapper {
+  padding-top: 0.5rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.priceNumber {
+  font-size: 2.25rem;
+  font-weight: 900;
+  color: var(--color-text-main, #F8FAFC);
+}
+
+.priceUnit {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #94A3B8);
+}
+
+.btnStandard {
+  width: 100%;
+  background-color: var(--color-bg-main, #0B0F19);
+  color: var(--color-text-main, #F8FAFC);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btnStandard:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.btnPro {
+  width: 100%;
+  background-color: var(--color-brand-primary, #FF6B00);
+  color: #ffffff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.25);
+}
+
+.btnPro:hover {
+  background-color: #e05e00;
+  transform: translateY(-1px);
+}
