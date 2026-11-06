@@ -1,0 +1,258 @@
+@reference "../../index.css";
+
+.wrapper {
+  min-height: 100vh;
+  background-color: var(--color-bg-main, #0B0F19);
+  color: var(--color-text-main, #F8FAFC);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+@media (min-width: 768px) {
+  .wrapper {
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .wrapper {
+    padding: 2.5rem;
+  }
+}
+
+.cardContainer {
+  width: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .cardContainer {
+    min-height: 0;
+    max-width: 64rem;
+    background-color: var(--color-bg-surface, #1E293B);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    flex-direction: row;
+  }
+}
+
+/* Columna Izquierda: Wizard Steps */
+.leftColumn {
+  flex: 1;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+@media (min-width: 640px) {
+  .leftColumn {
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .leftColumn {
+    padding: 2.5rem;
+  }
+}
+
+.progressHeader {
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .progressHeader {
+    margin-bottom: 2rem;
+  }
+}
+
+.progressTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.stepInfoGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.backBtn {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #94A3B8);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-right: 0.5rem;
+  transition: color 0.2s ease;
+}
+
+.backBtn:hover {
+  color: var(--color-brand-primary, #FF6B00);
+}
+
+.stepBadge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--color-brand-primary, #FF6B00);
+  text-transform: uppercase;
+}
+
+.progressPercent {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #94A3B8);
+  font-weight: 500;
+}
+
+.progressBarTrack {
+  width: 100%;
+  background-color: var(--color-bg-main, #0B0F19);
+  height: 0.5rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.progressBarFill {
+  background-color: var(--color-brand-primary, #FF6B00);
+  height: 100%;
+  transition: width 0.5s cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Columna Derecha: Resumen en Vivo */
+.rightColumn {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .rightColumn {
+    display: flex;
+    width: 20rem;
+    background-color: rgba(11, 15, 25, 0.6);
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 1.5rem;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+}
+
+@media (min-width: 1024px) {
+  .rightColumn {
+    width: 24rem;
+    padding: 2rem;
+  }
+}
+
+.summaryContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.summaryBadge {
+  font-size: 0.625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-brand-primary, #FF6B00);
+  background-color: rgba(255, 107, 0, 0.1);
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 107, 0, 0.2);
+  display: inline-block;
+}
+
+.summaryTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-text-main, #F8FAFC);
+  margin-top: 0.75rem;
+}
+
+.summarySub {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #94A3B8);
+}
+
+.summaryCard {
+  background-color: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.summaryCardLabel {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #94A3B8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.summaryCardValue {
+  font-size: 0.75rem;
+  color: var(--color-text-main, #F8FAFC);
+  line-height: 1.6;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.summarySubCard {
+  background-color: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.highlightValue {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-brand-primary, #FF6B00);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mainValue {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-main, #F8FAFC);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summaryFooter {
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  text-align: center;
+}
+
+.footerText {
+  font-size: 0.625rem;
+  color: var(--color-text-muted, #94A3B8);
+}

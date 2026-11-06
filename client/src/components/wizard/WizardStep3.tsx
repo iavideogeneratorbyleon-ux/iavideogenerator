@@ -1,4 +1,5 @@
 import type { WizardData } from './WizardStep1';
+import styles from './WizardStep3.module.css';
 
 interface Step3Props {
   data: WizardData;
@@ -21,23 +22,23 @@ export default function WizardStep3({ data, onUpdate, onNext, onPrev }: Step3Pro
   ];
 
   return (
-    <div className="flex flex-col justify-between flex-1">
-      <div className="space-y-6 md:space-y-8">
+    <div className={styles.stepContainer}>
+      <div className={styles.contentSection}>
         <div>
-          <h1 className="text-xl md:text-3xl font-extrabold tracking-tight mb-2 text-text-main">
+          <h1 className={styles.headingTitle}>
             Estilo Visual y Formato
           </h1>
-          <p className="text-xs md:text-sm text-text-muted leading-relaxed">
+          <p className={styles.headingSub}>
             Define la proporción del video según la plataforma donde lo vas a publicar y su apariencia artística.
           </p>
         </div>
 
         {/* Selector de Aspect Ratio */}
-        <div className="space-y-3">
-          <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider">
+        <div className={styles.inputGroup}>
+          <label className={styles.inputLabel}>
             Orientación del Video
           </label>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className={styles.cardsGrid}>
             {aspectRatios.map((ratio) => {
               const isSelected = data.aspectRatio === ratio.id;
               return (
@@ -45,25 +46,19 @@ export default function WizardStep3({ data, onUpdate, onNext, onPrev }: Step3Pro
                   key={ratio.id}
                   type="button"
                   onClick={() => onUpdate({ aspectRatio: ratio.id })}
-                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
-                    isSelected
-                      ? 'bg-bg-surface border-brand-primary ring-1 ring-brand-primary shadow-md shadow-brand-primary/10'
-                      : 'bg-bg-main/50 border-border-subtle hover:bg-bg-surface hover:border-text-muted/30'
-                  }`}
+                  className={`${styles.selectionCard} ${isSelected ? styles.selectionCardSelected : ''}`}
                 >
-                  <div className="flex items-center justify-between w-full">
-                    <span className="text-2xl">{ratio.icon}</span>
+                  <div className={styles.cardHeader}>
+                    <span className={styles.cardIcon}>{ratio.icon}</span>
                     <span
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
-                        isSelected ? 'border-brand-primary bg-brand-primary' : 'border-border-subtle'
-                      }`}
+                      className={`${styles.radioCircle} ${isSelected ? styles.radioCircleSelected : ''}`}
                     >
-                      {isSelected && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
+                      {isSelected && <span className={styles.radioDot} />}
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-text-main">{ratio.label}</p>
-                    <p className="text-[10px] text-text-muted mt-0.5">{ratio.tag}</p>
+                    <p className={styles.cardTitle}>{ratio.label}</p>
+                    <span className={styles.cardTag}>{ratio.tag}</span>
                   </div>
                 </button>
               );
@@ -72,11 +67,11 @@ export default function WizardStep3({ data, onUpdate, onNext, onPrev }: Step3Pro
         </div>
 
         {/* Selector de Estilo Visual */}
-        <div className="space-y-3">
-          <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider">
+        <div className={styles.inputGroup}>
+          <label className={styles.inputLabel}>
             Estilo de Renderizado IA
           </label>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className={styles.cardsGrid}>
             {visualStyles.map((style) => {
               const isSelected = data.visualStyle === style.id;
               return (
@@ -84,23 +79,17 @@ export default function WizardStep3({ data, onUpdate, onNext, onPrev }: Step3Pro
                   key={style.id}
                   type="button"
                   onClick={() => onUpdate({ visualStyle: style.id })}
-                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
-                    isSelected
-                      ? 'bg-bg-surface border-brand-primary ring-1 ring-brand-primary shadow-md shadow-brand-primary/10'
-                      : 'bg-bg-main/50 border-border-subtle hover:bg-bg-surface hover:border-text-muted/30'
-                  }`}
+                  className={`${styles.selectionCard} ${isSelected ? styles.selectionCardSelected : ''}`}
                 >
-                  <div className="flex items-center justify-between w-full">
-                    <span className="text-sm font-bold text-text-main">{style.label}</span>
+                  <div className={styles.cardHeader}>
+                    <span className={styles.cardTitle}>{style.label}</span>
                     <span
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
-                        isSelected ? 'border-brand-primary bg-brand-primary' : 'border-border-subtle'
-                      }`}
+                      className={`${styles.radioCircle} ${isSelected ? styles.radioCircleSelected : ''}`}
                     >
-                      {isSelected && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
+                      {isSelected && <span className={styles.radioDot} />}
                     </span>
                   </div>
-                  <p className="text-xs text-text-muted leading-snug">{style.desc}</p>
+                  <p className={styles.cardDesc}>{style.desc}</p>
                 </button>
               );
             })}
@@ -109,11 +98,11 @@ export default function WizardStep3({ data, onUpdate, onNext, onPrev }: Step3Pro
       </div>
 
       {/* Botones de Navegación */}
-      <div className="pt-6 mt-8 border-t border-border-subtle/60 flex items-center justify-between">
+      <div className={styles.footerAction}>
         <button
           type="button"
           onClick={onPrev}
-          className="text-xs font-semibold text-text-muted hover:text-text-main transition-colors px-4 py-3 cursor-pointer"
+          className={styles.backBtn}
         >
           ← Regresar
         </button>
@@ -121,10 +110,10 @@ export default function WizardStep3({ data, onUpdate, onNext, onPrev }: Step3Pro
           type="button"
           disabled={!data.aspectRatio || !data.visualStyle}
           onClick={onNext}
-          className="w-full md:w-auto md:min-w-[180px] bg-brand-primary hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-2 cursor-pointer"
+          className={styles.nextBtn}
         >
           Siguiente: Resumen Final
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={styles.iconSvg} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
           </svg>
         </button>

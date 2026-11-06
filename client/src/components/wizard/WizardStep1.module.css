@@ -1,0 +1,218 @@
+@reference "../../index.css";
+
+.formContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+}
+
+.contentSection {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .contentSection {
+    gap: 2rem;
+  }
+}
+
+.headingTitle {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  margin-bottom: 0.5rem;
+  color: var(--color-text-main, #F8FAFC);
+}
+
+@media (min-width: 768px) {
+  .headingTitle {
+    font-size: 1.875rem;
+  }
+}
+
+.headingSub {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #94A3B8);
+  line-height: 1.6;
+}
+
+@media (min-width: 768px) {
+  .headingSub {
+    font-size: 0.875rem;
+  }
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inputLabel {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #94A3B8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.textareaField {
+  width: 100%;
+  background-color: var(--color-bg-main, #0B0F19);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+  padding: 0.875rem;
+  color: var(--color-text-main, #F8FAFC);
+  font-size: 0.875rem;
+  resize: none;
+  transition: all 0.2s ease;
+}
+
+@media (min-width: 768px) {
+  .textareaField {
+    padding: 1rem;
+  }
+}
+
+.textareaField::placeholder {
+  color: var(--color-text-muted, #94A3B8);
+}
+
+.textareaField:focus {
+  outline: none;
+  border-color: var(--color-brand-primary, #FF6B00);
+  box-shadow: 0 0 0 1px var(--color-brand-primary, #FF6B00);
+}
+
+/* Selector de Tonos Grid */
+.tonesGrid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .tonesGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.toneCard {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background-color: rgba(11, 15, 25, 0.5);
+}
+
+.toneCard:hover {
+  background-color: var(--color-bg-surface, #1E293B);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.toneCardSelected {
+  background-color: var(--color-bg-surface, #1E293B);
+  border-color: var(--color-brand-primary, #FF6B00);
+  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.1);
+  box-shadow: 0 0 0 1px var(--color-brand-primary, #FF6B00);
+}
+
+.toneHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.toneTitle {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text-main, #F8FAFC);
+}
+
+.radioCircle {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.radioCircleSelected {
+  border-color: var(--color-brand-primary, #FF6B00);
+  background-color: var(--color-brand-primary, #FF6B00);
+}
+
+.radioDot {
+  width: 0.375rem;
+  height: 0.375rem;
+  background-color: #ffffff;
+  border-radius: 9999px;
+}
+
+.toneDesc {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #94A3B8);
+  line-height: 1.4;
+}
+
+/* Footer / Botón Siguiente */
+.footerAction {
+  padding-top: 1.5rem;
+  margin-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.submitBtn {
+  width: 100%;
+  background-color: var(--color-brand-primary, #FF6B00);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 20px rgba(255, 107, 0, 0.2);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  border: none;
+  font-size: 0.875rem;
+}
+
+@media (min-width: 768px) {
+  .submitBtn {
+    width: auto;
+    min-width: 200px;
+  }
+}
+
+.submitBtn:hover:not(:disabled) {
+  background-color: #e05e00;
+}
+
+.submitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.iconSvg {
+  width: 1rem;
+  height: 1rem;
+}
