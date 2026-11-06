@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import { useLanguage } from './LanguageContext';
 import styles from './PricingSection.module.css';
 
-interface PricingSectionProps {
+interface PricingProps {
   onSelectPlan: () => void;
 }
 
-export default function PricingSection({ onSelectPlan }: PricingSectionProps) {
+export default function PricingSection({ onSelectPlan }: PricingProps) {
   const { t } = useLanguage();
-  const [selectedPlan, setSelectedPlan] = useState<'standard' | 'pro' | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'standard' | 'pro' | 'free' | null>(null);
 
-  const handleSelect = (plan: 'standard' | 'pro') => {
+  const handleSelect = (plan: 'standard' | 'pro' | 'free') => {
     setSelectedPlan(plan);
     onSelectPlan();
   };
@@ -30,22 +30,29 @@ export default function PricingSection({ onSelectPlan }: PricingSectionProps) {
 
         <div className={styles.cardsGrid}>
           
-          {/* Tarjeta 1: Pay-per-video */}
+          {/* Opción 1: Single Pass / Pay-Per-Video */}
           <div 
             onClick={() => handleSelect('standard')}
             className={`${styles.cardStandard} ${selectedPlan === 'standard' ? styles.cardSelected : ''}`}
           >
-            <div className={styles.cardContent}>
-              <span className={styles.badgeStandard}>
-                {t('no_sub')}
-              </span>
+            <div className={styles.cardBody}>
+              <span className={styles.badgeMuted}>Sin Suscripción</span>
               <h3 className={styles.cardTitle}>{t('pay_per_video')}</h3>
-              <p className={styles.cardDesc}>{t('pay_per_video_desc')}</p>
               
-              <div className={styles.priceWrapper}>
-                <span className={styles.priceNumber}>$9</span>
+              <div className={styles.priceRow}>
+                <span className={styles.priceBig}>$4.99</span>
                 <span className={styles.priceUnit}>/ video</span>
               </div>
+              
+              <p className={styles.cardDesc}>
+                {t('pay_per_video_desc')}
+              </p>
+              
+              <ul className={styles.featureList}>
+                <li className={styles.featureItem}>✓ 1 Video HD completo</li>
+                <li className={styles.featureItem}>✓ Voces ElevenLabs incluidas</li>
+                <li className={styles.featureItem}>✓ Exportación sin marca de agua</li>
+              </ul>
             </div>
 
             <button
@@ -56,30 +63,38 @@ export default function PricingSection({ onSelectPlan }: PricingSectionProps) {
               }}
               className={styles.btnStandard}
             >
-              {t('buy_video')}
+              Comprar 1 Video
             </button>
           </div>
 
-          {/* Tarjeta 2: Suscripción Mensual Pro */}
+          {/* Opción 2: Plan Pro Creadores (Destacado) */}
           <div 
             onClick={() => handleSelect('pro')}
             className={`${styles.cardPro} ${selectedPlan === 'pro' ? styles.cardSelected : ''}`}
           >
             <div className={styles.proBadge}>
-              {t('pro_badge')}
+              Más Popular
             </div>
 
-            <div className={styles.cardContent}>
-              <span className={styles.badgePro}>
-                {t('monthly_sub')}
-              </span>
+            <div className={`${styles.cardBody} mt-2`}>
+              <span className={styles.badgeBrand}>Suscripción Mensual</span>
               <h3 className={styles.cardTitle}>Pro Creator</h3>
-              <p className={styles.cardDesc}>{t('pro_desc')}</p>
               
-              <div className={styles.priceWrapper}>
-                <span className={styles.priceNumber}>$29</span>
-                <span className={styles.priceUnit}>/ month</span>
+              <div className={styles.priceRow}>
+                <span className={styles.priceBigPro}>$29</span>
+                <span className={styles.priceUnit}>/ mes</span>
               </div>
+
+              <p className={styles.cardDesc}>
+                Para creadores y marcas que publican contenido semanalmente en TikTok y Reels.
+              </p>
+
+              <ul className={styles.featureList}>
+                <li className={styles.featureItem}>✓ 15 Videos HD al mes</li>
+                <li className={styles.featureItem}>✓ Soporte prioritario ElevenLabs</li>
+                <li className={styles.featureItem}>✓ Renderizado ultra rápido</li>
+                <li className={styles.featureItem}>✓ Acceso a todos los estilos visuales</li>
+              </ul>
             </div>
 
             <button
@@ -90,12 +105,47 @@ export default function PricingSection({ onSelectPlan }: PricingSectionProps) {
               }}
               className={styles.btnPro}
             >
-              {t('try_pro')}
+              Probar Plan Pro
+            </button>
+          </div>
+
+          {/* Opción 3: Créditos Gratis de Prueba */}
+          <div 
+            onClick={() => handleSelect('free')}
+            className={`${styles.cardStandard} ${selectedPlan === 'free' ? styles.cardSelected : ''}`}
+          >
+            <div className={styles.cardBody}>
+              <span className={styles.badgeMuted}>Prueba Gratuita</span>
+              <h3 className={styles.cardTitle}>Free Pass</h3>
+              
+              <div className={styles.priceRow}>
+                <span className={styles.priceBig}>$0</span>
+              </div>
+
+              <p className={styles.cardDesc}>
+                {t('free_credits')}
+              </p>
+
+              <ul className={styles.featureList}>
+                <li className={styles.featureItem}>✓ 1 Crédito de prueba gratis</li>
+                <li className={styles.featureItem}>✓ Acceso a todas las herramientas</li>
+                <li className={styles.featureItem}>✓ Sin tarjeta de crédito requerida</li>
+              </ul>
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelect('free');
+              }}
+              className={styles.btnStandard}
+            >
+              Comenzar Gratis
             </button>
           </div>
 
         </div>
-
       </div>
     </section>
   );
