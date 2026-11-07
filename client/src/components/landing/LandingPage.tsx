@@ -3,6 +3,8 @@ import { useLanguage } from './LanguageContext';
 import VideoShowcaseModal, { type VideoShowcaseItem } from './VideoShowcaseModal';
 import PricingSection from './PricingSection';
 import Navbar from './NavBar';
+// Si tienes un componente AuthModal, impórtalo aquí. Si aún no lo creas, puedes descomentarlo cuando lo tengas:
+// import AuthModal from './AuthModal'; 
 import styles from './LandingPage.module.css';
 
 interface LandingPageProps {
@@ -12,6 +14,9 @@ interface LandingPageProps {
 export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const { t } = useLanguage();
   const [selectedVideo, setSelectedVideo] = useState<VideoShowcaseItem | null>(null);
+  
+  // Estado para controlar el Modal de Autenticación (Login / Signup)
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'signup' | null>(null);
 
   const showcaseVideos: VideoShowcaseItem[] = [
     {
@@ -76,8 +81,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   return (
     <div className={styles.landingWrapper}>
       
-      {/* Navbar */}
-      <Navbar onStartWizard={onStartWizard} />
+      {/* Navbar con soporte para abrir Login / Signup */}
+      <Navbar 
+        onStartWizard={onStartWizard} 
+        onOpenAuthModal={(mode) => setAuthModalMode(mode)} 
+      />
 
       {/* Hero Section */}
       <section className={styles.heroSection}>
@@ -200,6 +208,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           onStartWizard();
         }}
       />
+
+      {/* Aquí puedes renderizar tu modal de autenticación cuando lo programemos */}
+      {/* {authModalMode && (
+        <AuthModal mode={authModalMode} onClose={() => setAuthModalMode(null)} />
+      )} */}
 
     </div>
   );

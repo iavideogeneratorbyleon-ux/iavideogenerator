@@ -3,15 +3,16 @@
   top: 0;
   z-index: 100;
   width: 100%;
-  background-color: rgba(11, 15, 25, 0.8); /* Tu --color-bg-main con transparencia */
-  border-bottom: 1px solid var(--color-bg-surface); /* Tu --color-bg-surface */
+  background-color: #0b0f19; /* Fondo sólido de respaldo para evitar blanco */
+  background-color: rgba(11, 15, 25, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(12px);
 }
 
 .headerContainer {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 1.25rem 1.5rem;
+  padding: 1rem 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -24,82 +25,283 @@
   flex-shrink: 0;
 }
 
+/* Navegación central (Escritorio) */
+.navCenter {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.navLink {
+  color: #94a3b8;
+  text-decoration: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.navLink:hover {
+  color: #ffffff;
+}
+
+/* Dropdown de Productos */
+.dropdownWrapper {
+  position: relative;
+}
+
+.dropdownToggle {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: color 0.2s ease;
+}
+
+.dropdownToggle:hover {
+  color: #ffffff;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 100%;
+  left: -1rem;
+  width: 300px;
+  background-color: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 1000;
+}
+
+.dropdownItem {
+  padding: 0.625rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.dropdownItem:hover {
+  background-color: #334155;
+}
+
+.disabledItem {
+  opacity: 0.5;
+  cursor: default;
+}
+.disabledItem:hover {
+  background-color: transparent;
+}
+
+.dropdownItemHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.itemTitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.itemDesc {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.badgeActive {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 0.1rem 0.4rem;
+  border-radius: 9999px;
+  background-color: rgba(255, 107, 0, 0.2);
+  color: #ff6b00;
+}
+
+.badgeSoon {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 0.1rem 0.4rem;
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+/* Acciones de la derecha (Escritorio) */
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
+  gap: 1rem;
 }
 
 .langBtn {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  background: var(--color-bg-surface);
+  gap: 0.4rem;
+  background: #1e293b;
   border: 1px solid transparent;
-  padding: 0.5rem 0.875rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
   cursor: pointer;
-  font-family: var(--font-sans);
-  font-weight: 500;
   font-size: 0.875rem;
-  color: var(--color-text-main);
-  transition: all 0.2s ease;
+  color: #ffffff;
+  font-weight: 600;
+  transition: background-color 0.2s ease;
 }
 
 .langBtn:hover {
-  background-color: var(--color-bg-hover);
+  background-color: #334155;
 }
 
 .langText {
   text-transform: uppercase;
+}
+
+.loginBtn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.875rem;
   font-weight: 600;
+  cursor: pointer;
+  padding: 0.5rem;
+  transition: color 0.2s ease;
+}
+
+.loginBtn:hover {
+  color: #ffffff;
 }
 
 .primaryBtn {
-  background-color: var(--color-brand-primary); /* Tu naranja #FF6B00 */
-  color: var(--color-text-main);
+  background-color: #ff6b00;
+  color: #ffffff;
   border: none;
-  padding: 0.625rem 1.5rem;
+  padding: 0.6rem 1.25rem;
   border-radius: 0.5rem;
-  font-family: var(--font-sans);
   font-weight: 700;
   font-size: 0.875rem;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.25);
   transition: all 0.2s ease;
 }
 
 .primaryBtn:hover {
-  background-color: var(--color-brand-hover); /* Tu naranja oscuro #E05D00 */
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(255, 107, 0, 0.3);
+  background-color: #e05d00;
+}
+
+/* Botón Hamburguesa (Oculto en Desktop) */
+.hamburgerBtn {
+  display: none;
+  background: #1e293b;
+  border: none;
+  color: #ffffff;
+  font-size: 1.25rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+/* Menú Móvil Desplegable (Flotante absoluto para no empujar la página) */
+.mobileMenu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  background-color: #0b0f19;
+  border-bottom: 1px solid #1e293b;
+  padding: 1.5rem;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
+  z-index: 99;
+}
+
+.mobileSectionTitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ff6b00;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mobileNavLink {
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mobileAuthGrid {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mobileLoginBtn {
+  flex: 1;
+  background: #1e293b;
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.mobileSignupBtn {
+  flex: 1;
+  background: #ff6b00;
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
 }
 
 /* ==========================================================================
-   Ajustes Responsivos para Dispositivos Móviles (Media Query)
+   Media Queries (Pantallas menores a 768px)
    ========================================================================== */
-@media (max-width: 480px) {
-  .headerContainer {
-    padding: 0.875rem 1rem; /* Reducimos el padding superior/inferior y lateral */
-    gap: 0.5rem;
+@media (max-width: 768px) {
+  .navCenter {
+    display: none; /* Ocultamos los links de escritorio */
   }
 
-  .headerActions {
-    gap: 0.625rem; /* Menor espacio entre botones para evitar desbordes */
+  .loginBtn {
+    display: none; /* Ocultamos el login directo de la barra superior */
   }
 
-  .langBtn {
-    padding: 0.5rem 0.625rem; /* Botón de idioma más compacto */
+  .hamburgerBtn {
+    display: flex; /* Mostramos la hamburguesa */
+    align-items: center;
+    justify-content: center;
   }
 
-  .langText {
-    font-size: 0.8rem;
-  }
-
-  .primaryBtn {
-    padding: 0.5rem 1rem; /* Reducción de tamaño del CTA principal */
-    font-size: 0.8rem;
-    box-shadow: none;
+  .mobileMenu {
+    display: flex; /* Se muestra como capa flotante al abrirse */
   }
 }
