@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from './LanguageContext';
 import styles from './VideoShowcaseModal.module.css';
 
 export interface VideoShowcaseItem {
@@ -20,6 +21,8 @@ interface ModalProps {
 }
 
 export default function VideoShowcaseModal({ item, onClose, onUseRecipe }: ModalProps) {
+  const { t } = useLanguage();
+
   if (!item) return null;
 
   return (
@@ -38,7 +41,7 @@ export default function VideoShowcaseModal({ item, onClose, onUseRecipe }: Modal
         {/* Lado Izquierdo: Video / Player */}
         <div className={styles.playerSide}>
           <div className={`${item.format === '9:16' ? styles.playerBoxVertical : styles.playerBoxLandscape}`}>
-            <span className={styles.playerText}>▶ Preview: {item.title}</span>
+            <span className={styles.playerText}>▶ {t('modal_preview_label')}: {item.title}</span>
           </div>
         </div>
 
@@ -47,35 +50,35 @@ export default function VideoShowcaseModal({ item, onClose, onUseRecipe }: Modal
           <div className="space-y-4">
             <div>
               <span className={styles.recipeBadge}>
-                Receta del Video
+                {t('modal_recipe_badge')}
               </span>
               <h3 className={styles.modalTitle}>{item.title}</h3>
             </div>
 
             <div className="space-y-3 text-xs">
               <div className={styles.promptCard}>
-                <span className={styles.sectionLabel}>Prompt Inicial:</span>
+                <span className={styles.sectionLabel}>{t('modal_initial_prompt')}</span>
                 <p className={styles.promptText}>"{item.prompt}"</p>
               </div>
 
               <div className={styles.gridTwoCols}>
                 <div className={styles.metaCard}>
-                  <span className={styles.sectionLabel}>Voz ElevenLabs</span>
+                  <span className={styles.sectionLabel}>{t('modal_elevenlabs_voice')}</span>
                   <span className={styles.metaValueBrand}>{item.voice}</span>
                 </div>
                 <div className={styles.metaCard}>
-                  <span className={styles.sectionLabel}>Formato</span>
+                  <span className={styles.sectionLabel}>{t('modal_format')}</span>
                   <span className={styles.metaValueBrand}>{item.format}</span>
                 </div>
               </div>
 
               <div className={styles.gridTwoCols}>
                 <div className={styles.metaCard}>
-                  <span className={styles.sectionLabel}>Tono</span>
+                  <span className={styles.sectionLabel}>{t('modal_tone')}</span>
                   <span className={styles.metaValueMain}>{item.tone}</span>
                 </div>
                 <div className={styles.metaCard}>
-                  <span className={styles.sectionLabel}>Estilo Visual</span>
+                  <span className={styles.sectionLabel}>{t('modal_visual_style')}</span>
                   <span className={styles.metaValueMain}>{item.style}</span>
                 </div>
               </div>
@@ -87,7 +90,7 @@ export default function VideoShowcaseModal({ item, onClose, onUseRecipe }: Modal
             onClick={onUseRecipe}
             className={styles.actionBtn}
           >
-            Usar este estilo en el Wizard →
+            {t('modal_use_style_cta')} →
           </button>
         </div>
 

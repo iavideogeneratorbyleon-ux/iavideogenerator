@@ -1,4 +1,5 @@
 import type { WizardData } from './WizardStep1';
+import { useLanguage } from '../landing/LanguageContext';
 import styles from './WizardStep3.module.css';
 
 interface Step3Props {
@@ -9,16 +10,30 @@ interface Step3Props {
 }
 
 export default function WizardStep3({ data, onUpdate, onNext, onPrev }: Step3Props) {
+  const { lang, t } = useLanguage();
+
   const aspectRatios = [
-    { id: '9:16', label: 'Vertical (9:16)', tag: 'Reels / TikTok / Shorts', icon: '📱' },
-    { id: '16:9', label: 'Horizontal (16:9)', tag: 'YouTube / TV', icon: '🖥️' },
-    { id: '1:1', label: 'Cuadrado (1:1)', tag: 'Feed Instagram / LinkedIn', icon: '⏹️' },
+    { id: '9:16', label: lang === 'en' ? 'Vertical (9:16)' : 'Vertical (9:16)', tag: 'Reels / TikTok / Shorts', icon: '📱' },
+    { id: '16:9', label: lang === 'en' ? 'Horizontal (16:9)' : 'Horizontal (16:9)', tag: 'YouTube / TV', icon: '🖥️' },
+    { id: '1:1', label: lang === 'en' ? 'Square (1:1)' : 'Cuadrado (1:1)', tag: 'Instagram Feed / LinkedIn', icon: '⏹️' },
   ];
 
   const visualStyles = [
-    { id: 'cinematic', label: 'Cinematográfico', desc: 'Realismo alto, iluminación dramática' },
-    { id: '3d-render', label: 'Render 3D', desc: 'Estilo animación 3D moderno y colorido' },
-    { id: 'vector', label: 'Vector Minimalista', desc: 'Líneas limpias y estilo gráfico corporativo' },
+    { 
+      id: 'cinematic', 
+      label: lang === 'en' ? 'Cinematic' : 'Cinematográfico', 
+      desc: lang === 'en' ? 'High realism, dramatic lighting' : 'Realismo alto, iluminación dramática' 
+    },
+    { 
+      id: '3d-render', 
+      label: lang === 'en' ? '3D Render' : 'Render 3D', 
+      desc: lang === 'en' ? 'Modern and colorful 3D animation style' : 'Estilo animación 3D moderno y colorido' 
+    },
+    { 
+      id: 'vector', 
+      label: lang === 'en' ? 'Minimalist Vector' : 'Vector Minimalista', 
+      desc: lang === 'en' ? 'Clean lines and corporate graphic style' : 'Líneas limpias y estilo gráfico corporativo' 
+    },
   ];
 
   return (
@@ -26,17 +41,17 @@ export default function WizardStep3({ data, onUpdate, onNext, onPrev }: Step3Pro
       <div className={styles.contentSection}>
         <div>
           <h1 className={styles.headingTitle}>
-            Estilo Visual y Formato
+            {t('step3_title')}
           </h1>
           <p className={styles.headingSub}>
-            Define la proporción del video según la plataforma donde lo vas a publicar y su apariencia artística.
+            {t('step3_sub')}
           </p>
         </div>
 
         {/* Selector de Aspect Ratio */}
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
-            Orientación del Video
+            {t('step3_orientation_label')}
           </label>
           <div className={styles.cardsGrid}>
             {aspectRatios.map((ratio) => {
@@ -69,7 +84,7 @@ export default function WizardStep3({ data, onUpdate, onNext, onPrev }: Step3Pro
         {/* Selector de Estilo Visual */}
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
-            Estilo de Renderizado IA
+            {t('step3_style_label')}
           </label>
           <div className={styles.cardsGrid}>
             {visualStyles.map((style) => {
@@ -104,7 +119,7 @@ export default function WizardStep3({ data, onUpdate, onNext, onPrev }: Step3Pro
           onClick={onPrev}
           className={styles.backBtn}
         >
-          ← Regresar
+          {t('step3_back_btn')}
         </button>
         <button
           type="button"
@@ -112,7 +127,7 @@ export default function WizardStep3({ data, onUpdate, onNext, onPrev }: Step3Pro
           onClick={onNext}
           className={styles.nextBtn}
         >
-          Siguiente: Resumen Final
+          {t('step3_next_btn')}
           <svg className={styles.iconSvg} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
           </svg>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { WizardData } from './WizardStep1';
+import { useLanguage } from '../landing/LanguageContext';
 import styles from './WizardStep4.module.css';
 
 interface Step4Props {
@@ -11,12 +12,12 @@ interface Step4Props {
 }
 
 export default function WizardStep4({ data, onPrev, toneLabels, voiceLabels, styleLabels }: Step4Props) {
+  const { t } = useLanguage();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
 
   const handleGenerate = () => {
     setIsGenerating(true);
-    // Simulamos un proceso de renderizado con IA de 3 segundos
     setTimeout(() => {
       setIsGenerating(false);
       setIsCompleted(true);
@@ -26,24 +27,14 @@ export default function WizardStep4({ data, onPrev, toneLabels, voiceLabels, sty
   if (isCompleted) {
     return (
       <div className={styles.completedContainer}>
-        <div className={styles.successIconWrapper}>
-          ✨
-        </div>
+        <div className={styles.successIconWrapper}>✨</div>
         <div className={styles.completedTextGroup}>
-          <h1 className={styles.completedTitle}>
-            ¡Tu video se está generando!
-          </h1>
-          <p className={styles.completedSub}>
-            El motor de Cempasúchil IA ha comenzado el renderizado. Te avisaremos en cuanto esté listo para descargar o compartir.
-          </p>
+          <h1 className={styles.completedTitle}>{t('step4_success_title')}</h1>
+          <p className={styles.completedSub}>{t('step4_success_sub')}</p>
         </div>
         <div style={{ paddingTop: '1rem' }}>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className={styles.primaryActionBtn}
-          >
-            Crear otro video
+          <button type="button" onClick={() => window.location.reload()} className={styles.primaryActionBtn}>
+            {t('step4_create_another_btn')}
           </button>
         </div>
       </div>
@@ -54,94 +45,63 @@ export default function WizardStep4({ data, onPrev, toneLabels, voiceLabels, sty
     <div className={styles.stepContainer}>
       <div className={styles.contentSection}>
         <div>
-          <h1 className={styles.headingTitle}>
-            Resumen de tu proyecto
-          </h1>
-          <p className={styles.headingSub}>
-            Revisa que todos los parámetros sean correctos antes de activar la generación con Inteligencia Artificial.
-          </p>
+          <h1 className={styles.headingTitle}>{t('step4_title')}</h1>
+          <p className={styles.headingSub}>{t('step4_sub')}</p>
         </div>
 
-        {/* Tarjeta de Resumen Detallado */}
         <div className={styles.summaryCardBox}>
-          
           <div className={styles.summarySection}>
-            <span className={styles.labelTitle}>Idea / Concepto</span>
-            <p className={styles.conceptText}>
-              {data.scriptIdea || 'Sin definir'}
-            </p>
+            <span className={styles.labelTitle}>{t('step4_concept_label')}</span>
+            <p className={styles.conceptText}>{data.scriptIdea || t('summary_undefined')}</p>
           </div>
 
           <div className={styles.gridTwoCols}>
             <div>
-              <span className={styles.labelTitle}>Tono</span>
-              <p className={styles.itemValue}>
-                {toneLabels[data.tone] || data.tone}
-              </p>
+              <span className={styles.labelTitle}>{t('step4_tone_label')}</span>
+              <p className={styles.itemValue}>{toneLabels[data.tone] || data.tone}</p>
             </div>
             <div>
-              <span className={styles.labelTitle}>Formato (Aspect Ratio)</span>
-              <p className={styles.itemValue}>
-                {data.aspectRatio || '9:16'}
-              </p>
+              <span className={styles.labelTitle}>{t('step4_format_label')}</span>
+              <p className={styles.itemValue}>{data.aspectRatio || '9:16'}</p>
             </div>
           </div>
 
           <div className={styles.gridTwoColsLast}>
             <div>
-              <span className={styles.labelTitle}>Locutor ElevenLabs</span>
-              <p className={styles.itemValue}>
-                {data.voiceId ? voiceLabels[data.voiceId] : 'No seleccionado'}
-              </p>
+              <span className={styles.labelTitle}>{t('step4_voice_label')}</span>
+              <p className={styles.itemValue}>{data.voiceId ? voiceLabels[data.voiceId] : t('summary_unselected')}</p>
             </div>
             <div>
-              <span className={styles.labelTitle}>Estilo Visual</span>
-              <p className={styles.itemValue}>
-                {data.visualStyle ? styleLabels[data.visualStyle] : 'Sin definir'}
-              </p>
+              <span className={styles.labelTitle}>{t('step4_style_label')}</span>
+              <p className={styles.itemValue}>{data.visualStyle ? styleLabels[data.visualStyle] : t('summary_undefined')}</p>
             </div>
           </div>
-
         </div>
 
-        {/* Aviso de Créditos */}
         <div className={styles.creditsNotice}>
           <span className={styles.creditsEmoji}>⚡</span>
           <div className={styles.creditsInfo}>
-            <p className={styles.creditsTitle}>Costo estimado: 1 Crédito de IA</p>
-            <p className={styles.creditsDesc}>El proceso tomará aproximadamente entre 30 y 60 segundos.</p>
+            <p className={styles.creditsTitle}>{t('step4_credits_title')}</p>
+            <p className={styles.creditsDesc}>{t('step4_credits_desc')}</p>
           </div>
         </div>
       </div>
 
-      {/* Botones de Navegación y Generación */}
       <div className={styles.footerAction}>
-        <button
-          type="button"
-          onClick={onPrev}
-          disabled={isGenerating}
-          className={styles.backBtn}
-        >
-          ← Regresar
+        <button type="button" onClick={onPrev} disabled={isGenerating} className={styles.backBtn}>
+          {t('step4_back_btn')}
         </button>
-        <button
-          type="button"
-          disabled={isGenerating}
-          onClick={handleGenerate}
-          className={styles.generateBtn}
-        >
+        <button type="button" disabled={isGenerating} onClick={handleGenerate} className={styles.generateBtn}>
           {isGenerating ? (
             <>
               <svg className={styles.spinner} fill="none" viewBox="0 0 24 24">
                 <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Generando Video...
+              {t('step4_generating_btn')}
             </>
           ) : (
-            <>
-              🚀 Generar Video con IA
-            </>
+            <>{t('step4_generate_btn')}</>
           )}
         </button>
       </div>

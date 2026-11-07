@@ -36,12 +36,12 @@ export default function PricingSection({ onSelectPlan }: PricingProps) {
             className={`${styles.cardStandard} ${selectedPlan === 'standard' ? styles.cardSelected : ''}`}
           >
             <div className={styles.cardBody}>
-              <span className={styles.badgeMuted}>Sin Suscripción</span>
+              <span className={styles.badgeMuted}>{t('pricing_no_sub')}</span>
               <h3 className={styles.cardTitle}>{t('pay_per_video')}</h3>
               
               <div className={styles.priceRow}>
                 <span className={styles.priceBig}>$4.99</span>
-                <span className={styles.priceUnit}>/ video</span>
+                <span className={styles.priceUnit}>{t('pricing_per_video')}</span>
               </div>
               
               <p className={styles.cardDesc}>
@@ -49,9 +49,9 @@ export default function PricingSection({ onSelectPlan }: PricingProps) {
               </p>
               
               <ul className={styles.featureList}>
-                <li className={styles.featureItem}>✓ 1 Video HD completo</li>
-                <li className={styles.featureItem}>✓ Voces ElevenLabs incluidas</li>
-                <li className={styles.featureItem}>✓ Exportación sin marca de agua</li>
+                <li className={styles.featureItem}>✓ {t('pricing_feat_1_hd')}</li>
+                <li className={styles.featureItem}>✓ {t('pricing_feat_elevenlabs')}</li>
+                <li className={styles.featureItem}>✓ {t('pricing_feat_no_watermark')}</li>
               </ul>
             </div>
 
@@ -63,7 +63,7 @@ export default function PricingSection({ onSelectPlan }: PricingProps) {
               }}
               className={styles.btnStandard}
             >
-              Comprar 1 Video
+              {t('pricing_buy_1_video')}
             </button>
           </div>
 
@@ -73,27 +73,27 @@ export default function PricingSection({ onSelectPlan }: PricingProps) {
             className={`${styles.cardPro} ${selectedPlan === 'pro' ? styles.cardSelected : ''}`}
           >
             <div className={styles.proBadge}>
-              Más Popular
+              {t('pricing_most_popular')}
             </div>
 
             <div className={`${styles.cardBody} mt-2`}>
-              <span className={styles.badgeBrand}>Suscripción Mensual</span>
+              <span className={styles.badgeBrand}>{t('pricing_monthly_sub')}</span>
               <h3 className={styles.cardTitle}>Pro Creator</h3>
               
               <div className={styles.priceRow}>
                 <span className={styles.priceBigPro}>$29</span>
-                <span className={styles.priceUnit}>/ mes</span>
+                <span className={styles.priceUnit}>{t('pricing_per_month')}</span>
               </div>
 
               <p className={styles.cardDesc}>
-                Para creadores y marcas que publican contenido semanalmente en TikTok y Reels.
+                {t('pricing_pro_desc')}
               </p>
 
               <ul className={styles.featureList}>
-                <li className={styles.featureItem}>✓ 15 Videos HD al mes</li>
-                <li className={styles.featureItem}>✓ Soporte prioritario ElevenLabs</li>
-                <li className={styles.featureItem}>✓ Renderizado ultra rápido</li>
-                <li className={styles.featureItem}>✓ Acceso a todos los estilos visuales</li>
+                <li className={styles.featureItem}>✓ {t('pricing_feat_15_hd')}</li>
+                <li className={styles.featureItem}>✓ {t('pricing_feat_priority')}</li>
+                <li className={styles.featureItem}>✓ {t('pricing_feat_fast_render')}</li>
+                <li className={styles.featureItem}>✓ {t('pricing_feat_all_styles')}</li>
               </ul>
             </div>
 
@@ -105,7 +105,7 @@ export default function PricingSection({ onSelectPlan }: PricingProps) {
               }}
               className={styles.btnPro}
             >
-              Probar Plan Pro
+              {t('pricing_try_pro')}
             </button>
           </div>
 
@@ -115,7 +115,7 @@ export default function PricingSection({ onSelectPlan }: PricingProps) {
             className={`${styles.cardStandard} ${selectedPlan === 'free' ? styles.cardSelected : ''}`}
           >
             <div className={styles.cardBody}>
-              <span className={styles.badgeMuted}>Prueba Gratuita</span>
+              <span className={styles.badgeMuted}>{t('pricing_free_trial')}</span>
               <h3 className={styles.cardTitle}>Free Pass</h3>
               
               <div className={styles.priceRow}>
@@ -127,9 +127,9 @@ export default function PricingSection({ onSelectPlan }: PricingProps) {
               </p>
 
               <ul className={styles.featureList}>
-                <li className={styles.featureItem}>✓ 1 Crédito de prueba gratis</li>
-                <li className={styles.featureItem}>✓ Acceso a todas las herramientas</li>
-                <li className={styles.featureItem}>✓ Sin tarjeta de crédito requerida</li>
+                <li className={styles.featureItem}>✓ {t('pricing_feat_free_credit')}</li>
+                <li className={styles.featureItem}>✓ {t('pricing_feat_all_tools')}</li>
+                <li className={styles.featureItem}>✓ {t('pricing_feat_no_card')}</li>
               </ul>
             </div>
 
@@ -141,7 +141,7 @@ export default function PricingSection({ onSelectPlan }: PricingProps) {
               }}
               className={styles.btnStandard}
             >
-              Comenzar Gratis
+              {t('pricing_start_free')}
             </button>
           </div>
 

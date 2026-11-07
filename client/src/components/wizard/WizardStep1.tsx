@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../landing/LanguageContext';
 import styles from './WizardStep1.module.css';
 
 // Exportamos explícitamente el tipo con 'export type'
@@ -17,10 +18,24 @@ interface Step1Props {
 }
 
 export default function WizardStep1({ data, onUpdate, onNext }: Step1Props) {
+  const { t, lang } = useLanguage();
+
   const tones = [
-    { id: 'professional', label: 'Profesional', desc: 'Serio, claro y enfocado en negocios' },
-    { id: 'dynamic', label: 'Dinámico', desc: 'Rápido, entretenido y con ritmo alto' },
-    { id: 'casual', label: 'Casual', desc: 'Cercano, amigable y conversacional' },
+    { 
+      id: 'professional', 
+      label: lang === 'en' ? 'Professional' : 'Profesional', 
+      desc: lang === 'en' ? 'Serious, clear, and business-focused' : 'Serio, claro y enfocado en negocios' 
+    },
+    { 
+      id: 'dynamic', 
+      label: lang === 'en' ? 'Dynamic' : 'Dinámico', 
+      desc: lang === 'en' ? 'Fast-paced, entertaining, and high energy' : 'Rápido, entretenido y con ritmo alto' 
+    },
+    { 
+      id: 'casual', 
+      label: lang === 'en' ? 'Casual' : 'Casual', 
+      desc: lang === 'en' ? 'Approachable, friendly, and conversational' : 'Cercano, amigable y conversacional' 
+    },
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -38,23 +53,23 @@ export default function WizardStep1({ data, onUpdate, onNext }: Step1Props) {
         {/* Encabezado de la sección */}
         <div>
           <h1 className={styles.headingTitle}>
-            ¿De qué tratará tu video?
+            {t('step1_title')}
           </h1>
           <p className={styles.headingSub}>
-            Describe la idea o concepto principal. La IA estructurará el guion optimizado para tu audiencia.
+            {t('step1_sub')}
           </p>
         </div>
 
         {/* Input / Textarea del prompt */}
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
-            Idea o Guion Inicial
+            {t('step1_input_label')}
           </label>
           <textarea
             rows={4}
             value={data.scriptIdea}
             onChange={(e) => onUpdate({ scriptIdea: e.target.value })}
-            placeholder="Ej. Un video corto explicando las ventajas de nuestra nueva aplicación móvil para emprendedores..."
+            placeholder={t('step1_placeholder')}
             className={styles.textareaField}
             required
           />
@@ -63,7 +78,7 @@ export default function WizardStep1({ data, onUpdate, onNext }: Step1Props) {
         {/* Selector de Tono */}
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
-            Tono de Comunicación
+            {t('step1_tone_label')}
           </label>
           <div className={styles.tonesGrid}>
             {tones.map((tone) => {
@@ -98,7 +113,7 @@ export default function WizardStep1({ data, onUpdate, onNext }: Step1Props) {
           disabled={!data.scriptIdea.trim()}
           className={styles.submitBtn}
         >
-          Siguiente: Voz y Estilo
+          {t('step1_next_btn')}
           <svg className={styles.iconSvg} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
           </svg>
