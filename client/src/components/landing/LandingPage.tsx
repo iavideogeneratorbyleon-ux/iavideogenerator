@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLanguage } from './LanguageContext';
 import VideoShowcaseModal, { type VideoShowcaseItem } from './VideoShowcaseModal';
 import PricingSection from './PricingSection';
-import Logo from '../brand/Logo';
+import Navbar from './NavBar';
 import styles from './LandingPage.module.css';
 
 interface LandingPageProps {
@@ -10,7 +10,7 @@ interface LandingPageProps {
 }
 
 export default function LandingPage({ onStartWizard }: LandingPageProps) {
-  const { lang, setLang, t } = useLanguage();
+  const { t } = useLanguage();
   const [selectedVideo, setSelectedVideo] = useState<VideoShowcaseItem | null>(null);
 
   const showcaseVideos: VideoShowcaseItem[] = [
@@ -77,30 +77,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
     <div className={styles.landingWrapper}>
       
       {/* Navbar */}
-      <header className={styles.header}>
-        <div className={styles.headerContainer}>
-          <Logo size="md" />
-          
-          <div className={styles.headerActions}>
-            <button
-              type="button"
-              onClick={() => setLang(lang === 'en' ? 'es' : 'en')}
-              className={styles.langBtn}
-            >
-              <span>🌐</span>
-              <span style={{ textTransform: 'uppercase' }}>{lang}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onStartWizard}
-              className={styles.primaryBtn}
-            >
-              {t('nav_create')}
-            </button>
-          </div>
-        </div>
-      </header>
+      <Navbar onStartWizard={onStartWizard} />
 
       {/* Hero Section */}
       <section className={styles.heroSection}>
