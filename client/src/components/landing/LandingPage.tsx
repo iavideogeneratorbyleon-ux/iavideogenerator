@@ -3,8 +3,7 @@ import { useLanguage } from './LanguageContext';
 import VideoShowcaseModal, { type VideoShowcaseItem } from './VideoShowcaseModal';
 import PricingSection from './PricingSection';
 import Navbar from './NavBar';
-// Si tienes un componente AuthModal, impórtalo aquí. Si aún no lo creas, puedes descomentarlo cuando lo tengas:
-// import AuthModal from './AuthModal'; 
+import AuthModal from '../auth/AuthModal';
 import styles from './LandingPage.module.css';
 
 interface LandingPageProps {
@@ -210,9 +209,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       />
 
       {/* Aquí puedes renderizar tu modal de autenticación cuando lo programemos */}
-      {/* {authModalMode && (
+      /* {authModalMode && (
         <AuthModal mode={authModalMode} onClose={() => setAuthModalMode(null)} />
-      )} */}
+      )} */
 
     </div>
   );
