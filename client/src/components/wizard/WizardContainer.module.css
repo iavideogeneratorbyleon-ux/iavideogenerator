@@ -24,6 +24,7 @@
 }
 
 .cardContainer {
+  position: relative;
   width: 100%;
   min-height: 100vh;
   overflow: hidden;
@@ -43,7 +44,33 @@
   }
 }
 
-/* Columna Izquierda: Wizard Steps */
+/* Botón 'X' para versión Desktop (Forzado a ocultarse en móvil con !important para evitar caché) */
+.closeBtn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 1rem;
+  color: #9ca3af;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 20;
+}
+
+.closeBtn:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Contenedor Izquierda: Wizard Steps */
 .leftColumn {
   flex: 1;
   padding: 1rem;
@@ -237,15 +264,6 @@
   text-overflow: ellipsis;
 }
 
-.mainValue {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--color-text-main, #F8FAFC);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .summaryFooter {
   padding-top: 1.5rem;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
@@ -256,3 +274,129 @@
   font-size: 0.625rem;
   color: var(--color-text-muted, #94A3B8);
 }
+
+/* Contenedor de salida para Móvil (Oculto en Desktop por defecto) */
+.mobileExitContainer {
+  display: none;
+}
+
+/* Modal de confirmación en Dark Mode */
+.confirmModalBackdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 100;
+}
+
+.confirmModalBox {
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1.75rem;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  text-align: left;
+}
+
+.confirmTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f3f4f6;
+  margin-bottom: 0.5rem;
+}
+
+.confirmSub {
+  font-size: 0.9rem;
+  color: #9ca3af;
+  line-height: 1.4;
+  margin-bottom: 1.5rem;
+}
+
+.confirmActions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.cancelExitBtn {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #d1d5db;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  flex: 1;
+  transition: all 0.2s;
+}
+
+.cancelExitBtn:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.confirmExitBtn {
+  background-color: #f97316;
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  flex: 1;
+  transition: background 0.2s;
+}
+
+.confirmExitBtn:hover {
+  background-color: #ea580c;
+}
+
+/* Reglas Responsivas para Móvil (Pantallas menores a 768px) */
+@media (max-width: 768px) {
+  /* Ocultamos rotundamente la 'X' superior en celulares */
+  .closeBtn {
+    display: none !important;
+  }
+
+  /* Mostramos el contenedor inferior */
+  .mobileExitContainer {
+    display: block !important;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    width: 100%;
+  }
+
+  /* Estilo sólido y formal de botón para móvil */
+  .mobileExitBtn {
+    display: block;
+    width: 100%;
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+
+  .mobileExitBtn:hover {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #ffffff;
+    border-color: rgba(239, 68, 68, 0.4);
+  }
+}
+
+
+

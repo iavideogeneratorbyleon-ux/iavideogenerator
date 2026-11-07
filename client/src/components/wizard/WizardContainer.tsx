@@ -6,9 +6,15 @@ import WizardStep3 from './WizardStep3';
 import WizardStep4 from './WizardStep4';
 import styles from './WizardContainer.module.css';
 
-export default function WizardContainer() {
+interface WizardContainerProps {
+  onClose?: () => void;
+}
+
+export default function WizardContainer({ onClose }: WizardContainerProps) {
   const { t, lang } = useLanguage();
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
+  
   const [formData, setFormData] = useState<WizardData>({
     scriptIdea: '',
     tone: 'professional',
@@ -23,6 +29,21 @@ export default function WizardContainer() {
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 4));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
+
+  const handleCloseAttempt = () => {
+    if (currentStep > 1 || formData.scriptIdea.trim().length > 0) {
+      setShowExitConfirm(true);
+    } else {
+      if (onClose) onClose();
+      else window.location.reload();
+    }
+  };
+
+  const confirmExit = () => {
+    setShowExitConfirm(false);
+    if (onClose) onClose();
+    else window.location.reload();
+  };
 
   // Diccionarios traducibles según el idioma actual
   const toneLabels: Record<string, string> = {
@@ -47,6 +68,16 @@ export default function WizardContainer() {
     <div className={styles.wrapper}>
       <div className={styles.cardContainer}>
         
+        {/* Botón 'X' visible únicamente en versión Desktop */}
+        <button
+          type="button"
+          onClick={handleCloseAttempt}
+          aria-label={t('wizard_close_aria') || 'Close wizard'}
+          className={styles.closeBtn}
+        >
+          ✕
+        </button>
+
         {/* COLUMNA IZQUIERDA: Wizard Steps */}
         <div className={styles.leftColumn}>
           <div className={styles.progressHeader}>
@@ -113,6 +144,17 @@ export default function WizardContainer() {
               styleLabels={styleLabels}
             />
           )}
+
+          {/* Botón de Salida únicamente para la versión Móvil */}
+          <div className={styles.mobileExitContainer}>
+            <button
+              type="button"
+              onClick={handleCloseAttempt}
+              className={styles.mobileExitBtn}
+            >
+              {t('wizard_exit_mobile_btn') || 'Salir del asistente'}
+            </button>
+          </div>
         </div>
 
         {/* COLUMNA DERECHA: Resumen en Vivo */}
@@ -175,6 +217,36 @@ export default function WizardContainer() {
         </div>
 
       </div>
+
+      {/* MODAL OSCURO DE CONFIRMACIÓN DE SALIDA */}
+      {showExitConfirm && (
+        <div className={styles.confirmModalBackdrop}>
+          <div className={styles.confirmModalBox}>
+            <h3 className={styles.confirmTitle}>
+              {t('wizard_exit_title')}
+            </h3>
+            <p className={styles.confirmSub}>
+              {t('wizard_exit_sub')}
+            </p>
+            <div className={styles.confirmActions}>
+              <button
+                type="button"
+                onClick={() => setShowExitConfirm(false)}
+                className={styles.cancelExitBtn}
+              >
+                {t('wizard_exit_keep_editing')}
+              </button>
+              <button
+                type="button"
+                onClick={confirmExit}
+                className={styles.confirmExitBtn}
+              >
+                {t('wizard_exit_confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

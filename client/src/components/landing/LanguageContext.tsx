@@ -92,7 +92,8 @@ const translations: Record<Language, Record<string, string>> = {
     step3_back_btn: "← Back",
     step3_next_btn: "Next: Final Summary",
     step4_title: "Project Summary",
-    step4_sub: "Review that all parameters are correct before activating generation with Artificial Intelligence.",
+    step4_sub:
+      "Review that all parameters are correct before activating generation with Artificial Intelligence.",
     step4_concept_label: "Idea / Concept",
     step4_tone_label: "Tone",
     step4_format_label: "Format (Aspect Ratio)",
@@ -101,12 +102,19 @@ const translations: Record<Language, Record<string, string>> = {
     step4_credits_title: "Estimated cost: 1 AI Credit",
     step4_credits_desc: "The process will take approximately 30 to 60 seconds.",
     step4_success_title: "Your video is being generated!",
-    step4_success_sub: "The Cempa.ai engine has started rendering. We will notify you as soon as it is ready.",
+    step4_success_sub:
+      "The Cempa.ai engine has started rendering. We will notify you as soon as it is ready.",
     step4_create_another_btn: "Create another video",
     step4_back_btn: "← Back",
     step4_generate_btn: "🚀 Generate Video with AI",
     step4_generating_btn: "Generating Video...",
-  
+    wizard_close_aria: "Close wizard",
+    wizard_exit_title: "Discard video creation?",
+    wizard_exit_sub:
+      "If you leave now, your selections and script ideas will be lost.",
+    wizard_exit_keep_editing: "Keep editing",
+    wizard_exit_confirm: "Yes, exit",
+    wizard_exit_mobile_btn: "Exit wizard",
   },
   es: {
     nav_create: "Crear Video Gratis",
@@ -192,21 +200,30 @@ const translations: Record<Language, Record<string, string>> = {
     step3_back_btn: "← Regresar",
     step3_next_btn: "Siguiente: Resumen Final",
     step4_title: "Resumen de tu proyecto",
-    step4_sub: "Revisa que todos los parámetros sean correctos antes de activar la generación con Inteligencia Artificial.",
+    step4_sub:
+      "Revisa que todos los parámetros sean correctos antes de activar la generación con Inteligencia Artificial.",
     step4_concept_label: "Idea / Concepto",
     step4_tone_label: "Tono",
     step4_format_label: "Formato (Aspect Ratio)",
     step4_voice_label: "Locutor ElevenLabs",
     step4_style_label: "Estilo Visual",
     step4_credits_title: "Costo estimado: 1 Crédito de IA",
-    step4_credits_desc: "El proceso tomará aproximadamente entre 30 y 60 segundos.",
+    step4_credits_desc:
+      "El proceso tomará aproximadamente entre 30 y 60 segundos.",
     step4_success_title: "¡Tu video se está generando!",
-    step4_success_sub: "El motor de Cempa.ai ha comenzado el renderizado. Te avisaremos en cuanto esté listo.",
+    step4_success_sub:
+      "El motor de Cempa.ai ha comenzado el renderizado. Te avisaremos en cuanto esté listo.",
     step4_create_another_btn: "Crear otro video",
     step4_back_btn: "← Regresar",
     step4_generate_btn: "🚀 Generar Video con IA",
     step4_generating_btn: "Generando Video...",
-  
+    wizard_close_aria: "Cerrar asistente",
+    wizard_exit_title: "¿Salir sin guardar?",
+    wizard_exit_sub:
+      "Si sales ahora, se perderán las configuraciones y borradores de este video.",
+    wizard_exit_keep_editing: "Continuar editando",
+    wizard_exit_confirm: "Sí, salir",
+    wizard_exit_mobile_btn: "Salir del asistente",
   },
 };
 
