@@ -1,23 +1,30 @@
 import { useState } from 'react';
 import { useLanguage } from '../landing/LanguageContext';
+import { useAuth } from './AuthContext'; // Importamos useAuth
 import styles from './AuthModal.module.css';
 
 interface AuthModalProps {
-  mode?: 'login' | 'signup'; // <-- Cambiado de initialMode a mode
+  mode?: 'login' | 'signup';
   onClose: () => void;
 }
 
 export default function AuthModal({ mode: initialMode = 'login', onClose }: AuthModalProps) {
   const { lang } = useLanguage();
+  const { login } = useAuth(); // Usamos la función login
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`${mode === 'login' ? 'Iniciando sesión:' : 'Registrando:'} ${email}`);
-    onClose();
+    if (email) {
+      login(email); // Simula el inicio de sesión guardando el usuario
+      onClose();
+    }
   };
+
+  // ... resto del JSX se mantiene igual ...
+
 
   return (
     <div className={styles.overlay}>

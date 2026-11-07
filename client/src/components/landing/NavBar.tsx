@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLanguage } from './LanguageContext';
+import { useAuth } from '../auth/AuthContext';
 import Logo from '../brand/Logo';
 
 interface NavbarProps {
@@ -9,7 +10,9 @@ interface NavbarProps {
 
 export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) {
   const { lang, setLang, t } = useLanguage();
+  const { user, isAuthenticated, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleWizardClick = () => {
@@ -99,25 +102,76 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
             <span>{lang}</span>
           </button>
 
-          {/* Iniciar Sesión (Laptop / Desktop) */}
-          <button
-            type="button"
-            onClick={() => handleAuthClick('login')}
-            className="hidden md:inline-flex rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white transition-colors sm:text-sm"
-          >
-            {lang === 'en' ? 'Log In' : 'Iniciar Sesión'}
-          </button>
+          {/* ESTADO SI EL USUARIO ESTÁ LOGUEADO (Escritorio) */}
+          {isAuthenticated && user ? (
+            <div className="relative flex items-center gap-3">
+              {/* Badge de Créditos */}
+              <div className="hidden sm:flex items-center gap-1.5 bg-[#ff6b00]/10 border border-[#ff6b00]/30 px-3 py-1.5 rounded-lg text-xs font-bold text-[#ff6b00]">
+                <span>⚡</span>
+                <span>{user.credits} {lang === 'en' ? 'credits' : 'créditos'}</span>
+              </div>
 
-          {/* Registrarse (Laptop / Desktop) */}
-          <button
-            type="button"
-            onClick={() => handleAuthClick('signup')}
-            className="hidden md:inline-flex rounded-lg px-3.5 py-1.5 text-xs font-semibold text-white bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors sm:text-sm"
-          >
-            {lang === 'en' ? 'Sign Up' : 'Registrarse'}
-          </button>
+              {/* Avatar y Menú de Perfil */}
+              <div 
+                className="relative"
+                onMouseEnter={() => setUserMenuOpen(true)}
+                onMouseLeave={() => setUserMenuOpen(false)}
+              >
+                <button
+                  type="button"
+                  className="w-9 h-9 rounded-full bg-[#ff6b00] text-white font-bold flex items-center justify-center text-sm shadow-md hover:opacity-90 transition-opacity"
+                >
+                  {user.name.charAt(0)}
+                </button>
 
-          {/* CTA Crear Video (OCULTO EN MÓVIL -> Se muestra solo en md en adelante para evitar amontonamiento) */}
+                {userMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-56 rounded-xl bg-[#1e293b] border border-white/10 p-2 shadow-2xl z-50 flex flex-col gap-1">
+                    <div className="px-3 py-2 border-b border-white/10 mb-1">
+                      <p className="text-xs font-bold text-white">{user.name}</p>
+                      <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
+                    </div>
+
+                    <button 
+                      type="button"
+                      onClick={onStartWizard} 
+                      className="w-full text-left px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700/50 rounded-lg"
+                    >
+                      {lang === 'en' ? '🎬 My Projects' : '🎬 Mis Proyectos'}
+                    </button>
+
+                    <button 
+                      type="button"
+                      onClick={logout} 
+                      className="w-full text-left px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 rounded-lg"
+                    >
+                      {lang === 'en' ? 'Log Out' : 'Cerrar Sesión'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* ESTADO SI EL USUARIO NO ESTÁ LOGUEADO (Escritorio) */
+            <>
+              <button
+                type="button"
+                onClick={() => handleAuthClick('login')}
+                className="hidden md:inline-flex rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white transition-colors sm:text-sm"
+              >
+                {lang === 'en' ? 'Log In' : 'Iniciar Sesión'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleAuthClick('signup')}
+                className="hidden md:inline-flex rounded-lg px-3.5 py-1.5 text-xs font-semibold text-white bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors sm:text-sm"
+              >
+                {lang === 'en' ? 'Sign Up' : 'Registrarse'}
+              </button>
+            </>
+          )}
+
+          {/* CTA Crear Video */}
           <button
             type="button"
             onClick={onStartWizard}
@@ -139,7 +193,7 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
 
       </div>
 
-      {/* MENÚ MÓVIL DESPLEGABLE (Flotante absoluto) */}
+      {/* MENÚ MÓVIL DESPLEGABLE */}
       {mobileMenuOpen && (
         <div className="md:hidden absolute top-full left-0 w-full bg-[#0b0f19] border-b border-white/10 p-5 shadow-2xl flex flex-col gap-3 z-50 box-border">
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#ff6b00]">
@@ -161,7 +215,6 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
             {lang === 'en' ? '🏷️ Pricing Plans' : '🏷️ Planes y Precios'}
           </a>
 
-          {/* Botón principal dentro del menú móvil */}
           <button
             type="button"
             onClick={handleWizardClick}
@@ -170,22 +223,44 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
             {lang === 'en' ? '🚀 Create Video Now' : '🚀 Crear Video Ahora'}
           </button>
 
-          <div className="flex gap-3 pt-3 border-t border-white/10 mt-1">
-            <button
-              type="button"
-              onClick={() => handleAuthClick('login')}
-              className="flex-1 rounded-lg bg-[#1e293b] py-2.5 text-xs font-semibold text-white hover:bg-slate-700 transition-colors"
-            >
-              {lang === 'en' ? 'Log In' : 'Iniciar Sesión'}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleAuthClick('signup')}
-              className="flex-1 rounded-lg bg-slate-800 border border-slate-700 py-2.5 text-xs font-semibold text-white hover:bg-slate-700 transition-colors"
-            >
-              {lang === 'en' ? 'Sign Up' : 'Registrarse'}
-            </button>
-          </div>
+          {/* Estado de Autenticación en Menú Móvil */}
+          {!isAuthenticated ? (
+            <div className="flex gap-3 pt-3 border-t border-white/10 mt-1">
+              <button
+                type="button"
+                onClick={() => handleAuthClick('login')}
+                className="flex-1 rounded-lg bg-[#1e293b] py-2.5 text-xs font-semibold text-white hover:bg-slate-700 transition-colors"
+              >
+                {lang === 'en' ? 'Log In' : 'Iniciar Sesión'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAuthClick('signup')}
+                className="flex-1 rounded-lg bg-slate-800 border border-slate-700 py-2.5 text-xs font-semibold text-white hover:bg-slate-700 transition-colors"
+              >
+                {lang === 'en' ? 'Sign Up' : 'Registrarse'}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 pt-3 border-t border-white/10 mt-1">
+              {/* Créditos visibles en el menú móvil */}
+              <div className="flex items-center justify-between bg-[#ff6b00]/10 border border-[#ff6b00]/30 px-3 py-2 rounded-lg text-xs font-bold text-[#ff6b00]">
+                <span>⚡ {lang === 'en' ? 'Available Credits' : 'Créditos Disponibles'}</span>
+                <span>{user?.credits}</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full rounded-lg bg-red-500/10 border border-red-500/20 py-2.5 text-xs font-semibold text-red-400"
+              >
+                {lang === 'en' ? 'Log Out' : 'Cerrar Sesión'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </header>
