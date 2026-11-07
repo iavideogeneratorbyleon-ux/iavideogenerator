@@ -2,13 +2,15 @@ import React from 'react';
 import { useLanguage } from '../landing/LanguageContext';
 import styles from './WizardStep1.module.css';
 
-// Exportamos explícitamente el tipo con 'export type'
 export type WizardData = {
+  mode?: 'idea' | 'script';
   scriptIdea: string;
+  visualPrompt?: string; // Prompt secundario para dirección visual del guion
   tone: string;
   voiceId?: string;
   aspectRatio?: string;
   visualStyle?: string;
+  musicStyle?: 'none' | 'lofi' | 'epic' | 'upbeat' | 'tech';
 };
 
 interface Step1Props {
@@ -19,6 +21,8 @@ interface Step1Props {
 
 export default function WizardStep1({ data, onUpdate, onNext }: Step1Props) {
   const { t, lang } = useLanguage();
+
+  const currentMode = data.mode || 'idea';
 
   const tones = [
     { 
@@ -47,10 +51,8 @@ export default function WizardStep1({ data, onUpdate, onNext }: Step1Props) {
 
   return (
     <form onSubmit={handleSubmit} className={styles.formContainer}>
-      {/* Sección principal del contenido */}
       <div className={styles.contentSection}>
         
-        {/* Encabezado de la sección */}
         <div>
           <h1 className={styles.headingTitle}>
             {t('step1_title')}
@@ -60,22 +62,110 @@ export default function WizardStep1({ data, onUpdate, onNext }: Step1Props) {
           </p>
         </div>
 
-        {/* Input / Textarea del prompt */}
+        {/* SELECTOR DE MÉTODO DE CREACIÓN */}
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
-            {t('step1_input_label')}
+            {lang === 'en' ? 'Select Creation Method' : 'Selecciona el método de creación'}
           </label>
-          <textarea
-            rows={4}
-            value={data.scriptIdea}
-            onChange={(e) => onUpdate({ scriptIdea: e.target.value })}
-            placeholder={t('step1_placeholder')}
-            className={styles.textareaField}
-            required
-          />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <button
+              type="button"
+              onClick={() => onUpdate({ mode: 'idea' })}
+              style={{
+                background: currentMode === 'idea' ? 'rgba(255, 107, 0, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                border: `1px solid ${currentMode === 'idea' ? 'var(--color-brand-primary, #FF6B00)' : 'rgba(255, 255, 255, 0.08)'}`,
+                color: currentMode === 'idea' ? 'var(--color-brand-primary, #FF6B00)' : 'var(--color-text-muted, #94A3B8)',
+                padding: '0.75rem',
+                borderRadius: '0.75rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                textAlign: 'center',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {lang === 'en' ? '💡 AI Idea Generator' : '💡 Generar desde Idea'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onUpdate({ mode: 'script' })}
+              style={{
+                background: currentMode === 'script' ? 'rgba(255, 107, 0, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                border: `1px solid ${currentMode === 'script' ? 'var(--color-brand-primary, #FF6B00)' : 'rgba(255, 255, 255, 0.08)'}`,
+                color: currentMode === 'script' ? 'var(--color-brand-primary, #FF6B00)' : 'var(--color-text-muted, #94A3B8)',
+                padding: '0.75rem',
+                borderRadius: '0.75rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                textAlign: 'center',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {lang === 'en' ? '📝 My Own Script' : '📝 Tengo mi Guion'}
+            </button>
+          </div>
         </div>
 
-        {/* Selector de Tono */}
+        {/* MODO A: GENERAR DESDE IDEA GENERAL */}
+        {currentMode === 'idea' ? (
+          <div className={styles.inputGroup}>
+            <label className={styles.inputLabel}>
+              {t('step1_input_label')}
+            </label>
+            <textarea
+              rows={4}
+              value={data.scriptIdea}
+              onChange={(e) => onUpdate({ scriptIdea: e.target.value })}
+              placeholder={t('step1_placeholder')}
+              className={styles.textareaField}
+              required
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted, #94A3B8)', marginTop: '0.25rem', display: 'block' }}>
+              {lang === 'en' 
+                ? '✨ Our AI will write the script, handle scene transitions, and sync the audio.' 
+                : '✨ Nuestra IA redactará el guion, gestionará las escenas y sincronizará el audio.'}
+            </span>
+          </div>
+        ) : (
+          /* MODO B: GUION PROPIO + PROMPT DIRECCIÓN VISUAL */
+          <>
+            <div className={styles.inputGroup}>
+              <label className={styles.inputLabel}>
+                {lang === 'en' ? '1. Paste your exact script or dialogue:' : '1. Pega tu guion o diálogo exacto:'}
+              </label>
+              <textarea
+                rows={4}
+                value={data.scriptIdea}
+                onChange={(e) => onUpdate({ scriptIdea: e.target.value })}
+                placeholder={lang === 'en' ? 'E.g., [Narrator]: Welcome back to the channel. Today we talk about...' : 'Ej., [Narrador]: Bienvenidos al canal. Hoy hablaremos sobre...'}
+                className={styles.textareaField}
+                required
+              />
+            </div>
+
+            <div className={styles.inputGroup} style={{ marginTop: '1rem' }}>
+              <label className={styles.inputLabel}>
+                {lang === 'en' ? '2. Visual context / idea for the scenes (Optional):' : '2. Contexto de la idea / Dirección visual (Opcional):'}
+              </label>
+              <textarea
+                rows={2}
+                value={data.visualPrompt || ''}
+                onChange={(e) => onUpdate({ visualPrompt: e.target.value })}
+                placeholder={lang === 'en' ? 'E.g., Show 3D golden spirals, mathematical formulas floating in dark space...' : 'Ej., Muestra espirales doradas 3D, fórmulas matemáticas flotando en el espacio oscuro...'}
+                className={styles.textareaField}
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted, #94A3B8)', marginTop: '0.25rem', display: 'block' }}>
+                {lang === 'en'
+                  ? '🎨 Describe the imagery you want the AI to generate while your script plays.'
+                  : '🎨 Describe las imágenes que quieres que la IA genere mientras suena tu guion.'}
+              </span>
+            </div>
+          </>
+        )}
+
+        {/* SELECTOR DE TONO */}
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
             {t('step1_tone_label')}
@@ -106,11 +196,11 @@ export default function WizardStep1({ data, onUpdate, onNext }: Step1Props) {
         </div>
       </div>
 
-      {/* Footer / Acción principal */}
       <div className={styles.footerAction}>
         <button
-          type="submit"
+          type="button"
           disabled={!data.scriptIdea.trim()}
+          onClick={handleSubmit}
           className={styles.submitBtn}
         >
           {t('step1_next_btn')}

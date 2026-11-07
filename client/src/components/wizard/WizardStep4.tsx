@@ -1,108 +1,112 @@
-import { useState } from 'react';
 import type { WizardData } from './WizardStep1';
 import { useLanguage } from '../landing/LanguageContext';
-import styles from './WizardStep4.module.css';
+import styles from './WizardStep3.module.css'; // Reutilizamos el estilo de tarjetas de step3 para mantener consistencia
 
 interface Step4Props {
   data: WizardData;
+  onUpdate: (fields: Partial<WizardData>) => void;
+  onNext: () => void;
   onPrev: () => void;
-  toneLabels: Record<string, string>;
-  voiceLabels: Record<string, string>;
-  styleLabels: Record<string, string>;
 }
 
-export default function WizardStep4({ data, onPrev, toneLabels, voiceLabels, styleLabels }: Step4Props) {
-  const { t } = useLanguage();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
+export default function WizardStep4({ data, onUpdate, onNext, onPrev }: Step4Props) {
+  const { lang, t } = useLanguage();
 
-  const handleGenerate = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setIsGenerating(false);
-      setIsCompleted(true);
-    }, 3000);
-  };
+  const musicStyles = [
+    { 
+      id: 'none', 
+      label: lang === 'en' ? 'No Background Music' : 'Sin Música de Fondo', 
+      desc: lang === 'en' ? 'Clean voice-over only' : 'Solo locución limpia',
+      icon: '🔇' 
+    },
+    { 
+      id: 'lofi', 
+      label: lang === 'en' ? 'Lo-Fi / Chill' : 'Lo-Fi / Relajante', 
+      desc: lang === 'en' ? 'Smooth beats for casual content' : 'Ritmos suaves para contenido casual',
+      icon: '☕' 
+    },
+    { 
+      id: 'epic', 
+      label: lang === 'en' ? 'Epic / Cinematic' : 'Épico / Cinematográfico', 
+      desc: lang === 'en' ? 'Dramatic and powerful storytelling vibe' : 'Atmósfera dramática y narrativa potente',
+      icon: '⚔️' 
+    },
+    { 
+      id: 'upbeat', 
+      label: lang === 'en' ? 'Upbeat / Corporate' : 'Animado / Corporativo', 
+      desc: lang === 'en' ? 'Energetic rhythm for ads & promos' : 'Ritmo enérgico para anuncios y promos',
+      icon: '🚀' 
+    },
+    { 
+      id: 'tech', 
+      label: lang === 'en' ? 'Cyberpunk / Tech' : 'Cyberpunk / Tecnológico', 
+      desc: lang === 'en' ? 'Futuristic synth sounds' : 'Sonidos sintetizados futuristas',
+      icon: '🤖' 
+    },
+  ];
 
-  if (isCompleted) {
-    return (
-      <div className={styles.completedContainer}>
-        <div className={styles.successIconWrapper}>✨</div>
-        <div className={styles.completedTextGroup}>
-          <h1 className={styles.completedTitle}>{t('step4_success_title')}</h1>
-          <p className={styles.completedSub}>{t('step4_success_sub')}</p>
-        </div>
-        <div style={{ paddingTop: '1rem' }}>
-          <button type="button" onClick={() => window.location.reload()} className={styles.primaryActionBtn}>
-            {t('step4_create_another_btn')}
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const currentMusic = data.musicStyle || 'none';
 
   return (
     <div className={styles.stepContainer}>
       <div className={styles.contentSection}>
         <div>
-          <h1 className={styles.headingTitle}>{t('step4_title')}</h1>
-          <p className={styles.headingSub}>{t('step4_sub')}</p>
+          <h1 className={styles.headingTitle}>
+            {lang === 'en' ? 'Background Music' : 'Música de Fondo'}
+          </h1>
+          <p className={styles.headingSub}>
+            {lang === 'en' ? 'Choose an audio vibe to set the mood of your video.' : 'Elige una atmósfera musical para darle ritmo y emoción a tu video.'}
+          </p>
         </div>
 
-        <div className={styles.summaryCardBox}>
-          <div className={styles.summarySection}>
-            <span className={styles.labelTitle}>{t('step4_concept_label')}</span>
-            <p className={styles.conceptText}>{data.scriptIdea || t('summary_undefined')}</p>
-          </div>
-
-          <div className={styles.gridTwoCols}>
-            <div>
-              <span className={styles.labelTitle}>{t('step4_tone_label')}</span>
-              <p className={styles.itemValue}>{toneLabels[data.tone] || data.tone}</p>
-            </div>
-            <div>
-              <span className={styles.labelTitle}>{t('step4_format_label')}</span>
-              <p className={styles.itemValue}>{data.aspectRatio || '9:16'}</p>
-            </div>
-          </div>
-
-          <div className={styles.gridTwoColsLast}>
-            <div>
-              <span className={styles.labelTitle}>{t('step4_voice_label')}</span>
-              <p className={styles.itemValue}>{data.voiceId ? voiceLabels[data.voiceId] : t('summary_unselected')}</p>
-            </div>
-            <div>
-              <span className={styles.labelTitle}>{t('step4_style_label')}</span>
-              <p className={styles.itemValue}>{data.visualStyle ? styleLabels[data.visualStyle] : t('summary_undefined')}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.creditsNotice}>
-          <span className={styles.creditsEmoji}>⚡</span>
-          <div className={styles.creditsInfo}>
-            <p className={styles.creditsTitle}>{t('step4_credits_title')}</p>
-            <p className={styles.creditsDesc}>{t('step4_credits_desc')}</p>
+        {/* Selector de Música */}
+        <div className={styles.inputGroup}>
+          <div className={styles.cardsGrid}>
+            {musicStyles.map((item) => {
+              const isSelected = currentMusic === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onUpdate({ musicStyle: item.id as WizardData['musicStyle'] })}
+                  className={`${styles.selectionCard} ${isSelected ? styles.selectionCardSelected : ''}`}
+                >
+                  <div className={styles.cardHeader}>
+                    <span className={styles.cardIcon}>{item.icon}</span>
+                    <span
+                      className={`${styles.radioCircle} ${isSelected ? styles.radioCircleSelected : ''}`}
+                    >
+                      {isSelected && <span className={styles.radioDot} />}
+                    </span>
+                  </div>
+                  <div>
+                    <p className={styles.cardTitle}>{item.label}</p>
+                    <p className={styles.cardDesc} style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>{item.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
 
       <div className={styles.footerAction}>
-        <button type="button" onClick={onPrev} disabled={isGenerating} className={styles.backBtn}>
-          {t('step4_back_btn')}
+        <button
+          type="button"
+          onClick={onPrev}
+          className={styles.backBtn}
+        >
+          {t('step3_back_btn') || (lang === 'en' ? 'Back' : 'Atrás')}
         </button>
-        <button type="button" disabled={isGenerating} onClick={handleGenerate} className={styles.generateBtn}>
-          {isGenerating ? (
-            <>
-              <svg className={styles.spinner} fill="none" viewBox="0 0 24 24">
-                <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              {t('step4_generating_btn')}
-            </>
-          ) : (
-            <>{t('step4_generate_btn')}</>
-          )}
+        <button
+          type="button"
+          onClick={onNext}
+          className={styles.nextBtn}
+        >
+          {lang === 'en' ? 'Next: Review' : 'Siguiente: Revisión'}
+          <svg className={styles.iconSvg} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+          </svg>
         </button>
       </div>
     </div>
