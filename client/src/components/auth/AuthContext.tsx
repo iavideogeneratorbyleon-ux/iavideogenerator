@@ -11,14 +11,16 @@ export interface UserProfile {
 interface AuthContextType {
   user: UserProfile | null;
   isAuthenticated: boolean;
-  login: (email: string) => void;
+  login: (email: string) => Promise<void>;
   logout: () => void;
-  deductCredit: (amount?: number) => boolean;
+  deductCredit: (amount?: number) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'cempa_user_session';
+// Ajusta la URL base de tu backend de Express según corresponda
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(() => {
@@ -38,22 +40,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  // Simulación de Login
-  const login = (email: string) => {
-    const mockName = email.split('@')[0] || 'Creator';
-    const formattedName = mockName.charAt(0).toUpperCase() + mockName.slice(1);
+  // 🛜 Conexión real con MongoDB a través de Express
+  const login = async (email: string) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
 
-    // 🔴 CAMBIA AQUÍ MANUALMENTE EL PLAN PARA TUS PRUEBAS ('lite' o 'pro')
-    const currentTestPlan: 'lite' | 'pro' = 'pro'; 
+      if (!response.ok) {
+        throw new Error('Error en la autenticación con el servidor');
+      }
 
-    const newUser: UserProfile = {
-      name: formattedName,
-      email,
-      credits: currentTestPlan === 'pro' ? 50 : 10,
-      plan: currentTestPlan,
-    };
+      const data = await response.json();
+      
+      // data.user debe contener la estructura de MongoDB: { name, email, credits, plan }
+      const loggedUser: UserProfile = {
+        name: data.user.name,
+        email: data.user.email,
+        credits: data.user.credits,
+        plan: data.user.plan,
+      };
 
-    setUser(newUser);
+      setUser(loggedUser);
+    } catch (error) {
+      console.error('Error conectando con MongoDB via Express:', error);
+      // Fallback local por si el backend no está corriendo en desarrollo local
+      const mockName = email.split('@')[0] || 'Creator';
+      const formattedName = mockName.charAt(0).toUpperCase() + mockName.slice(1);
+      
+      const fallbackUser: UserProfile = {
+        name: formattedName,
+        email,
+        credits: 1, // Crédito gratis inicial
+        plan: 'lite',
+      };
+      setUser(fallbackUser);
+    }
   };
 
   const logout = () => {
@@ -61,10 +85,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  const deductCredit = (amount = 1) => {
+  const deductCredit = async (amount = 1): Promise<boolean> => {
     if (!user || user.credits < amount) return false;
-    setUser((prev) => (prev ? { ...prev, credits: prev.credits - amount } : null));
-    return true;
+
+    try {
+      // Opcional: Sincronizar el descuento de créditos con tu backend y MongoDB
+      const response = await fetch(`${API_URL}/user/deduct-credit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, amount }),
+      });
+
+      if (!response.ok) {
+        console.error('No se pudo descontar el crédito en el servidor');
+        return false;
+      }
+
+      // Actualizamos estado localmente
+      setUser((prev) => (prev ? { ...prev, credits: prev.credits - amount } : null));
+      return true;
+    } catch (error) {
+      console.error('Error de red al descontar crédito:', error);
+      // Fallback local optimista
+      setUser((prev) => (prev ? { ...prev, credits: prev.credits - amount } : null));
+      return true;
+    }
   };
 
   return (
