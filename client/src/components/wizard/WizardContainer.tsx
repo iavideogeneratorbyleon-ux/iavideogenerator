@@ -10,12 +10,16 @@ import styles from "./WizardContainer.module.css";
 interface WizardContainerProps {
   onClose?: () => void;
   onComplete?: () => void;
-  wizardMode?: "lite" | "pro"; // Nuevo parámetro para diferenciar Studio Lite de Studio Pro
+  wizardMode?: "lite" | "pro";
+  onOpenAuthModal?: (mode: "login" | "signup") => void; // <--- Añadir esta línea
+  onOpenPricingModal?: () => void; // <--- Añadir esta línea
 }
 
 export default function WizardContainer({
   onClose,
-  wizardMode = "lite", // Por defecto se comporta como Studio Lite
+  wizardMode = "lite",
+  onOpenAuthModal, // <-- Asegúrate de que esté aquí
+  onOpenPricingModal, // <-- Asegúrate de que esté aquí
 }: WizardContainerProps) {
   const { t, lang } = useLanguage();
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -61,10 +65,12 @@ export default function WizardContainer({
   };
 
   const toneLabels: Record<string, string> = {
-    professional: lang === "en" ? "Professional & Corporate" : "Profesional y Corporativo",
+    professional:
+      lang === "en" ? "Professional & Corporate" : "Profesional y Corporativo",
     casual: lang === "en" ? "Casual & Friendly" : "Casual y Amigable",
     energetic: lang === "en" ? "Energetic & Dynamic" : "Enérgico y Dinámico",
-    dramatic: lang === "en" ? "Dramatic & Storytelling" : "Dramático y Narrativo",
+    dramatic:
+      lang === "en" ? "Dramatic & Storytelling" : "Dramático y Narrativo",
   };
 
   const voiceLabels: Record<string, string> = {
@@ -134,7 +140,7 @@ export default function WizardContainer({
               />
             </div>
           </div>
-          
+
           {/* Paso 1 */}
           {currentStep === 1 && (
             <WizardStep1
@@ -178,7 +184,7 @@ export default function WizardContainer({
             />
           )}
 
-          {/* Paso 5 (Sumario final) */}
+          {/* Paso 5 (Sumario final con opciones de conversión) */}
           {currentStep === 5 && (
             <WizardStep5
               data={formData}
@@ -186,6 +192,18 @@ export default function WizardContainer({
               toneLabels={toneLabels}
               voiceLabels={voiceLabels}
               styleLabels={styleLabels}
+              onOpenAuthModal={(mode) => {
+                if (onOpenAuthModal) {
+                  onOpenAuthModal(mode);
+                }
+              }}
+              onOpenPricingModal={() => {
+                if (onOpenPricingModal) {
+                  onOpenPricingModal();
+                } else if (onClose) {
+                  onClose();
+                }
+              }}
             />
           )}
 
@@ -226,7 +244,9 @@ export default function WizardContainer({
             <div className={styles.summaryCard}>
               <span className={styles.summaryCardLabel}>
                 {formData.scriptIdea && formData.scriptIdea.length > 150
-                  ? (lang === "en" ? "My Own Script" : "Mi Propio Guion")
+                  ? lang === "en"
+                    ? "My Own Script"
+                    : "Mi Propio Guion"
                   : t("summary_concept_label")}
               </span>
               <p className={styles.summaryCardValue}>
@@ -296,7 +316,8 @@ export default function WizardContainer({
                   className={styles.highlightValue}
                   style={{ fontSize: "0.7rem" }}
                 >
-                  {musicLabels[formData.musicStyle || "none"] || formData.musicStyle}
+                  {musicLabels[formData.musicStyle || "none"] ||
+                    formData.musicStyle}
                 </p>
               </div>
             </div>

@@ -15,12 +15,16 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleWizardClick = () => {
+  const handleWizardClick = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setDropdownOpen(false);
+    setUserMenuOpen(false);
     setMobileMenuOpen(false);
     onStartWizard();
   };
 
-  const handleAuthClick = (mode: 'login' | 'signup') => {
+  const handleAuthClick = (mode: 'login' | 'signup', e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setMobileMenuOpen(false);
     if (onOpenAuthModal) onOpenAuthModal(mode);
   };
@@ -30,7 +34,7 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:px-6 md:py-4 box-border">
         
         {/* Logo */}
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 cursor-pointer" onClick={handleWizardClick}>
           <Logo size="md" />
         </div>
 
@@ -51,7 +55,7 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
             {dropdownOpen && (
               <div className="absolute top-full left-0 mt-2 w-72 rounded-xl bg-[#1e293b] border border-white/10 p-2 shadow-2xl z-50 flex flex-col gap-1">
                 <div 
-                  onClick={onStartWizard}
+                  onClick={handleWizardClick}
                   className="p-2.5 rounded-lg hover:bg-slate-700/50 cursor-pointer transition-colors"
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -95,7 +99,7 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
           {/* Idioma */}
           <button
             type="button"
-            onClick={() => setLang(lang === "en" ? "es" : "en")}
+            onClick={(e) => { e.stopPropagation(); setLang(lang === "en" ? "es" : "en"); }}
             className="inline-flex items-center gap-1 rounded-lg bg-[#1e293b] px-2.5 py-1.5 text-xs font-semibold text-white uppercase hover:bg-slate-700 transition-all sm:px-3 sm:py-2 sm:text-sm"
           >
             <span>{lang === "en" ? "🇺🇸" : "🇲🇽"}</span>
@@ -111,7 +115,7 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
                 <span>{user.credits} {lang === 'en' ? 'credits' : 'créditos'}</span>
               </div>
 
-              {/* Avatar y Menú de Perfil con puente interactivo para evitar pérdida de foco */}
+              {/* Avatar y Menú de Perfil */}
               <div 
                 className="relative py-1"
                 onMouseEnter={() => setUserMenuOpen(true)}
@@ -134,10 +138,7 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
 
                       <button 
                         type="button"
-                        onClick={() => {
-                          setUserMenuOpen(false);
-                          onStartWizard();
-                        }} 
+                        onClick={handleWizardClick} 
                         className="w-full text-left px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700/50 rounded-lg transition-colors"
                       >
                         {lang === 'en' ? '🎬 My Projects' : '🎬 Mis Proyectos'}
@@ -145,7 +146,8 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
 
                       <button 
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setUserMenuOpen(false);
                           logout();
                         }} 
@@ -163,7 +165,7 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
             <>
               <button
                 type="button"
-                onClick={() => handleAuthClick('login')}
+                onClick={(e) => handleAuthClick('login', e)}
                 className="hidden md:inline-flex rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white transition-colors sm:text-sm"
               >
                 {lang === 'en' ? 'Log In' : 'Iniciar Sesión'}
@@ -171,7 +173,7 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
 
               <button
                 type="button"
-                onClick={() => handleAuthClick('signup')}
+                onClick={(e) => handleAuthClick('signup', e)}
                 className="hidden md:inline-flex rounded-lg px-3.5 py-1.5 text-xs font-semibold text-white bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors sm:text-sm"
               >
                 {lang === 'en' ? 'Sign Up' : 'Registrarse'}
@@ -182,7 +184,7 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
           {/* CTA Crear Video */}
           <button
             type="button"
-            onClick={onStartWizard}
+            onClick={handleWizardClick}
             className="hidden md:inline-flex whitespace-nowrap rounded-lg bg-[#ff6b00] px-4 py-2 text-sm font-bold text-white shadow-md hover:bg-[#e05d00] active:scale-95 transition-all"
           >
             {t("nav_create") || (lang === 'en' ? 'Create Video' : 'Crear Video')}
@@ -191,7 +193,7 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
           {/* Botón Hamburguesa (SOLO MÓVIL) */}
           <button
             type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={(e) => { e.stopPropagation(); setMobileMenuOpen(!mobileMenuOpen); }}
             className="md:hidden inline-flex items-center justify-center rounded-lg bg-[#1e293b] p-2 text-white hover:bg-slate-700 transition-colors"
             aria-label="Toggle menu"
           >
@@ -217,7 +219,7 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
 
           <a 
             href="#pricing" 
-            onClick={() => setMobileMenuOpen(false)} 
+            onClick={(e) => { e.stopPropagation(); setMobileMenuOpen(false); }} 
             className="text-sm font-medium text-slate-200 py-2 border-b border-white/5"
           >
             {lang === 'en' ? '🏷️ Pricing Plans' : '🏷️ Planes y Precios'}
@@ -236,14 +238,14 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
             <div className="flex gap-3 pt-3 border-t border-white/10 mt-1">
               <button
                 type="button"
-                onClick={() => handleAuthClick('login')}
+                onClick={(e) => handleAuthClick('login', e)}
                 className="flex-1 rounded-lg bg-[#1e293b] py-2.5 text-xs font-semibold text-white hover:bg-slate-700 transition-colors"
               >
                 {lang === 'en' ? 'Log In' : 'Iniciar Sesión'}
               </button>
               <button
                 type="button"
-                onClick={() => handleAuthClick('signup')}
+                onClick={(e) => handleAuthClick('signup', e)}
                 className="flex-1 rounded-lg bg-slate-800 border border-slate-700 py-2.5 text-xs font-semibold text-white hover:bg-slate-700 transition-colors"
               >
                 {lang === 'en' ? 'Sign Up' : 'Registrarse'}
@@ -251,7 +253,6 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
             </div>
           ) : (
             <div className="flex flex-col gap-2 pt-3 border-t border-white/10 mt-1">
-              {/* Créditos visibles en el menú móvil */}
               <div className="flex items-center justify-between bg-[#ff6b00]/10 border border-[#ff6b00]/30 px-3 py-2 rounded-lg text-xs font-bold text-[#ff6b00]">
                 <span>⚡ {lang === 'en' ? 'Available Credits' : 'Créditos Disponibles'}</span>
                 <span>{user?.credits}</span>
@@ -259,7 +260,8 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
 
               <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   logout();
                   setMobileMenuOpen(false);
                 }}

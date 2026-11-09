@@ -44,12 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const formattedName = mockName.charAt(0).toUpperCase() + mockName.slice(1);
 
     // 🔴 CAMBIA AQUÍ MANUALMENTE EL PLAN PARA TUS PRUEBAS ('lite' o 'pro')
-    const currentTestPlan: 'lite' | 'pro' = 'lite'; 
+    const currentTestPlan: 'lite' | 'pro' = 'pro'; 
 
     const newUser: UserProfile = {
       name: formattedName,
       email,
-      credits: currentTestPlan === 'lite' ? 50 : 10,
+      credits: currentTestPlan === 'pro' ? 50 : 10,
       plan: currentTestPlan,
     };
 

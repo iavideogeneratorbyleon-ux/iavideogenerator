@@ -7,14 +7,18 @@ import styles from './LandingPage.module.css';
 
 interface LandingPageProps {
   onStartWizard: () => void;
+  onOpenAuthModal?: (mode: 'login' | 'signup') => void;
 }
 
 export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const { t } = useLanguage();
   const [selectedVideo, setSelectedVideo] = useState<VideoShowcaseItem | null>(null);
-  
-  // Estado para controlar el Modal de Autenticación (Login / Signup)
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup' | null>(null);
+
+  const handleHeroClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onStartWizard();
+  };
 
   const showcaseVideos: VideoShowcaseItem[] = [
     {
@@ -98,7 +102,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           <div>
             <button
               type="button"
-              onClick={onStartWizard}
+              onClick={handleHeroClick}
               className={styles.heroCtaBtn}
             >
               {t('hero_cta')} →
@@ -201,10 +205,10 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
         }}
       />
 
-      {/* Aquí puedes renderizar tu modal de autenticación cuando lo programemos */}
-      /* {authModalMode && (
+      {/* Modal de Autenticación local */}
+      {authModalMode && (
         <AuthModal mode={authModalMode} onClose={() => setAuthModalMode(null)} />
-      )} */
+      )}
 
     </div>
   );

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { WizardData } from './WizardStep1';
 import { useLanguage } from '../landing/LanguageContext';
-import styles from './WizardStep5.module.css'; // o styles de step4 según tu nombre de archivo
+import { useAuth } from '../auth/AuthContext';
+import styles from './WizardStep5.module.css';
 
 interface Step5Props {
   data: WizardData;
@@ -9,14 +10,26 @@ interface Step5Props {
   toneLabels: Record<string, string>;
   voiceLabels: Record<string, string>;
   styleLabels: Record<string, string>;
+  onOpenAuthModal: (mode: 'login' | 'signup') => void; // Dispara el registro para crédito gratis
+  onOpenPricingModal: () => void; // Dispara el modal de compra/planes Pro
 }
 
-export default function WizardStep5({ data, onPrev, toneLabels, voiceLabels, styleLabels }: Step5Props) {
+export default function WizardStep5({ 
+  data, 
+  onPrev, 
+  toneLabels, 
+  voiceLabels, 
+  styleLabels,
+  onOpenAuthModal,
+  onOpenPricingModal
+}: Step5Props) {
   const { lang, t } = useLanguage();
+  const { isAuthenticated, user, deductCredit } = useAuth();
+  
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [showConversionModal, setShowConversionModal] = useState(false); // Estado para las 3 opciones
 
-  // Diccionario completo de música (incluyendo las opciones Pro)
   const musicLabels: Record<string, string> = {
     none: lang === 'en' ? 'No background music' : 'Sin música de fondo',
     lofi: lang === 'en' ? 'Lo-Fi / Chill' : 'Lo-Fi / Relajante',
@@ -25,12 +38,30 @@ export default function WizardStep5({ data, onPrev, toneLabels, voiceLabels, sty
     tech: lang === 'en' ? 'Cyberpunk / Tech' : 'Cyberpunk / Tech',
   };
 
-  const handleGenerate = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setIsGenerating(false);
-      setIsCompleted(true);
-    }, 3000);
+  const handleGenerateClick = () => {
+    // 1. Si el usuario NO está registrado, mostramos el modal con las 3 opciones
+    if (!isAuthenticated) {
+      setShowConversionModal(true);
+      return;
+    }
+
+    // 2. Si está registrado pero tiene 0 créditos
+    if (!user || user.credits < 1) {
+      onOpenPricingModal();
+      return;
+    }
+
+    // 3. Usuario registrado con créditos suficientes -> Descuenta 1 y genera
+    const success = deductCredit(1);
+    if (success) {
+      setIsGenerating(true);
+      setTimeout(() => {
+        setIsGenerating(false);
+        setIsCompleted(true);
+      }, 3500);
+    } else {
+      onOpenPricingModal();
+    }
   };
 
   if (isCompleted) {
@@ -39,7 +70,11 @@ export default function WizardStep5({ data, onPrev, toneLabels, voiceLabels, sty
         <div className={styles.successIconWrapper}>✨</div>
         <div className={styles.completedTextGroup}>
           <h1 className={styles.completedTitle}>{t('step4_success_title')}</h1>
-          <p className={styles.completedSub}>{t('step4_success_sub')}</p>
+          <p className={styles.completedSub}>
+            {lang === 'en' 
+              ? 'Your video has been generated successfully!' 
+              : '¡Tu video ha sido generado con éxito!'}
+          </p>
         </div>
         <div style={{ paddingTop: '1rem' }}>
           <button type="button" onClick={() => window.location.reload()} className={styles.primaryActionBtn}>
@@ -58,8 +93,8 @@ export default function WizardStep5({ data, onPrev, toneLabels, voiceLabels, sty
           <p className={styles.headingSub}>{t('step4_sub')}</p>
         </div>
 
+        {/* Sumario limpio de las elecciones del usuario */}
         <div className={styles.summaryCardBox}>
-          {/* Concepto o Guion Propio */}
           <div className={styles.summarySection}>
             <span className={styles.labelTitle}>
               {data.scriptIdea && data.scriptIdea.length > 150 
@@ -71,7 +106,6 @@ export default function WizardStep5({ data, onPrev, toneLabels, voiceLabels, sty
             </p>
           </div>
 
-          {/* Tono y Formato / Orientación */}
           <div className={styles.gridTwoCols}>
             <div>
               <span className={styles.labelTitle}>{t('step4_tone_label')}</span>
@@ -79,15 +113,10 @@ export default function WizardStep5({ data, onPrev, toneLabels, voiceLabels, sty
             </div>
             <div>
               <span className={styles.labelTitle}>{t('step4_format_label')}</span>
-              <p className={styles.itemValue}>
-                {data.aspectRatio === '9:16' ? (lang === 'en' ? 'Vertical (9:16)' : 'Vertical (9:16)') :
-                 data.aspectRatio === '16:9' ? (lang === 'en' ? 'Horizontal (16:9)' : 'Horizontal (16:9)') :
-                 data.aspectRatio === '1:1' ? (lang === 'en' ? 'Square (1:1)' : 'Cuadrado (1:1)') : (data.aspectRatio || '9:16')}
-              </p>
+              <p className={styles.itemValue}>{data.aspectRatio || '9:16'}</p>
             </div>
           </div>
 
-          {/* Voz y Música de Fondo */}
           <div className={styles.gridTwoColsLast}>
             <div>
               <span className={styles.labelTitle}>{t('step4_voice_label')}</span>
@@ -99,7 +128,6 @@ export default function WizardStep5({ data, onPrev, toneLabels, voiceLabels, sty
             </div>
           </div>
 
-          {/* Estilo Visual (Soporta estilos base y Pro como anime / photorealistic) */}
           <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <span className={styles.labelTitle}>{t('step4_style_label')}</span>
             <p className={styles.itemValue}>{data.visualStyle ? (styleLabels[data.visualStyle] || data.visualStyle) : t('summary_undefined')}</p>
@@ -109,8 +137,12 @@ export default function WizardStep5({ data, onPrev, toneLabels, voiceLabels, sty
         <div className={styles.creditsNotice}>
           <span className={styles.creditsEmoji}>⚡</span>
           <div className={styles.creditsInfo}>
-            <p className={styles.creditsTitle}>{t('step4_credits_title')}</p>
-            <p className={styles.creditsDesc}>{t('step4_credits_desc')}</p>
+            <p className={styles.creditsTitle}>
+              {isAuthenticated ? `Créditos: ${user?.credits ?? 0}` : (lang === 'en' ? 'Ready to Generate' : 'Listo para Generar')}
+            </p>
+            <p className={styles.creditsDesc}>
+              {isAuthenticated ? 'Se descontará 1 crédito de tu balance.' : 'Haz clic en generar para reclamar tu video gratis o elegir un plan.'}
+            </p>
           </div>
         </div>
       </div>
@@ -119,7 +151,7 @@ export default function WizardStep5({ data, onPrev, toneLabels, voiceLabels, sty
         <button type="button" onClick={onPrev} disabled={isGenerating} className={styles.backBtn}>
           {t('step4_back_btn')}
         </button>
-        <button type="button" disabled={isGenerating} onClick={handleGenerate} className={styles.generateBtn}>
+        <button type="button" disabled={isGenerating} onClick={handleGenerateClick} className={styles.generateBtn}>
           {isGenerating ? (
             <>
               <svg className={styles.spinner} fill="none" viewBox="0 0 24 24">
@@ -129,10 +161,89 @@ export default function WizardStep5({ data, onPrev, toneLabels, voiceLabels, sty
               {t('step4_generating_btn')}
             </>
           ) : (
-            <>{t('step4_generate_btn')}</>
+            <>{lang === 'en' ? 'Generate Video Now' : 'Generar Video Ahora'}</>
           )}
         </button>
       </div>
+
+      {/* MODAL DE CONVERSIÓN (Las 3 opciones para usuarios no registrados al hacer clic en generar) */}
+      {showConversionModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', zIndex: 10000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+          <div style={{
+            background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem',
+            padding: '2rem', maxWidth: '500px', width: '100%', color: '#fff', display: 'flex', flexDirection: 'column', gap: '1.25rem',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+          }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '800', textAlign: 'center' }}>
+              {lang === 'en' ? 'Unlock Your Video Generation' : 'Desbloquea la Generación de tu Video'}
+            </h2>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', textAlign: 'center', lineHeight: '1.4' }}>
+              {lang === 'en' 
+                ? 'Your project is ready! Choose how you want to proceed:' 
+                : '¡Tu proyecto está listo! Elige cómo deseas proceder:'}
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {/* Opción 1: Registrarse y usar opción gratuita */}
+              <button 
+                type="button"
+                onClick={() => { setShowConversionModal(false); onOpenAuthModal('signup'); }}
+                style={{
+                  background: '#ff6b00', border: 'none', color: '#fff', padding: '0.85rem 1rem',
+                  borderRadius: '0.75rem', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer', textAlign: 'left',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                }}
+              >
+                <span>🎁 {lang === 'en' ? 'Sign up & Claim Free Video' : 'Registrarse y Reclamar Video Gratis'}</span>
+                <span style={{ fontSize: '0.75rem', background: 'rgba(0,0,0,0.2)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>$0</span>
+              </button>
+
+              {/* Opción 2: Comprar un video sin cuenta o suscripción */}
+              <button 
+                type="button"
+                onClick={() => { setShowConversionModal(false); onOpenPricingModal(); }}
+                style={{
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', padding: '0.85rem 1rem',
+                  borderRadius: '0.75rem', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer', textAlign: 'left',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                }}
+              >
+                <span>⚡ {lang === 'en' ? 'Buy Single Video Pass' : 'Comprar Pase de 1 Video'}</span>
+                <span style={{ color: '#ff6b00', fontWeight: '700' }}>$4.99</span>
+              </button>
+
+              {/* Opción 3: Suscripción Pro */}
+              <button 
+                type="button"
+                onClick={() => { setShowConversionModal(false); onOpenPricingModal(); }}
+                style={{
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', padding: '0.85rem 1rem',
+                  borderRadius: '0.75rem', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer', textAlign: 'left',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                }}
+              >
+                <span>👑 {lang === 'en' ? 'Upgrade to Pro Creator' : 'Suscribirse a Pro Creator'}</span>
+                <span style={{ color: '#ff6b00', fontWeight: '700' }}>$29/mo</span>
+              </button>
+            </div>
+
+            <button 
+              type="button"
+              onClick={() => setShowConversionModal(false)}
+              style={{
+                background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '0.8rem',
+                cursor: 'pointer', marginTop: '0.5rem', textAlign: 'center'
+              }}
+            >
+              {lang === 'en' ? 'Cancel / Keep Editing' : 'Cancelar / Seguir Editando'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
