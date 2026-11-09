@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useLanguage } from './LanguageContext';
 import VideoShowcaseModal, { type VideoShowcaseItem } from './VideoShowcaseModal';
 import PricingSection from './PricingSection';
-import Navbar from './NavBar';
 import AuthModal from '../auth/AuthModal';
 import styles from './LandingPage.module.css';
 
@@ -79,12 +78,6 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
   return (
     <div className={styles.landingWrapper}>
-      
-      {/* Navbar con soporte para abrir Login / Signup */}
-      <Navbar 
-        onStartWizard={onStartWizard} 
-        onOpenAuthModal={(mode) => setAuthModalMode(mode)} 
-      />
 
       {/* Hero Section */}
       <section className={styles.heroSection}>

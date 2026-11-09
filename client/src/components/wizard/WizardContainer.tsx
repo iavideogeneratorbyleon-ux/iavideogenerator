@@ -9,6 +9,7 @@ import styles from './WizardContainer.module.css';
 
 interface WizardContainerProps {
   onClose?: () => void;
+  onComplete?: () => void;
 }
 
 export default function WizardContainer({ onClose }: WizardContainerProps) {

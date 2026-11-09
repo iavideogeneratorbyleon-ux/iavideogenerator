@@ -111,9 +111,9 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
                 <span>{user.credits} {lang === 'en' ? 'credits' : 'créditos'}</span>
               </div>
 
-              {/* Avatar y Menú de Perfil */}
+              {/* Avatar y Menú de Perfil con puente interactivo para evitar pérdida de foco */}
               <div 
-                className="relative"
+                className="relative py-1"
                 onMouseEnter={() => setUserMenuOpen(true)}
                 onMouseLeave={() => setUserMenuOpen(false)}
               >
@@ -125,27 +125,35 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-56 rounded-xl bg-[#1e293b] border border-white/10 p-2 shadow-2xl z-50 flex flex-col gap-1">
-                    <div className="px-3 py-2 border-b border-white/10 mb-1">
-                      <p className="text-xs font-bold text-white">{user.name}</p>
-                      <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
+                  <div className="absolute right-0 top-full pt-2 z-50">
+                    <div className="w-56 rounded-xl bg-[#1e293b] border border-white/10 p-2 shadow-2xl flex flex-col gap-1">
+                      <div className="px-3 py-2 border-b border-white/10 mb-1">
+                        <p className="text-xs font-bold text-white">{user.name}</p>
+                        <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
+                      </div>
+
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          onStartWizard();
+                        }} 
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700/50 rounded-lg transition-colors"
+                      >
+                        {lang === 'en' ? '🎬 My Projects' : '🎬 Mis Proyectos'}
+                      </button>
+
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          logout();
+                        }} 
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                      >
+                        {lang === 'en' ? 'Log Out' : 'Cerrar Sesión'}
+                      </button>
                     </div>
-
-                    <button 
-                      type="button"
-                      onClick={onStartWizard} 
-                      className="w-full text-left px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700/50 rounded-lg"
-                    >
-                      {lang === 'en' ? '🎬 My Projects' : '🎬 Mis Proyectos'}
-                    </button>
-
-                    <button 
-                      type="button"
-                      onClick={logout} 
-                      className="w-full text-left px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 rounded-lg"
-                    >
-                      {lang === 'en' ? 'Log Out' : 'Cerrar Sesión'}
-                    </button>
                   </div>
                 )}
               </div>
