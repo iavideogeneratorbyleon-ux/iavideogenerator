@@ -193,6 +193,7 @@ export default function WizardContainer({
               voiceLabels={voiceLabels}
               styleLabels={styleLabels}
               onOpenAuthModal={(mode) => {
+                // Aquí enlazamos la prop que viene del App.tsx principal
                 if (onOpenAuthModal) {
                   onOpenAuthModal(mode);
                 }

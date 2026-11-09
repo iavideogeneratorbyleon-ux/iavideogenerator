@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { WizardData } from './WizardStep1';
 import { useLanguage } from '../landing/LanguageContext';
 import { useAuth } from '../auth/AuthContext';
+import { savePendingDraft } from './wizardStorage';
 import styles from './WizardStep5.module.css';
 
 interface Step5Props {
@@ -10,8 +11,8 @@ interface Step5Props {
   toneLabels: Record<string, string>;
   voiceLabels: Record<string, string>;
   styleLabels: Record<string, string>;
-  onOpenAuthModal: (mode: 'login' | 'signup') => void; // Dispara el registro para crédito gratis
-  onOpenPricingModal: () => void; // Dispara el modal de compra/planes Pro
+  onOpenAuthModal: (mode: 'login' | 'signup') => void;
+  onOpenPricingModal: () => void;
 }
 
 export default function WizardStep5({ 
@@ -28,7 +29,7 @@ export default function WizardStep5({
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [showConversionModal, setShowConversionModal] = useState(false); // Estado para las 3 opciones
+  const [showConversionModal, setShowConversionModal] = useState(false);
 
   const musicLabels: Record<string, string> = {
     none: lang === 'en' ? 'No background music' : 'Sin música de fondo',
@@ -39,19 +40,16 @@ export default function WizardStep5({
   };
 
   const handleGenerateClick = () => {
-    // 1. Si el usuario NO está registrado, mostramos el modal con las 3 opciones
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       setShowConversionModal(true);
       return;
     }
 
-    // 2. Si está registrado pero tiene 0 créditos
-    if (!user || user.credits < 1) {
+    if (user.credits < 1) {
       onOpenPricingModal();
       return;
     }
 
-    // 3. Usuario registrado con créditos suficientes -> Descuenta 1 y genera
     const success = deductCredit(1);
     if (success) {
       setIsGenerating(true);
@@ -62,6 +60,13 @@ export default function WizardStep5({
     } else {
       onOpenPricingModal();
     }
+  };
+
+  // 🎁 Opción 1: Guardar borrador en localStorage y abrir modal de registro
+  const handleClaimFreeVideo = () => {
+    savePendingDraft(data);
+    setShowConversionModal(false);
+    onOpenAuthModal('signup');
   };
 
   if (isCompleted) {
@@ -93,7 +98,7 @@ export default function WizardStep5({
           <p className={styles.headingSub}>{t('step4_sub')}</p>
         </div>
 
-        {/* Sumario limpio de las elecciones del usuario */}
+        {/* Sumario de selecciones */}
         <div className={styles.summaryCardBox}>
           <div className={styles.summarySection}>
             <span className={styles.labelTitle}>
@@ -166,32 +171,33 @@ export default function WizardStep5({
         </button>
       </div>
 
-      {/* MODAL DE CONVERSIÓN (Las 3 opciones para usuarios no registrados al hacer clic en generar) */}
+      {/* Modal de Conversión (Las 3 opciones) */}
       {showConversionModal && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', zIndex: 10000,
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 10000,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
         }}>
           <div style={{
             background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem',
-            padding: '2rem', maxWidth: '500px', width: '100%', color: '#fff', display: 'flex', flexDirection: 'column', gap: '1.25rem',
+            padding: '2rem', maxWidth: '460px', width: '100%', color: '#fff', 
+            display: 'flex', flexDirection: 'column', gap: '1.25rem',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
           }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: '800', textAlign: 'center' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '800', textAlign: 'center', margin: 0 }}>
               {lang === 'en' ? 'Unlock Your Video Generation' : 'Desbloquea la Generación de tu Video'}
             </h2>
-            <p style={{ fontSize: '0.85rem', color: '#94a3b8', textAlign: 'center', lineHeight: '1.4' }}>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', textAlign: 'center', lineHeight: '1.4', margin: 0 }}>
               {lang === 'en' 
                 ? 'Your project is ready! Choose how you want to proceed:' 
                 : '¡Tu proyecto está listo! Elige cómo deseas proceder:'}
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {/* Opción 1: Registrarse y usar opción gratuita */}
+              {/* Opción 1: Sign up & Claim Free Video */}
               <button 
                 type="button"
-                onClick={() => { setShowConversionModal(false); onOpenAuthModal('signup'); }}
+                onClick={handleClaimFreeVideo}
                 style={{
                   background: '#ff6b00', border: 'none', color: '#fff', padding: '0.85rem 1rem',
                   borderRadius: '0.75rem', fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer', textAlign: 'left',
@@ -202,7 +208,7 @@ export default function WizardStep5({
                 <span style={{ fontSize: '0.75rem', background: 'rgba(0,0,0,0.2)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>$0</span>
               </button>
 
-              {/* Opción 2: Comprar un video sin cuenta o suscripción */}
+              {/* Opción 2: Buy Single Video Pass */}
               <button 
                 type="button"
                 onClick={() => { setShowConversionModal(false); onOpenPricingModal(); }}
@@ -216,12 +222,12 @@ export default function WizardStep5({
                 <span style={{ color: '#ff6b00', fontWeight: '700' }}>$4.99</span>
               </button>
 
-              {/* Opción 3: Suscripción Pro */}
+              {/* Opción 3: Pro Subscription */}
               <button 
                 type="button"
                 onClick={() => { setShowConversionModal(false); onOpenPricingModal(); }}
                 style={{
-                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', padding: '0.85rem 1rem',
+                  background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', padding: '0.85rem 1rem',
                   borderRadius: '0.75rem', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer', textAlign: 'left',
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                 }}
@@ -236,7 +242,7 @@ export default function WizardStep5({
               onClick={() => setShowConversionModal(false)}
               style={{
                 background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '0.8rem',
-                cursor: 'pointer', marginTop: '0.5rem', textAlign: 'center'
+                cursor: 'pointer', marginTop: '0.25rem', textAlign: 'center'
               }}
             >
               {lang === 'en' ? 'Cancel / Keep Editing' : 'Cancelar / Seguir Editando'}
