@@ -5,7 +5,7 @@ import styles from './WizardStep1.module.css';
 export type WizardData = {
   mode?: 'idea' | 'script';
   scriptIdea: string;
-  visualPrompt?: string; // Prompt secundario para dirección visual del guion
+  visualPrompt?: string;
   tone: string;
   voiceId?: string;
   aspectRatio?: string;
@@ -17,12 +17,20 @@ interface Step1Props {
   data: WizardData;
   onUpdate: (fields: Partial<WizardData>) => void;
   onNext: () => void;
+  wizardMode?: 'lite' | 'pro';
 }
 
-export default function WizardStep1({ data, onUpdate, onNext }: Step1Props) {
+export default function WizardStep1({ 
+  data, 
+  onUpdate, 
+  onNext, 
+  wizardMode = 'lite' 
+}: Step1Props) {
   const { t, lang } = useLanguage();
 
-  const currentMode = data.mode || 'idea';
+  // En Studio Lite, forzamos el modo a 'idea'
+  const isPro = wizardMode === 'pro';
+  const currentMode = isPro ? (data.mode || 'idea') : 'idea';
 
   const tones = [
     { 
@@ -68,6 +76,8 @@ export default function WizardStep1({ data, onUpdate, onNext }: Step1Props) {
             {lang === 'en' ? 'Select Creation Method' : 'Selecciona el método de creación'}
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            
+            {/* Opción 1: Generar desde idea (Habilitada en ambos) */}
             <button
               type="button"
               onClick={() => onUpdate({ mode: 'idea' })}
@@ -87,28 +97,56 @@ export default function WizardStep1({ data, onUpdate, onNext }: Step1Props) {
               {lang === 'en' ? '💡 AI Idea Generator' : '💡 Generar desde Idea'}
             </button>
 
+            {/* Opción 2: Guion propio (Exclusiva Studio Pro) */}
             <button
               type="button"
-              onClick={() => onUpdate({ mode: 'script' })}
+              disabled={!isPro}
+              onClick={() => isPro && onUpdate({ mode: 'script' })}
+              title={!isPro ? (lang === 'en' ? 'Available in Studio Pro' : 'Disponible en Studio Pro') : undefined}
               style={{
-                background: currentMode === 'script' ? 'rgba(255, 107, 0, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                background: currentMode === 'script' 
+                  ? 'rgba(255, 107, 0, 0.15)' 
+                  : isPro 
+                    ? 'rgba(30, 41, 59, 0.5)' 
+                    : 'rgba(30, 41, 59, 0.25)',
                 border: `1px solid ${currentMode === 'script' ? 'var(--color-brand-primary, #FF6B00)' : 'rgba(255, 255, 255, 0.08)'}`,
-                color: currentMode === 'script' ? 'var(--color-brand-primary, #FF6B00)' : 'var(--color-text-muted, #94A3B8)',
+                color: isPro 
+                  ? (currentMode === 'script' ? 'var(--color-brand-primary, #FF6B00)' : 'var(--color-text-muted, #94A3B8)') 
+                  : '#64748B',
                 padding: '0.75rem',
                 borderRadius: '0.75rem',
                 fontSize: '0.85rem',
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: isPro ? 'pointer' : 'not-allowed',
                 textAlign: 'center',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.35rem',
+                opacity: isPro ? 1 : 0.6
               }}
             >
-              {lang === 'en' ? '📝 My Own Script' : '📝 Tengo mi Guion'}
+              <span>{lang === 'en' ? '📝 My Own Script' : '📝 Tengo mi Guion'}</span>
+              {!isPro && (
+                <span style={{ 
+                  background: '#FF6B00', 
+                  color: '#FFF', 
+                  fontSize: '0.65rem', 
+                  padding: '0.1rem 0.35rem', 
+                  borderRadius: '0.25rem',
+                  fontWeight: 800,
+                  marginLeft: '0.2rem'
+                }}>
+                  PRO 🔒
+                </span>
+              )}
             </button>
+
           </div>
         </div>
 
-        {/* MODO A: GENERAR DESDE IDEA GENERAL */}
+        {/* MODO A: GENERAR DESDE IDEA GENERAL (Studio Lite & Pro) */}
         {currentMode === 'idea' ? (
           <div className={styles.inputGroup}>
             <label className={styles.inputLabel}>
@@ -129,7 +167,7 @@ export default function WizardStep1({ data, onUpdate, onNext }: Step1Props) {
             </span>
           </div>
         ) : (
-          /* MODO B: GUION PROPIO + PROMPT DIRECCIÓN VISUAL */
+          /* MODO B: GUION PROPIO + PROMPT DIRECCIÓN VISUAL (Exclusivo Studio Pro) */
           <>
             <div className={styles.inputGroup}>
               <label className={styles.inputLabel}>
@@ -165,7 +203,7 @@ export default function WizardStep1({ data, onUpdate, onNext }: Step1Props) {
           </>
         )}
 
-        {/* SELECTOR DE TONO */}
+        {/* SELECTOR DE TONO (Habilitado para Studio Lite y Studio Pro) */}
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
             {t('step1_tone_label')}

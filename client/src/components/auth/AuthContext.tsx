@@ -1,11 +1,11 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
 export interface UserProfile {
   name: string;
   email: string;
   avatarUrl?: string;
   credits: number;
-  plan: 'free' | 'pro' | 'unlimited';
+  plan: 'lite' | 'pro' | 'unlimited';
 }
 
 interface AuthContextType {
@@ -18,26 +18,49 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const STORAGE_KEY = 'cempa_user_session';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    try {
+      const savedUser = localStorage.getItem(STORAGE_KEY);
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, [user]);
 
   // Simulación de Login
   const login = (email: string) => {
     const mockName = email.split('@')[0] || 'Creator';
-    setUser({
-      name: mockName.charAt(0).toUpperCase() + mockName.slice(1),
+    const formattedName = mockName.charAt(0).toUpperCase() + mockName.slice(1);
+
+    // 🔴 CAMBIA AQUÍ MANUALMENTE EL PLAN PARA TUS PRUEBAS ('lite' o 'pro')
+    const currentTestPlan: 'lite' | 'pro' = 'lite'; 
+
+    const newUser: UserProfile = {
+      name: formattedName,
       email,
-      credits: 50, // Créditos iniciales de regalo
-      plan: 'free',
-    });
+      credits: currentTestPlan === 'lite' ? 50 : 10,
+      plan: currentTestPlan,
+    };
+
+    setUser(newUser);
   };
 
-  // Simulación de Logout
   const logout = () => {
     setUser(null);
+    localStorage.removeItem(STORAGE_KEY);
   };
 
-  // Descontar créditos al generar un video
   const deductCredit = (amount = 1) => {
     if (!user || user.credits < amount) return false;
     setUser((prev) => (prev ? { ...prev, credits: prev.credits - amount } : null));

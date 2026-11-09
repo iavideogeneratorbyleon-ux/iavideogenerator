@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { WizardData } from './WizardStep1';
 import { useLanguage } from '../landing/LanguageContext';
-import styles from './WizardStep4.module.css';
+import styles from './WizardStep5.module.css'; // o styles de step4 según tu nombre de archivo
 
 interface Step5Props {
   data: WizardData;
@@ -16,8 +16,9 @@ export default function WizardStep5({ data, onPrev, toneLabels, voiceLabels, sty
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
 
+  // Diccionario completo de música (incluyendo las opciones Pro)
   const musicLabels: Record<string, string> = {
-    none: lang === 'en' ? 'No music' : 'Sin música',
+    none: lang === 'en' ? 'No background music' : 'Sin música de fondo',
     lofi: lang === 'en' ? 'Lo-Fi / Chill' : 'Lo-Fi / Relajante',
     epic: lang === 'en' ? 'Epic / Cinematic' : 'Épico / Cinematográfico',
     upbeat: lang === 'en' ? 'Upbeat / Corporate' : 'Animado / Corporativo',
@@ -58,37 +59,50 @@ export default function WizardStep5({ data, onPrev, toneLabels, voiceLabels, sty
         </div>
 
         <div className={styles.summaryCardBox}>
+          {/* Concepto o Guion Propio */}
           <div className={styles.summarySection}>
-            <span className={styles.labelTitle}>{t('step4_concept_label')}</span>
-            <p className={styles.conceptText}>{data.scriptIdea || t('summary_undefined')}</p>
+            <span className={styles.labelTitle}>
+              {data.scriptIdea && data.scriptIdea.length > 150 
+                ? (lang === 'en' ? 'My Own Script (Custom)' : 'Mi Propio Guion (Personalizado)')
+                : t('step4_concept_label')}
+            </span>
+            <p className={styles.conceptText}>
+              {data.scriptIdea || t('summary_undefined')}
+            </p>
           </div>
 
+          {/* Tono y Formato / Orientación */}
           <div className={styles.gridTwoCols}>
             <div>
               <span className={styles.labelTitle}>{t('step4_tone_label')}</span>
-              <p className={styles.itemValue}>{toneLabels[data.tone] || data.tone}</p>
+              <p className={styles.itemValue}>{toneLabels[data.tone] || data.tone || t('summary_undefined')}</p>
             </div>
             <div>
               <span className={styles.labelTitle}>{t('step4_format_label')}</span>
-              <p className={styles.itemValue}>{data.aspectRatio || '9:16'}</p>
+              <p className={styles.itemValue}>
+                {data.aspectRatio === '9:16' ? (lang === 'en' ? 'Vertical (9:16)' : 'Vertical (9:16)') :
+                 data.aspectRatio === '16:9' ? (lang === 'en' ? 'Horizontal (16:9)' : 'Horizontal (16:9)') :
+                 data.aspectRatio === '1:1' ? (lang === 'en' ? 'Square (1:1)' : 'Cuadrado (1:1)') : (data.aspectRatio || '9:16')}
+              </p>
             </div>
           </div>
 
+          {/* Voz y Música de Fondo */}
           <div className={styles.gridTwoColsLast}>
             <div>
               <span className={styles.labelTitle}>{t('step4_voice_label')}</span>
-              <p className={styles.itemValue}>{data.voiceId ? voiceLabels[data.voiceId] : t('summary_unselected')}</p>
+              <p className={styles.itemValue}>{data.voiceId ? (voiceLabels[data.voiceId] || data.voiceId) : t('summary_unselected')}</p>
             </div>
             <div>
               <span className={styles.labelTitle}>{lang === 'en' ? 'Background Music' : 'Música de Fondo'}</span>
-              <p className={styles.itemValue}>{musicLabels[data.musicStyle || 'none']}</p>
+              <p className={styles.itemValue}>{musicLabels[data.musicStyle || 'none'] || data.musicStyle}</p>
             </div>
           </div>
 
-          {/* Estilo visual separado abajo para que luzca ordenado */}
+          {/* Estilo Visual (Soporta estilos base y Pro como anime / photorealistic) */}
           <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <span className={styles.labelTitle}>{t('step4_style_label')}</span>
-            <p className={styles.itemValue}>{data.visualStyle ? styleLabels[data.visualStyle] : t('summary_undefined')}</p>
+            <p className={styles.itemValue}>{data.visualStyle ? (styleLabels[data.visualStyle] || data.visualStyle) : t('summary_undefined')}</p>
           </div>
         </div>
 
