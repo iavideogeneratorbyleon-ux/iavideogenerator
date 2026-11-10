@@ -1,96 +1,132 @@
-import { useState } from 'react';
-import { useLanguage } from '../landing/LanguageContext';
-import { useAuth } from './AuthContext';
-import styles from './AuthModal.module.css';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from './AuthContext'; // Ajusta la ruta a tu AuthContext
 
 interface AuthModalProps {
-  mode?: 'login' | 'signup';
+  isOpen: boolean;
   onClose: () => void;
+  mode?: 'login' | 'signup';
 }
 
-export default function AuthModal({ mode: initialMode = 'login', onClose }: AuthModalProps) {
-  const { lang } = useLanguage();
-  const { login } = useAuth();
-  const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 'signup' }) => {
+  const [isRegistering, setIsRegistering] = useState(mode === 'signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { login, register } = useAuth();
+
+  // Sincroniza el modo cuando se abre el modal
+  useEffect(() => {
+    if (isOpen) {
+      setIsRegistering(mode === 'signup');
+      setError('');
+    }
+  }, [isOpen, mode]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
-      login(email); // Inicia sesión de forma transparente
+    setError('');
+
+    if (isRegistering && password !== confirmPassword) {
+      setError('Las contraseñas no coinciden');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (isRegistering) {
+        await register(email, password, confirmPassword);
+      } else {
+        await login(email, password);
+      }
       onClose();
+    } catch (err: any) {
+      setError(err.message || 'Error al procesar la solicitud');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleGoogleAuth = () => {
+    // Próxima integración con Google OAuth
+    console.log('Iniciando Google OAuth...');
+  };
+
   return (
-    <div className={styles.overlay}>
-      <div className={styles.modalCard}>
-        
-        {/* Botón de cierre */}
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl text-white relative">
+        {/* Botón de cerrar (X) */}
         <button
-          type="button"
           onClick={onClose}
-          className={styles.closeBtn}
-          aria-label="Close modal"
+          className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
         >
           ✕
         </button>
 
-        {/* Header */}
-        <div className={styles.header}>
-          <div className={styles.title}>
-            Cempa<span className={styles.highlight}>.ai</span>
-          </div>
-          <p className={styles.subtitle}>
-            {mode === 'login'
-              ? (lang === 'en' ? 'Welcome back! Please enter your details.' : '¡Bienvenido de nuevo! Ingresa tus datos.')
-              : (lang === 'en' ? 'Create an account to start generating.' : 'Crea una cuenta para comenzar a generar.')}
-          </p>
-        </div>
+        <h2 className="text-2xl font-bold text-center mb-2">
+          {isRegistering ? 'Crea tu cuenta en cempa.ai' : 'Iniciar Sesión'}
+        </h2>
+        <p className="text-slate-400 text-sm text-center mb-6">
+          {isRegistering
+            ? 'Obtén 1 crédito gratis para generar tu primer video'
+            : 'Ingresa tus credenciales para acceder a tus proyectos'}
+        </p>
 
-        {/* Tab Selector */}
-        <div className={styles.tabContainer}>
-          <button
-            type="button"
-            onClick={() => setMode('login')}
-            className={`${styles.tabBtn} ${mode === 'login' ? styles.tabBtnActive : ''}`}
-          >
-            {lang === 'en' ? 'Log In' : 'Iniciar Sesión'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('signup')}
-            className={`${styles.tabBtn} ${mode === 'signup' ? styles.tabBtnActive : ''}`}
-          >
-            {lang === 'en' ? 'Sign Up' : 'Registrarse'}
-          </button>
-        </div>
-
-        {/* Google OAuth */}
+        {/* Botón de Google OAuth */}
         <button
           type="button"
-          onClick={() => alert('Google OAuth workflow')}
-          className={styles.socialBtn}
+          onClick={handleGoogleAuth}
+          className="w-full bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-orange-500/50 text-white font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 transition shadow-sm mb-5"
         >
-          <span>🌐</span>
-          <span>{lang === 'en' ? 'Continue with Google' : 'Continuar con Google'}</span>
+          <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <path
+              fill="#EA4335"
+              d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.2 9 5 12 5z"
+            />
+            <path
+              fill="#4285F4"
+              d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9c-.6-1.5-1-3.2-1-5z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.2-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"
+            />
+          </svg>
+          Continuar con Google
         </button>
 
-        {/* Divider */}
-        <div className={styles.divider}>
-          <div className={styles.dividerLine} />
-          <span className={styles.dividerText}>
-            {lang === 'en' ? 'or email' : 'o correo'}
+        {/* Divisor */}
+        <div className="relative flex items-center justify-center mb-5">
+          <div className="border-t border-slate-800 w-full" />
+          <span className="bg-slate-900 px-3 text-xs text-slate-500 uppercase tracking-wider absolute">
+            o con tu correo
           </span>
-          <div className={styles.dividerLine} />
         </div>
 
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <div className={styles.inputGroup}>
-            <label className={styles.label}>
-              {lang === 'en' ? 'Email Address' : 'Correo Electrónico'}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm p-3 rounded-xl mb-4 text-center">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+              Correo electrónico
             </label>
             <input
               type="email"
@@ -98,13 +134,13 @@ export default function AuthModal({ mode: initialMode = 'login', onClose }: Auth
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@correo.com"
-              className={styles.input}
+              className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition"
             />
           </div>
 
-          <div className={styles.inputGroup}>
-            <label className={styles.label}>
-              {lang === 'en' ? 'Password' : 'Contraseña'}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+              Contraseña
             </label>
             <input
               type="password"
@@ -112,18 +148,73 @@ export default function AuthModal({ mode: initialMode = 'login', onClose }: Auth
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className={styles.input}
+              className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition"
             />
           </div>
 
-          <button type="submit" className={styles.submitBtn}>
-            {mode === 'login'
-              ? (lang === 'en' ? 'Log In to Cempa.ai' : 'Iniciar Sesión en Cempa.ai')
-              : (lang === 'en' ? 'Create Free Account' : 'Crear Cuenta Gratis')}
+          {isRegistering && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                Confirmar Contraseña
+              </label>
+              <input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition"
+              />
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-orange-500/20 transition disabled:opacity-50 mt-2"
+          >
+            {loading
+              ? 'Procesando...'
+              : isRegistering
+              ? 'Registrarse y Reclamar Crédito'
+              : 'Iniciar Sesión'}
           </button>
         </form>
 
+        <div className="mt-6 text-center text-sm text-slate-400">
+          {isRegistering ? (
+            <p>
+              ¿Ya tienes cuenta?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegistering(false);
+                  setError('');
+                }}
+                className="text-orange-400 hover:text-orange-300 hover:underline font-semibold transition"
+              >
+                Inicia sesión aquí
+              </button>
+            </p>
+          ) : (
+            <p>
+              ¿No tienes cuenta?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegistering(true);
+                  setError('');
+                }}
+                className="text-orange-400 hover:text-orange-300 hover:underline font-semibold transition"
+              >
+                Regístrate gratis
+              </button>
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default AuthModal;

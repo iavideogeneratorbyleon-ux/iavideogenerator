@@ -71,8 +71,10 @@ export default function App() {
         )
       )}
 
+      {/* Se agregó isOpen para cumplir con AuthModalProps y solucionar el bloqueo */}
       {authModalMode && (
         <AuthModal 
+          isOpen={authModalMode !== null}
           mode={authModalMode} 
           onClose={() => setAuthModalMode(null)} 
         />

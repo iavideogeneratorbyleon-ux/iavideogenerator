@@ -11,7 +11,9 @@ export interface UserProfile {
 interface AuthContextType {
   user: UserProfile | null;
   isAuthenticated: boolean;
-  login: (email: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, confirmPassword: string) => Promise<void>;
+  setUserSession: (user: UserProfile) => void;
   logout: () => void;
   deductCredit: (amount?: number) => Promise<boolean>;
 }
@@ -19,8 +21,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'cempa_user_session';
-// Ajusta la URL base de tu backend de Express según corresponda
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Ajustado al puerto 3030 donde corre tu servidor de Express
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3030/api';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(() => {
@@ -40,44 +42,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  // 🛜 Conexión real con MongoDB a través de Express
-  const login = async (email: string) => {
-    try {
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+  // Permite establecer directamente la sesión si el formulario (ej. AuthModal) hace la llamada fetch
+  const setUserSession = (userData: UserProfile) => {
+    setUser(userData);
+  };
 
-      if (!response.ok) {
-        throw new Error('Error en la autenticación con el servidor');
-      }
+  // 1. REGISTRO TRADICIONAL
+  const register = async (email: string, password: string, confirmPassword: string) => {
+    const response = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, confirmPassword }),
+    });
 
-      const data = await response.json();
-      
-      // data.user debe contener la estructura de MongoDB: { name, email, credits, plan }
-      const loggedUser: UserProfile = {
-        name: data.user.name,
-        email: data.user.email,
-        credits: data.user.credits,
-        plan: data.user.plan,
-      };
+    const data = await response.json();
 
-      setUser(loggedUser);
-    } catch (error) {
-      console.error('Error conectando con MongoDB via Express:', error);
-      // Fallback local por si el backend no está corriendo en desarrollo local
-      const mockName = email.split('@')[0] || 'Creator';
-      const formattedName = mockName.charAt(0).toUpperCase() + mockName.slice(1);
-      
-      const fallbackUser: UserProfile = {
-        name: formattedName,
-        email,
-        credits: 1, // Crédito gratis inicial
-        plan: 'lite',
-      };
-      setUser(fallbackUser);
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al registrar el usuario');
     }
+
+    const loggedUser: UserProfile = {
+      name: data.user.name,
+      email: data.user.email,
+      credits: data.user.credits,
+      plan: data.user.plan,
+    };
+
+    setUser(loggedUser);
+  };
+
+  // 2. LOGIN TRADICIONAL
+  const login = async (email: string, password: string) => {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Credenciales inválidas');
+    }
+
+    const loggedUser: UserProfile = {
+      name: data.user.name,
+      email: data.user.email,
+      credits: data.user.credits,
+      plan: data.user.plan,
+    };
+
+    setUser(loggedUser);
   };
 
   const logout = () => {
@@ -89,7 +104,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user || user.credits < amount) return false;
 
     try {
-      // Opcional: Sincronizar el descuento de créditos con tu backend y MongoDB
       const response = await fetch(`${API_URL}/user/deduct-credit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -101,12 +115,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      // Actualizamos estado localmente
       setUser((prev) => (prev ? { ...prev, credits: prev.credits - amount } : null));
       return true;
     } catch (error) {
       console.error('Error de red al descontar crédito:', error);
-      // Fallback local optimista
+      // Fallback local
       setUser((prev) => (prev ? { ...prev, credits: prev.credits - amount } : null));
       return true;
     }
@@ -118,6 +131,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAuthenticated: !!user,
         login,
+        register,
+        setUserSession,
         logout,
         deductCredit,
       }}

@@ -1,23 +1,37 @@
-require('dotenv').config();
+// Solución compatible con versiones de Node.js para crypto.getRandomValues
+const { webcrypto } = require('crypto');
+if (!globalThis.crypto) {
+  globalThis.crypto = webcrypto;
+} else if (!globalThis.crypto.getRandomValues) {
+  globalThis.crypto.getRandomValues = webcrypto.getRandomValues.bind(webcrypto);
+}
+
 const express = require('express');
+const mongoose = require('mongoose');
 const cors = require('cors');
-const audioRoutes = require('./routes/audio.routes');
+require('dotenv').config();
+
+const authRoutes = require('./routes/auth.routes');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3030;
 
 // Middlewares
 app.use(cors());
 app.use(express.json());
 
-// Registrar Rutas
-app.use('/api/audio', audioRoutes);
+// Conexión a MongoDB Atlas (cempa-dara-cluster)
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('📦 Conectado exitosamente a MongoDB Atlas (cempa-dara-cluster)'))
+  .catch((err) => console.error('❌ Error conectando a MongoDB:', err));
 
-// Ruta base de prueba
+// Rutas de la API
+app.use('/api/auth', authRoutes);
+
 app.get('/', (req, res) => {
-    res.send('Servidor de generación de videos/audio activo 🚀');
+  res.send('API de cempa.ai funcionando al 100% 🚀');
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
