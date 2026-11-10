@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from './AuthContext'; // Ajusta la ruta a tu AuthContext
+import { useAuth } from './AuthContext'; // Mantiene tu ruta exacta
+import { useGoogleLogin } from '@react-oauth/google';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Extraemos las funciones existentes de tu AuthContext
   const { login, register } = useAuth();
 
   // Sincroniza el modo cuando se abre el modal
@@ -24,6 +26,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
       setError('');
     }
   }, [isOpen, mode]);
+
+  // Hook oficial de Google OAuth que respeta la UI original del botón
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await fetch('http://localhost:3030/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: tokenResponse.access_token }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          // Si tu backend responde ok, guardas la sesión o recargas contexto
+          onClose();
+        } else {
+          setError(data.message || 'Error al autenticar con Google');
+        }
+      } catch (err: any) {
+        setError('Error de conexión con el servidor backend');
+      } finally {
+        setLoading(false);
+      }
+    },
+    onError: () => {
+      setError('La autenticación con Google fue cancelada o falló');
+    },
+  });
 
   if (!isOpen) return null;
 
@@ -57,11 +90,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
     }
   };
 
-  const handleGoogleAuth = () => {
-    // Próxima integración con Google OAuth
-    console.log('Iniciando Google OAuth...');
-  };
-
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl text-white relative">
@@ -82,11 +110,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
             : 'Ingresa tus credenciales para acceder a tus proyectos'}
         </p>
 
-        {/* Botón de Google OAuth */}
+        {/* Botón de Google OAuth conectado al hook */}
         <button
           type="button"
-          onClick={handleGoogleAuth}
-          className="w-full bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-orange-500/50 text-white font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 transition shadow-sm mb-5"
+          onClick={() => handleGoogleLogin()}
+          disabled={loading}
+          className="w-full bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-orange-500/50 text-white font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 transition shadow-sm mb-5 disabled:opacity-50"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path

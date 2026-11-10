@@ -13,6 +13,7 @@ interface Step5Props {
   styleLabels: Record<string, string>;
   onOpenAuthModal: (mode: 'login' | 'signup') => void;
   onOpenPricingModal: () => void;
+  onOpenTermsModal?: (type: 'terms' | 'policy') => void; // Prop opcional por si manejas el modal de términos externamente
 }
 
 export default function WizardStep5({ 
@@ -22,7 +23,8 @@ export default function WizardStep5({
   voiceLabels, 
   styleLabels,
   onOpenAuthModal,
-  onOpenPricingModal
+  onOpenPricingModal,
+  onOpenTermsModal
 }: Step5Props) {
   const { lang, t } = useLanguage();
   const { isAuthenticated, user, deductCredit } = useAuth();
@@ -30,6 +32,18 @@ export default function WizardStep5({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [showConversionModal, setShowConversionModal] = useState(false);
+
+  // Estados para la casilla de Términos y Condiciones y control local por si no viene por props
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [internalLegalModal, setInternalLegalModal] = useState<'terms' | 'policy' | null>(null);
+
+  const handleOpenTerms = (type: 'terms' | 'policy') => {
+    if (onOpenTermsModal) {
+      onOpenTermsModal(type);
+    } else {
+      setInternalLegalModal(type);
+    }
+  };
 
   const musicLabels: Record<string, string> = {
     none: lang === 'en' ? 'No background music' : 'Sin música de fondo',
@@ -139,6 +153,62 @@ export default function WizardStep5({
           </div>
         </div>
 
+        {/* Checkbox de Términos y Condiciones */}
+        <div style={{
+          background: 'rgba(15, 23, 42, 0.6)', 
+          border: '1px solid rgba(255, 255, 255, 0.08)', 
+          borderRadius: '0.75rem', 
+          padding: '1rem', 
+          display: 'flex', 
+          alignItems: 'flex-start', 
+          gap: '0.75rem'
+        }}>
+          <input
+            type="checkbox"
+            id="terms-checkbox"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+            style={{ marginTop: '0.2rem', width: '1rem', height: '1rem', accentColor: '#ff6b00', cursor: 'pointer' }}
+          />
+          <label htmlFor="terms-checkbox" style={{ fontSize: '0.8rem', color: '#94a3b8', lineHeight: '1.4', cursor: 'pointer', userSelect: 'none' }}>
+            {lang === 'en' ? (
+              <>
+                I have read and agree to the{' '}
+                <span 
+                  onClick={(e) => { e.preventDefault(); handleOpenTerms('terms'); }} 
+                  style={{ color: '#ff6b00', textDecoration: 'underline', cursor: 'pointer' }}
+                >
+                  Terms of Service
+                </span>{' '}
+                and{' '}
+                <span 
+                  onClick={(e) => { e.preventDefault(); handleOpenTerms('policy'); }} 
+                  style={{ color: '#ff6b00', textDecoration: 'underline', cursor: 'pointer' }}
+                >
+                  AI Content Generation Policy
+                </span>.
+              </>
+            ) : (
+              <>
+                He leído y acepto los{' '}
+                <span 
+                  onClick={(e) => { e.preventDefault(); handleOpenTerms('terms'); }} 
+                  style={{ color: '#ff6b00', textDecoration: 'underline', cursor: 'pointer' }}
+                >
+                  Términos de Servicio
+                </span>{' '}
+                y la{' '}
+                <span 
+                  onClick={(e) => { e.preventDefault(); handleOpenTerms('policy'); }} 
+                  style={{ color: '#ff6b00', textDecoration: 'underline', cursor: 'pointer' }}
+                >
+                  Política de Generación de Contenido con IA
+                </span>.
+              </>
+            )}
+          </label>
+        </div>
+
         <div className={styles.creditsNotice}>
           <span className={styles.creditsEmoji}>⚡</span>
           <div className={styles.creditsInfo}>
@@ -156,7 +226,13 @@ export default function WizardStep5({
         <button type="button" onClick={onPrev} disabled={isGenerating} className={styles.backBtn}>
           {t('step4_back_btn')}
         </button>
-        <button type="button" disabled={isGenerating} onClick={handleGenerateClick} className={styles.generateBtn}>
+        <button 
+          type="button" 
+          disabled={isGenerating || !acceptedTerms} 
+          onClick={handleGenerateClick} 
+          className={styles.generateBtn}
+          style={{ opacity: (!acceptedTerms && !isGenerating) ? 0.5 : 1, cursor: (!acceptedTerms && !isGenerating) ? 'not-allowed' : 'pointer' }}
+        >
           {isGenerating ? (
             <>
               <svg className={styles.spinner} fill="none" viewBox="0 0 24 24">
@@ -247,6 +323,51 @@ export default function WizardStep5({
             >
               {lang === 'en' ? 'Cancel / Keep Editing' : 'Cancelar / Seguir Editando'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal interno de respaldo por si no se pasa por props */}
+      {!onOpenTermsModal && internalLegalModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 10001,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+          <div style={{
+            background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem',
+            padding: '2rem', maxWidth: '600px', width: '100%', color: '#fff', 
+            display: 'flex', flexDirection: 'column', gap: '1.25rem',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)', maxHeight: '80vh', overflowY: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.75rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: '700', margin: 0, color: '#f8fafc' }}>
+                {internalLegalModal === 'terms' ? (lang === 'en' ? 'Terms of Service' : 'Términos de Servicio') : (lang === 'en' ? 'AI Content Generation Policy' : 'Política de Generación de Contenido con IA')}
+              </h2>
+              <button 
+                type="button"
+                onClick={() => setInternalLegalModal(null)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.25rem', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ fontSize: '0.9rem', color: '#94a3b8', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
+              <p>Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Curabitur sodales ligula in libero.</p>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              <button 
+                type="button" 
+                onClick={() => setInternalLegalModal(null)}
+                style={{
+                  background: 'linear-gradient(to right, #f97316, #f59e0b)', border: 'none', color: '#fff',
+                  padding: '0.6rem 1.25rem', borderRadius: '0.5rem', fontWeight: '600', cursor: 'pointer'
+                }}
+              >
+                {lang === 'en' ? 'Accept & Close' : 'Aceptar y Cerrar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

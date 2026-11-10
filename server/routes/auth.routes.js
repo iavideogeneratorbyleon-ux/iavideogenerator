@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
+const bcryptjs = require('bcryptjs');
 const User = require('../models/User');
 
 // 1. REGISTRO (Sign Up)
@@ -23,8 +23,8 @@ router.post('/register', async (req, res) => {
     }
 
     // Cifrar la contraseña
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const salt = await bcryptjs.genSalt(10);
+    const hashedPassword = await bcryptjs.hash(password, salt);
 
     // Generar nombre por defecto basado en el correo
     const mockName = email.split('@')[0] || 'Creator';
@@ -91,6 +91,63 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.error('Error en /api/auth/login:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// 3. GOOGLE OAUTH
+const { OAuth2Client } = require('google-auth-library');
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const bcrypt = require('bcryptjs'); // Asegúrate de tener bcryptjs importado arriba
+
+router.post('/google', async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    const googleUserResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const googleProfile = await googleUserResponse.json();
+
+    const { email, name, sub: googleId } = googleProfile;
+
+    if (!email) {
+      return res.status(400).json({ message: 'No se pudo obtener el correo de Google' });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      const defaultName = email.split('@')[0] || 'Creator';
+      const formattedName = name || (defaultName.charAt(0).toUpperCase() + defaultName.slice(1));
+
+      // Generar un password aleatorio seguro para cumplir con la validación de Mongoose
+      const randomPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+      const salt = await bcryptjs.genSalt(10);
+      const hashedPassword = await bcryptjs.hash(randomPassword, salt);
+
+      user = await User.create({
+        name: formattedName,
+        email,
+        password: hashedPassword, // Se satisface la validación de Mongoose
+        credits: 1,
+        plan: 'lite',
+        googleId,
+      });
+    }
+
+    res.status(200).json({
+      message: 'Autenticación exitosa con Google',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        credits: user.credits,
+        plan: user.plan,
+      },
+    });
+  } catch (error) {
+    console.error('Error detallado en Google OAuth:', error);
+    res.status(500).json({ message: 'Error interno en la autenticación con Google' });
   }
 });
 
