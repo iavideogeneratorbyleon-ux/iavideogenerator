@@ -11,15 +11,15 @@ interface WizardContainerProps {
   onClose?: () => void;
   onComplete?: () => void;
   wizardMode?: "lite" | "pro";
-  onOpenAuthModal?: (mode: "login" | "signup") => void; // <--- Añadir esta línea
-  onOpenPricingModal?: () => void; // <--- Añadir esta línea
+  onOpenAuthModal?: (mode: "login" | "signup", onSuccess?: () => void) => void; // <--- Actualizado para aceptar callback opcional
+  onOpenPricingModal?: () => void; 
 }
 
 export default function WizardContainer({
   onClose,
   wizardMode = "lite",
-  onOpenAuthModal, // <-- Asegúrate de que esté aquí
-  onOpenPricingModal, // <-- Asegúrate de que esté aquí
+  onOpenAuthModal, 
+  onOpenPricingModal, 
 }: WizardContainerProps) {
   const { t, lang } = useLanguage();
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -192,10 +192,10 @@ export default function WizardContainer({
               toneLabels={toneLabels}
               voiceLabels={voiceLabels}
               styleLabels={styleLabels}
-              onOpenAuthModal={(mode) => {
-                // Aquí enlazamos la prop que viene del App.tsx principal
+              onOpenAuthModal={(mode, onSuccess) => {
                 if (onOpenAuthModal) {
-                  onOpenAuthModal(mode);
+                  // Pasamos el callback de éxito para que al registrarse ejecute la generación automáticamente
+                  onOpenAuthModal(mode, onSuccess);
                 }
               }}
               onOpenPricingModal={() => {

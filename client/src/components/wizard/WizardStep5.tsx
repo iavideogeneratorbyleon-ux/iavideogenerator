@@ -11,9 +11,9 @@ interface Step5Props {
   toneLabels: Record<string, string>;
   voiceLabels: Record<string, string>;
   styleLabels: Record<string, string>;
-  onOpenAuthModal: (mode: 'login' | 'signup') => void;
+  onOpenAuthModal: (mode: 'login' | 'signup', onSuccess?: () => void) => void; // <--- Actualizado para aceptar callback opcional
   onOpenPricingModal: () => void;
-  onOpenTermsModal?: (type: 'terms' | 'policy') => void; // Prop opcional por si manejas el modal de términos externamente
+  onOpenTermsModal?: (type: 'terms' | 'policy') => void;
 }
 
 export default function WizardStep5({ 
@@ -76,11 +76,14 @@ export default function WizardStep5({
     }
   };
 
-  // 🎁 Opción 1: Guardar borrador en localStorage y abrir modal de registro
+  // 🎁 Opción 1: Guardar borrador y abrir modal de registro pasando la acción de auto-generar
   const handleClaimFreeVideo = () => {
     savePendingDraft(data);
     setShowConversionModal(false);
-    onOpenAuthModal('signup');
+    // Al registrarse con éxito, el sistema reanudará inmediatamente la generación del video
+    onOpenAuthModal('signup', () => {
+      handleGenerateClick();
+    });
   };
 
   if (isCompleted) {

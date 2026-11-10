@@ -13,7 +13,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, confirmPassword: string) => Promise<void>;
-  setUserSession: (user: UserProfile) => void;
+  setUser: (user: UserProfile | null) => void; // <--- Exportado para permitir actualización externa (Google OAuth)
   logout: () => void;
   deductCredit: (amount?: number) => Promise<boolean>;
 }
@@ -21,7 +21,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'cempa_user_session';
-// Ajustado al puerto 3030 donde corre tu servidor de Express
+// Conectado al puerto 3030 de Express
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3030/api';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -41,11 +41,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(STORAGE_KEY);
     }
   }, [user]);
-
-  // Permite establecer directamente la sesión si el formulario (ej. AuthModal) hace la llamada fetch
-  const setUserSession = (userData: UserProfile) => {
-    setUser(userData);
-  };
 
   // 1. REGISTRO TRADICIONAL
   const register = async (email: string, password: string, confirmPassword: string) => {
@@ -71,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(loggedUser);
   };
 
-  // 2. LOGIN TRADICIONAL
+  // 2. INICIO DE SESIÓN TRADICIONAL
   const login = async (email: string, password: string) => {
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
@@ -119,7 +114,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return true;
     } catch (error) {
       console.error('Error de red al descontar crédito:', error);
-      // Fallback local
       setUser((prev) => (prev ? { ...prev, credits: prev.credits - amount } : null));
       return true;
     }
@@ -132,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         login,
         register,
-        setUserSession,
+        setUser,
         logout,
         deductCredit,
       }}
