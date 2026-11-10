@@ -11,11 +11,21 @@
   font-family: var(--font-sans, system-ui, sans-serif);
 }
 
-@media (min-width: 768px) {
+/* En tu WizardContainer.module.css para pantallas móviles */
+@media (max-width: 768px) {
   .wrapper {
-    padding: 1.5rem;
+    align-items: flex-start !important; /* Fuerza a que el modal comience desde el encabezado en móvil */
+    justify-content: flex-start !important;
+    overflow-y: auto;
+    padding-top: 1rem;
+  }
+
+  .leftColumn {
+    justify-content: flex-start !important; /* Empieza el contenido desde la cabecera */
+    padding-top: 1rem;
   }
 }
+
 
 @media (min-width: 1024px) {
   .wrapper {

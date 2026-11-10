@@ -94,6 +94,37 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Ruta para descontar créditos en tu backend (Express)
+router.post('/deduct-credit', async (req, res) => {
+  try {
+    const { email, amount = 1 } = req.body;
+
+    // Buscas al usuario en tu base de datos de MongoDB Atlas
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    if (user.credits < amount) {
+      return res.status(400).json({ error: 'Créditos insuficientes' });
+    }
+
+    // Descontamos el crédito y guardamos
+    user.credits -= amount;
+    await user.save();
+
+    return res.status(200).json({ 
+      success: true, 
+      remainingCredits: user.credits 
+    });
+  } catch (error) {
+    console.error('Error al descontar crédito:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+
 // 3. GOOGLE OAUTH
 const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);

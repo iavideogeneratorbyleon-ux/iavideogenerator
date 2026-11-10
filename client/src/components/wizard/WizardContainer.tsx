@@ -11,7 +11,7 @@ interface WizardContainerProps {
   onClose?: () => void;
   onComplete?: () => void;
   wizardMode?: "lite" | "pro";
-  onOpenAuthModal?: (mode: "login" | "signup", onSuccess?: () => void) => void; // <--- Actualizado para aceptar callback opcional
+  onOpenAuthModal?: (mode: "login" | "signup", onSuccess?: () => void) => void; 
   onOpenPricingModal?: () => void; 
 }
 
@@ -39,8 +39,15 @@ export default function WizardContainer({
     setFormData((prev) => ({ ...prev, ...fields }));
   };
 
-  const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 5));
-  const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
+  const nextStep = () => {
+    setCurrentStep((prev) => Math.min(prev + 1, 5));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const prevStep = () => {
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleCloseAttempt = () => {
     if (currentStep > 1 || formData.scriptIdea.trim().length > 0) {
@@ -194,7 +201,6 @@ export default function WizardContainer({
               styleLabels={styleLabels}
               onOpenAuthModal={(mode, onSuccess) => {
                 if (onOpenAuthModal) {
-                  // Pasamos el callback de éxito para que al registrarse ejecute la generación automáticamente
                   onOpenAuthModal(mode, onSuccess);
                 }
               }}

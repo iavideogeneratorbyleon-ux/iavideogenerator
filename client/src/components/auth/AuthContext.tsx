@@ -99,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user || user.credits < amount) return false;
 
     try {
-      const response = await fetch(`${API_URL}/user/deduct-credit`, {
+      const response = await fetch(`${API_URL}/auth/deduct-credit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user.email, amount }),

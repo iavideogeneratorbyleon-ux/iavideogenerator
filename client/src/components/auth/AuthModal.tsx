@@ -164,6 +164,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
             <input
               type="email"
               required
+              autoComplete='current-email'
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@correo.com"
@@ -178,6 +179,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
             <input
               type="password"
               required
+              autoComplete='current-password'
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -193,6 +195,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
               <input
                 type="password"
                 required
+                autoComplete='current-password'
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
