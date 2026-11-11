@@ -11,7 +11,8 @@ interface Step5Props {
   toneLabels: Record<string, string>;
   voiceLabels: Record<string, string>;
   styleLabels: Record<string, string>;
-  onOpenAuthModal: (mode: 'login' | 'signup', onSuccess?: () => void) => void; // <--- Actualizado para aceptar callback opcional
+  onStartProcessing?: () => void; // <--- Añadido para activar la pantalla de procesamiento dinámico
+  onOpenAuthModal: (mode: 'login' | 'signup', onSuccess?: () => void) => void;
   onOpenPricingModal: () => void;
   onOpenTermsModal?: (type: 'terms' | 'policy') => void;
 }
@@ -22,6 +23,7 @@ export default function WizardStep5({
   toneLabels, 
   voiceLabels, 
   styleLabels,
+  onStartProcessing,
   onOpenAuthModal,
   onOpenPricingModal,
   onOpenTermsModal
@@ -29,8 +31,6 @@ export default function WizardStep5({
   const { lang, t } = useLanguage();
   const { isAuthenticated, user, deductCredit } = useAuth();
   
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
   const [showConversionModal, setShowConversionModal] = useState(false);
 
   // Estados para la casilla de Términos y Condiciones y control local por si no viene por props
@@ -53,7 +53,7 @@ export default function WizardStep5({
     tech: lang === 'en' ? 'Cyberpunk / Tech' : 'Cyberpunk / Tech',
   };
 
-  const handleGenerateClick = () => {
+  const handleGenerateClick = async () => {
     if (!isAuthenticated || !user) {
       setShowConversionModal(true);
       return;
@@ -64,13 +64,11 @@ export default function WizardStep5({
       return;
     }
 
-    const success = deductCredit(1);
+    const success = await deductCredit(1);
     if (success) {
-      setIsGenerating(true);
-      setTimeout(() => {
-        setIsGenerating(false);
-        setIsCompleted(true);
-      }, 3500);
+      if (onStartProcessing) {
+        onStartProcessing(); // <--- Dispara la pantalla de progreso dinámico en el WizardContainer
+      }
     } else {
       onOpenPricingModal();
     }
@@ -85,27 +83,6 @@ export default function WizardStep5({
       handleGenerateClick();
     });
   };
-
-  if (isCompleted) {
-    return (
-      <div className={styles.completedContainer}>
-        <div className={styles.successIconWrapper}>✨</div>
-        <div className={styles.completedTextGroup}>
-          <h1 className={styles.completedTitle}>{t('step4_success_title')}</h1>
-          <p className={styles.completedSub}>
-            {lang === 'en' 
-              ? 'Your video has been generated successfully!' 
-              : '¡Tu video ha sido generado con éxito!'}
-          </p>
-        </div>
-        <div style={{ paddingTop: '1rem' }}>
-          <button type="button" onClick={() => window.location.reload()} className={styles.primaryActionBtn}>
-            {t('step4_create_another_btn')}
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className={styles.stepContainer}>
@@ -226,27 +203,17 @@ export default function WizardStep5({
       </div>
 
       <div className={styles.footerAction}>
-        <button type="button" onClick={onPrev} disabled={isGenerating} className={styles.backBtn}>
+        <button type="button" onClick={onPrev} className={styles.backBtn}>
           {t('step4_back_btn')}
         </button>
         <button 
           type="button" 
-          disabled={isGenerating || !acceptedTerms} 
+          disabled={!acceptedTerms} 
           onClick={handleGenerateClick} 
           className={styles.generateBtn}
-          style={{ opacity: (!acceptedTerms && !isGenerating) ? 0.5 : 1, cursor: (!acceptedTerms && !isGenerating) ? 'not-allowed' : 'pointer' }}
+          style={{ opacity: !acceptedTerms ? 0.5 : 1, cursor: !acceptedTerms ? 'not-allowed' : 'pointer' }}
         >
-          {isGenerating ? (
-            <>
-              <svg className={styles.spinner} fill="none" viewBox="0 0 24 24">
-                <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              {t('step4_generating_btn')}
-            </>
-          ) : (
-            <>{lang === 'en' ? 'Generate Video Now' : 'Generar Video Ahora'}</>
-          )}
+          <>{lang === 'en' ? 'Generate Video Now' : 'Generar Video Ahora'}</>
         </button>
       </div>
 

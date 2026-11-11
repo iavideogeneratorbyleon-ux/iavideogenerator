@@ -5,25 +5,28 @@ import WizardStep2 from "./WizardStep2";
 import WizardStep3 from "./WizardStep3";
 import WizardStep4 from "./WizardStep4";
 import WizardStep5 from "./WizardStep5";
+import WizardProcessingStep from "./WizardProcessingStep";
 import styles from "./WizardContainer.module.css";
 
 interface WizardContainerProps {
   onClose?: () => void;
   onComplete?: () => void;
   wizardMode?: "lite" | "pro";
-  onOpenAuthModal?: (mode: "login" | "signup", onSuccess?: () => void) => void; 
-  onOpenPricingModal?: () => void; 
+  onOpenAuthModal?: (mode: "login" | "signup", onSuccess?: () => void) => void;
+  onOpenPricingModal?: () => void;
 }
 
 export default function WizardContainer({
   onClose,
+  onComplete,
   wizardMode = "lite",
-  onOpenAuthModal, 
-  onOpenPricingModal, 
+  onOpenAuthModal,
+  onOpenPricingModal,
 }: WizardContainerProps) {
   const { t, lang } = useLanguage();
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const [formData, setFormData] = useState<WizardData>({
     mode: "idea",
@@ -50,6 +53,8 @@ export default function WizardContainer({
   };
 
   const handleCloseAttempt = () => {
+    if (isProcessing) return; // Evita cerrar accidentalmente mientras genera
+
     if (currentStep > 1 || formData.scriptIdea.trim().length > 0) {
       setShowExitConfirm(true);
     } else {
@@ -62,6 +67,15 @@ export default function WizardContainer({
     setShowExitConfirm(false);
     if (onClose) onClose();
     else window.location.reload();
+  };
+
+  const handleProcessingComplete = () => {
+    setIsProcessing(false);
+    if (onComplete) {
+      onComplete();
+    } else if (onClose) {
+      onClose();
+    }
   };
 
   // Diccionarios traducibles completos (Lite + Pro)
@@ -108,256 +122,270 @@ export default function WizardContainer({
   return (
     <div className={styles.wrapper}>
       <div className={styles.cardContainer}>
-        <button
-          type="button"
-          onClick={handleCloseAttempt}
-          aria-label={t("wizard_close_aria") || "Close wizard"}
-          className={styles.closeBtn}
-        >
-          ✕
-        </button>
+        {!isProcessing && (
+          <button
+            type="button"
+            onClick={handleCloseAttempt}
+            aria-label={t("wizard_close_aria") || "Close wizard"}
+            className={styles.closeBtn}
+          >
+            ✕
+          </button>
+        )}
 
-        {/* COLUMNA IZQUIERDA: Wizard Steps */}
-        <div className={styles.leftColumn}>
-          <div className={styles.progressHeader}>
-            <div className={styles.progressTopRow}>
-              <div className={styles.stepInfoGroup}>
-                {currentStep > 1 && currentStep < 5 && (
-                  <button
-                    type="button"
-                    onClick={prevStep}
-                    className={styles.backBtn}
-                  >
-                    {t("wizard_back_btn")}
-                  </button>
-                )}
-                <span className={styles.stepBadge}>
-                  {t("wizard_step")} {currentStep} {t("wizard_of")} 5
-                </span>
-              </div>
-              <span className={styles.progressPercent}>
-                {currentStep * 20}% {t("wizard_completed")}
-              </span>
-            </div>
-
-            <div className={styles.progressBarTrack}>
-              <div
-                className={styles.progressBarFill}
-                style={{ width: `${currentStep * 20}%` }}
-              />
-            </div>
+        {/* MODO DE PROCESAMIENTO / GENERACIÓN EN VIVO */}
+        {isProcessing ? (
+          <div className="w-full flex justify-center items-center py-6">
+            <WizardProcessingStep onComplete={handleProcessingComplete} />
           </div>
-
-          {/* Paso 1 */}
-          {currentStep === 1 && (
-            <WizardStep1
-              data={formData}
-              onUpdate={updateFormData}
-              onNext={nextStep}
-              wizardMode={wizardMode}
-            />
-          )}
-
-          {/* Paso 2 */}
-          {currentStep === 2 && (
-            <WizardStep2
-              data={formData}
-              onUpdate={updateFormData}
-              onNext={nextStep}
-              onPrev={prevStep}
-              wizardMode={wizardMode}
-            />
-          )}
-
-          {/* Paso 3 */}
-          {currentStep === 3 && (
-            <WizardStep3
-              data={formData}
-              onUpdate={updateFormData}
-              onNext={nextStep}
-              onPrev={prevStep}
-              wizardMode={wizardMode}
-            />
-          )}
-
-          {/* Paso 4 */}
-          {currentStep === 4 && (
-            <WizardStep4
-              data={formData}
-              onUpdate={updateFormData}
-              onNext={nextStep}
-              onPrev={prevStep}
-              wizardMode={wizardMode}
-            />
-          )}
-
-          {/* Paso 5 (Sumario final con opciones de conversión) */}
-          {currentStep === 5 && (
-            <WizardStep5
-              data={formData}
-              onPrev={prevStep}
-              toneLabels={toneLabels}
-              voiceLabels={voiceLabels}
-              styleLabels={styleLabels}
-              onOpenAuthModal={(mode, onSuccess) => {
-                if (onOpenAuthModal) {
-                  onOpenAuthModal(mode, onSuccess);
-                }
-              }}
-              onOpenPricingModal={() => {
-                if (onOpenPricingModal) {
-                  onOpenPricingModal();
-                } else if (onClose) {
-                  onClose();
-                }
-              }}
-            />
-          )}
-
-          <div className={styles.mobileExitContainer}>
-            <button
-              type="button"
-              onClick={handleCloseAttempt}
-              className={styles.mobileExitBtn}
-            >
-              {t("wizard_exit_mobile_btn") || "Salir del asistente"}
-            </button>
-          </div>
-        </div>
-
-        {/* COLUMNA DERECHA: Resumen en Vivo Actualizado Dinámicamente */}
-        <div className={styles.rightColumn}>
-          <div className={styles.summaryContent}>
-            <div>
-              <span className={styles.summaryBadge}>
-                {t("summary_live_preview")} (
-                {wizardMode === "pro" ? "Studio Pro" : "Studio Lite"})
-              </span>
-              <h2 className={styles.summaryTitle}>
-                {t("summary_project_title")}
-              </h2>
-              <p className={styles.summarySub}>{t("summary_project_sub")}</p>
-            </div>
-
-            <div className={styles.summaryCard}>
-              <span className={styles.summaryCardLabel}>
-                {lang === "en" ? "Creation Mode" : "Modo de Creación"}
-              </span>
-              <p className={styles.highlightValue}>
-                {modeLabels[formData.mode || "idea"]}
-              </p>
-            </div>
-
-            <div className={styles.summaryCard}>
-              <span className={styles.summaryCardLabel}>
-                {formData.scriptIdea && formData.scriptIdea.length > 150
-                  ? lang === "en"
-                    ? "My Own Script"
-                    : "Mi Propio Guion"
-                  : t("summary_concept_label")}
-              </span>
-              <p className={styles.summaryCardValue}>
-                {formData.scriptIdea ? (
-                  formData.scriptIdea
-                ) : (
-                  <span
-                    style={{
-                      fontStyle: "italic",
-                      color: "var(--color-text-muted)",
-                    }}
-                  >
-                    {t("summary_undefined")}
-                  </span>
-                )}
-              </p>
-            </div>
-
-            <div className={styles.summaryGrid}>
-              <div className={styles.summarySubCard}>
-                <span className={styles.summaryCardLabel}>
-                  {t("summary_tone_label")}
-                </span>
-                <p className={styles.highlightValue}>
-                  {toneLabels[formData.tone] || formData.tone}
-                </p>
-              </div>
-              <div className={styles.summarySubCard}>
-                <span className={styles.summaryCardLabel}>
-                  {t("summary_format_label")}
-                </span>
-                <p className={styles.highlightValue}>
-                  {formData.aspectRatio || "9:16"}
-                </p>
-              </div>
-            </div>
-
-            <div className={styles.summaryGrid}>
-              <div className={styles.summarySubCard}>
-                <span className={styles.summaryCardLabel}>
-                  {t("summary_voice_label")}
-                </span>
-                <p
-                  className={styles.highlightValue}
-                  style={{ fontSize: "0.7rem" }}
-                >
-                  {formData.voiceId ? (
-                    voiceLabels[formData.voiceId] || formData.voiceId
-                  ) : (
-                    <span
-                      style={{
-                        fontStyle: "italic",
-                        fontWeight: "normal",
-                        color: "var(--color-text-muted)",
-                      }}
-                    >
-                      {t("summary_unselected")}
+        ) : (
+          <>
+            {/* COLUMNA IZQUIERDA: Wizard Steps */}
+            <div className={styles.leftColumn}>
+              <div className={styles.progressHeader}>
+                <div className={styles.progressTopRow}>
+                  <div className={styles.stepInfoGroup}>
+                    {currentStep > 1 && currentStep < 5 && (
+                      <button
+                        type="button"
+                        onClick={prevStep}
+                        className={styles.backBtn}
+                      >
+                        {t("wizard_back_btn")}
+                      </button>
+                    )}
+                    <span className={styles.stepBadge}>
+                      {t("wizard_step")} {currentStep} {t("wizard_of")} 5
                     </span>
-                  )}
-                </p>
-              </div>
-              <div className={styles.summarySubCard}>
-                <span className={styles.summaryCardLabel}>
-                  {lang === "en" ? "Music" : "Música"}
-                </span>
-                <p
-                  className={styles.highlightValue}
-                  style={{ fontSize: "0.7rem" }}
-                >
-                  {musicLabels[formData.musicStyle || "none"] ||
-                    formData.musicStyle}
-                </p>
-              </div>
-            </div>
-
-            <div className={styles.summaryCard}>
-              <span className={styles.summaryCardLabel}>
-                {t("summary_style_label")}
-              </span>
-              <p className={styles.highlightValue}>
-                {formData.visualStyle ? (
-                  styleLabels[formData.visualStyle] || formData.visualStyle
-                ) : (
-                  <span
-                    style={{
-                      fontStyle: "italic",
-                      fontWeight: "normal",
-                      color: "var(--color-text-muted)",
-                    }}
-                  >
-                    {t("summary_undefined")}
+                  </div>
+                  <span className={styles.progressPercent}>
+                    {currentStep * 20}% {t("wizard_completed")}
                   </span>
-                )}
-              </p>
-            </div>
-          </div>
+                </div>
 
-          <div className={styles.summaryFooter}>
-            <p className={styles.footerText}>
-              {t("summary_engine_label")} • {t("wizard_step")} {currentStep}{" "}
-              {t("wizard_of")} 5
-            </p>
-          </div>
-        </div>
+                <div className={styles.progressBarTrack}>
+                  <div
+                    className={styles.progressBarFill}
+                    style={{ width: `${currentStep * 20}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Paso 1 */}
+              {currentStep === 1 && (
+                <WizardStep1
+                  data={formData}
+                  onUpdate={updateFormData}
+                  onNext={nextStep}
+                  wizardMode={wizardMode}
+                />
+              )}
+
+              {/* Paso 2 */}
+              {currentStep === 2 && (
+                <WizardStep2
+                  data={formData}
+                  onUpdate={updateFormData}
+                  onNext={nextStep}
+                  onPrev={prevStep}
+                  wizardMode={wizardMode}
+                />
+              )}
+
+              {/* Paso 3 */}
+              {currentStep === 3 && (
+                <WizardStep3
+                  data={formData}
+                  onUpdate={updateFormData}
+                  onNext={nextStep}
+                  onPrev={prevStep}
+                  wizardMode={wizardMode}
+                />
+              )}
+
+              {/* Paso 4 */}
+              {currentStep === 4 && (
+                <WizardStep4
+                  data={formData}
+                  onUpdate={updateFormData}
+                  onNext={nextStep}
+                  onPrev={prevStep}
+                  wizardMode={wizardMode}
+                />
+              )}
+
+              {/* Paso 5 (Sumario final con opciones de conversión) */}
+              {currentStep === 5 && (
+                <WizardStep5
+                  data={formData}
+                  onPrev={prevStep}
+                  toneLabels={toneLabels}
+                  voiceLabels={voiceLabels}
+                  styleLabels={styleLabels}
+                  onStartProcessing={() => setIsProcessing(true)}
+                  onOpenAuthModal={(mode, onSuccess) => {
+                    if (onOpenAuthModal) {
+                      onOpenAuthModal(mode, onSuccess);
+                    }
+                  }}
+                  onOpenPricingModal={() => {
+                    if (onOpenPricingModal) {
+                      onOpenPricingModal();
+                    } else if (onClose) {
+                      onClose();
+                    }
+                  }}
+                />
+              )}
+
+              <div className={styles.mobileExitContainer}>
+                <button
+                  type="button"
+                  onClick={handleCloseAttempt}
+                  className={styles.mobileExitBtn}
+                >
+                  {t("wizard_exit_mobile_btn") || "Salir del asistente"}
+                </button>
+              </div>
+            </div>
+
+            {/* COLUMNA DERECHA: Resumen en Vivo Actualizado Dinámicamente */}
+            <div className={styles.rightColumn}>
+              <div className={styles.summaryContent}>
+                <div>
+                  <span className={styles.summaryBadge}>
+                    {t("summary_live_preview")} (
+                    {wizardMode === "pro" ? "Studio Pro" : "Studio Lite"})
+                  </span>
+                  <h2 className={styles.summaryTitle}>
+                    {t("summary_project_title")}
+                  </h2>
+                  <p className={styles.summarySub}>
+                    {t("summary_project_sub")}
+                  </p>
+                </div>
+
+                <div className={styles.summaryCard}>
+                  <span className={styles.summaryCardLabel}>
+                    {lang === "en" ? "Creation Mode" : "Modo de Creación"}
+                  </span>
+                  <p className={styles.highlightValue}>
+                    {modeLabels[formData.mode || "idea"]}
+                  </p>
+                </div>
+
+                <div className={styles.summaryCard}>
+                  <span className={styles.summaryCardLabel}>
+                    {formData.scriptIdea && formData.scriptIdea.length > 150
+                      ? lang === "en"
+                        ? "My Own Script"
+                        : "Mi Propio Guion"
+                      : t("summary_concept_label")}
+                  </span>
+                  <p className={styles.summaryCardValue}>
+                    {formData.scriptIdea ? (
+                      formData.scriptIdea
+                    ) : (
+                      <span
+                        style={{
+                          fontStyle: "italic",
+                          color: "var(--color-text-muted)",
+                        }}
+                      >
+                        {t("summary_undefined")}
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <div className={styles.summaryGrid}>
+                  <div className={styles.summarySubCard}>
+                    <span className={styles.summaryCardLabel}>
+                      {t("summary_tone_label")}
+                    </span>
+                    <p className={styles.highlightValue}>
+                      {toneLabels[formData.tone] || formData.tone}
+                    </p>
+                  </div>
+                  <div className={styles.summarySubCard}>
+                    <span className={styles.summaryCardLabel}>
+                      {t("summary_format_label")}
+                    </span>
+                    <p className={styles.highlightValue}>
+                      {formData.aspectRatio || "9:16"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className={styles.summaryGrid}>
+                  <div className={styles.summarySubCard}>
+                    <span className={styles.summaryCardLabel}>
+                      {t("summary_voice_label")}
+                    </span>
+                    <p
+                      className={styles.highlightValue}
+                      style={{ fontSize: "0.7rem" }}
+                    >
+                      {formData.voiceId ? (
+                        voiceLabels[formData.voiceId] || formData.voiceId
+                      ) : (
+                        <span
+                          style={{
+                            fontStyle: "italic",
+                            fontWeight: "normal",
+                            color: "var(--color-text-muted)",
+                          }}
+                        >
+                          {t("summary_unselected")}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className={styles.summarySubCard}>
+                    <span className={styles.summaryCardLabel}>
+                      {lang === "en" ? "Music" : "Música"}
+                    </span>
+                    <p
+                      className={styles.highlightValue}
+                      style={{ fontSize: "0.7rem" }}
+                    >
+                      {musicLabels[formData.musicStyle || "none"] ||
+                        formData.musicStyle}
+                    </p>
+                  </div>
+                </div>
+
+                <div className={styles.summaryCard}>
+                  <span className={styles.summaryCardLabel}>
+                    {t("summary_style_label")}
+                  </span>
+                  <p className={styles.highlightValue}>
+                    {formData.visualStyle ? (
+                      styleLabels[formData.visualStyle] || formData.visualStyle
+                    ) : (
+                      <span
+                        style={{
+                          fontStyle: "italic",
+                          fontWeight: "normal",
+                          color: "var(--color-text-muted)",
+                        }}
+                      >
+                        {t("summary_undefined")}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className={styles.summaryFooter}>
+                <p className={styles.footerText}>
+                  {t("summary_engine_label")} • {t("wizard_step")} {currentStep}{" "}
+                  {t("wizard_of")} 5
+                </p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {showExitConfirm && (
