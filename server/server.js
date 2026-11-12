@@ -12,6 +12,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth.routes');
+const videoRoutes = require('./routes/video.routes'); // <--- 1. Importa las rutas de video
 
 const app = express();
 const PORT = process.env.PORT || 3030;
@@ -27,6 +28,7 @@ mongoose.connect(process.env.MONGO_URI)
 
 // Rutas de la API
 app.use('/api/auth', authRoutes);
+app.use('/api/videos', videoRoutes); // <--- 2. Monta las rutas en /api/videos
 
 app.get('/', (req, res) => {
   res.send('API de cempa.ai funcionando al 100% 🚀');

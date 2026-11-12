@@ -64,7 +64,7 @@ export default function WizardStep5({
       return;
     }
 
-    const success = await deductCredit(1);
+    const success = await deductCredit(0);
     if (success) {
       if (onStartProcessing) {
         onStartProcessing(); // <--- Dispara la pantalla de progreso dinámico en el WizardContainer

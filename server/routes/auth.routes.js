@@ -35,7 +35,7 @@ router.post('/register', async (req, res) => {
       name: formattedName,
       email,
       password: hashedPassword,
-      credits: 1, // Crédito gratis inicial
+      credits: 50,
       plan: 'lite',
     });
 
@@ -97,7 +97,7 @@ router.post('/login', async (req, res) => {
 // Ruta para descontar créditos en tu backend (Express)
 router.post('/deduct-credit', async (req, res) => {
   try {
-    const { email, amount = 1 } = req.body;
+    const { email, amount = 30 } = req.body;
 
     // Buscas al usuario en tu base de datos de MongoDB Atlas
     const user = await User.findOne({ email });
@@ -160,7 +160,7 @@ router.post('/google', async (req, res) => {
         name: formattedName,
         email,
         password: hashedPassword, // Se satisface la validación de Mongoose
-        credits: 1,
+        credits: 50,
         plan: 'lite',
         googleId,
       });

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../landing/LanguageContext';
+import { useAuth } from '../auth/AuthContext';
 import styles from './WizardProcessingStep.module.css';
 
 interface WizardProcessingStepProps {
@@ -14,9 +15,13 @@ interface StepItem {
 
 export default function WizardProcessingStep({ onComplete }: WizardProcessingStepProps) {
   const { lang } = useLanguage();
+  const { user, updateCredits } = useAuth(); // <--- Extraemos updateCredits del contexto
   const [activeStepIndex, setActiveStepIndex] = useState<number>(0);
   const [progress, setProgress] = useState<number>(0);
-  const [isFinished, setIsFinished] = useState<boolean>(false); // <--- Nuevo estado para mostrar la vista de éxito
+  const [isFinished, setIsFinished] = useState<boolean>(false);
+
+  // Candado para evitar peticiones duplicadas al backend 
+  const hasSavedRef = useRef<boolean>(false);
 
   const steps: StepItem[] = [
     { id: 1, titleKey: 'proc_step_1', defaultTitle: lang === 'en' ? 'Analyzing script and creative parameters...' : 'Analizando guión y parámetros creativos...' },
@@ -35,7 +40,35 @@ export default function WizardProcessingStep({ onComplete }: WizardProcessingSte
         const next = prev + 1;
         if (next >= totalSteps) {
           clearInterval(timer);
-          // Al terminar los pasos, activamos la vista final de éxito en lugar de cerrar de inmediato
+          
+          // Guardar el video generado UNA SOLA VEZ verificando el candado
+          if (user?.email && !hasSavedRef.current) {
+            hasSavedRef.current = true;
+            fetch('http://localhost:3030/api/videos/save', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: user.email,
+                title: 'Studio Lite Project',
+                mode: 'idea',
+                aspectRatio: '9:16'
+              })
+            })
+            .then(async (res) => {
+              const data = await res.json();
+              if (data.success) {
+                // ACTUALIZACIÓN DE CRÉDITOS EN TIEMPO REAL:
+                // Si el servidor devuelve los créditos restantes (ej. 20), los actualizamos en el contexto
+                if (typeof data.remainingCredits === 'number') {
+                  updateCredits(data.remainingCredits);
+                }
+              } else {
+                console.warn('Aviso del servidor:', data.error);
+              }
+            })
+            .catch((err) => console.error('Error al guardar video en historial:', err));
+          }
+
           setTimeout(() => {
             setIsFinished(true);
           }, 600);
@@ -59,7 +92,7 @@ export default function WizardProcessingStep({ onComplete }: WizardProcessingSte
       clearInterval(timer);
       clearInterval(progressInterval);
     };
-  }, []);
+  }, [user, updateCredits]);
 
   // Si ya terminó el proceso, mostramos la tarjeta de éxito con opciones de descarga
   if (isFinished) {

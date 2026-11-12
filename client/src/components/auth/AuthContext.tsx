@@ -13,15 +13,15 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, confirmPassword: string) => Promise<void>;
-  setUser: (user: UserProfile | null) => void; // <--- Exportado para permitir actualización externa (Google OAuth)
+  setUser: (user: UserProfile | null) => void;
   logout: () => void;
   deductCredit: (amount?: number) => Promise<boolean>;
+  updateCredits: (newCredits: number) => void; // <--- Añadido para actualizar créditos al vuelo
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'cempa_user_session';
-// Conectado al puerto 3030 de Express
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3030/api';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -95,7 +95,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  const deductCredit = async (amount = 1): Promise<boolean> => {
+  // Función para actualizar créditos directamente en el estado y localStorage
+  const updateCredits = (newCredits: number) => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, credits: newCredits };
+      return updated;
+    });
+  };
+
+  const deductCredit = async (amount = 30): Promise<boolean> => {
     if (!user || user.credits < amount) return false;
 
     try {
@@ -129,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser,
         logout,
         deductCredit,
+        updateCredits,
       }}
     >
       {children}
