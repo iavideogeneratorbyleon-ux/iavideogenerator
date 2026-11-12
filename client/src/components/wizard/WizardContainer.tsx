@@ -158,9 +158,22 @@ export default function WizardContainer({
                       {t("wizard_step")} {currentStep} {t("wizard_of")} 5
                     </span>
                   </div>
-                  <span className={styles.progressPercent}>
-                    {currentStep * 20}% {t("wizard_completed")}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={styles.progressPercent}>
+                      {currentStep * 20}% {t("wizard_completed")}
+                    </span>
+                    {/* Botón de cierre visible también en móvil junto al porcentaje */}
+                    {!isProcessing && (
+                      <button
+                        type="button"
+                        onClick={handleCloseAttempt}
+                        aria-label={t("wizard_close_aria") || "Close wizard"}
+                        className="md:hidden text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 w-7 h-7 rounded-full flex items-center justify-center text-xs transition-all"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className={styles.progressBarTrack}>

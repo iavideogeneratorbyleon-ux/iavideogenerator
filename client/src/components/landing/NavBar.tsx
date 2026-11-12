@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLanguage } from './LanguageContext';
 import { useAuth } from '../auth/AuthContext';
 import Logo from '../brand/Logo';
@@ -6,14 +6,45 @@ import Logo from '../brand/Logo';
 interface NavbarProps {
   onStartWizard: () => void;
   onOpenAuthModal?: (mode: 'login' | 'signup') => void;
+  onGoHome?: () => void;
 }
 
-export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) {
+export default function Navbar({ onStartWizard, onOpenAuthModal, onGoHome }: NavbarProps) {
   const { lang, setLang, t } = useLanguage();
   const { user, isAuthenticated, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Referencia para detectar clics fuera del navbar
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(event.target as Node)) {
+        setMobileMenuOpen(false);
+        setDropdownOpen(false);
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleLogoClick = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setDropdownOpen(false);
+    setUserMenuOpen(false);
+    setMobileMenuOpen(false);
+    if (onGoHome) {
+      onGoHome();
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const handleWizardClick = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -30,11 +61,11 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-[#0b0f19] border-b border-white/10 backdrop-blur-md">
+    <header ref={navRef} className="sticky top-0 z-50 w-full bg-[#0b0f19] border-b border-white/10 backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:px-6 md:py-4 box-border">
         
         {/* Logo */}
-        <div className="flex-shrink-0 cursor-pointer" onClick={handleWizardClick}>
+        <div className="flex-shrink-0 cursor-pointer" onClick={handleLogoClick}>
           <Logo size="md" />
         </div>
 
@@ -181,14 +212,16 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
             </>
           )}
 
-          {/* CTA Crear Video */}
-          <button
-            type="button"
-            onClick={handleWizardClick}
-            className="hidden md:inline-flex whitespace-nowrap rounded-lg bg-[#ff6b00] px-4 py-2 text-sm font-bold text-white shadow-md hover:bg-[#e05d00] active:scale-95 transition-all"
-          >
-            {t("nav_create") || (lang === 'en' ? 'Create Video' : 'Crear Video')}
-          </button>
+          {/* CTA Crear Video (Solo visible si NO está logueado) */}
+          {!isAuthenticated && (
+            <button
+              type="button"
+              onClick={handleWizardClick}
+              className="hidden md:inline-flex whitespace-nowrap rounded-lg bg-[#ff6b00] px-4 py-2 text-sm font-bold text-white shadow-md hover:bg-[#e05d00] active:scale-95 transition-all"
+            >
+              {t("nav_create") || (lang === 'en' ? 'Create Video' : 'Crear Video')}
+            </button>
+          )}
 
           {/* Botón Hamburguesa (SOLO MÓVIL) */}
           <button
@@ -225,13 +258,16 @@ export default function Navbar({ onStartWizard, onOpenAuthModal }: NavbarProps) 
             {lang === 'en' ? '🏷️ Pricing Plans' : '🏷️ Planes y Precios'}
           </a>
 
-          <button
-            type="button"
-            onClick={handleWizardClick}
-            className="w-full rounded-lg bg-[#ff6b00] py-2.5 text-xs font-bold text-white shadow-md my-1"
-          >
-            {lang === 'en' ? '🚀 Create Video Now' : '🚀 Crear Video Ahora'}
-          </button>
+          {/* CTA Crear Video Móvil (Solo visible si NO está logueado) */}
+          {!isAuthenticated && (
+            <button
+              type="button"
+              onClick={handleWizardClick}
+              className="w-full rounded-lg bg-[#ff6b00] py-2.5 text-xs font-bold text-white shadow-md my-1"
+            >
+              {lang === 'en' ? '🚀 Create Video Now' : '🚀 Crear Video Ahora'}
+            </button>
+          )}
 
           {/* Estado de Autenticación en Menú Móvil */}
           {!isAuthenticated ? (
