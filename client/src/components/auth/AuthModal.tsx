@@ -28,6 +28,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [verifyStatus, setVerifyStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle');
 
   const { login, setUser } = useAuth();
 
@@ -36,6 +37,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
       setIsRegistering(mode === 'signup');
       setStep('credentials');
       setError('');
+      setVerifyStatus('idle');
       setOtp(['', '', '', '', '', '']);
     }
   }, [isOpen, mode]);
@@ -134,6 +136,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
         }
 
         setResendCooldown(60);
+        setVerifyStatus('idle');
         setStep('verify');
       } else {
         await login(email, password);
@@ -152,6 +155,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
     const newOtp = [...otp];
     newOtp[index] = value.slice(-1);
     setOtp(newOtp);
+
+    if (verifyStatus === 'error') {
+      setVerifyStatus('idle');
+      setError('');
+    }
 
     if (value && index < 5) {
       otpRefs.current[index + 1]?.focus();
@@ -184,16 +192,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
 
     const code = otp.join('');
     if (code.length < 6) {
+      setVerifyStatus('error');
       setError(lang === 'en' ? 'Please enter the 6-digit code' : 'Ingresa el código completo de 6 dígitos');
       return;
     }
 
     if (!name.trim()) {
+      setVerifyStatus('error');
       setError(lang === 'en' ? 'Please enter your name' : 'Por favor ingresa tu nombre');
       return;
     }
 
     setLoading(true);
+    setVerifyStatus('verifying');
 
     try {
       const res = await fetch('http://localhost:3030/api/auth/verify-and-register', {
@@ -216,11 +227,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
         plan: userObj.plan || 'lite',
       };
 
-      setUser(userProfile);
-      handlePostAuthSuccess();
+      setVerifyStatus('success');
+
+      // Mostramos el estado de éxito por 1.8 segundos antes de cerrar y redirigir
+      setTimeout(() => {
+        setUser(userProfile);
+        handlePostAuthSuccess();
+      }, 1800);
     } catch (err: any) {
+      setVerifyStatus('error');
       setError(err.message || (lang === 'en' ? 'Verification failed' : 'Error al verificar la cuenta'));
-    } finally {
       setLoading(false);
     }
   };
@@ -228,6 +244,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
   const handleResendCode = async () => {
     if (resendCooldown > 0 || loading) return;
     setError('');
+    setVerifyStatus('idle');
     setLoading(true);
     try {
       const res = await fetch('http://localhost:3030/api/auth/send-verification', {
@@ -263,11 +280,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
           <div>
             <button
               type="button"
+              disabled={loading || verifyStatus === 'success'}
               onClick={() => {
                 setStep('credentials');
                 setError('');
+                setVerifyStatus('idle');
               }}
-              className="text-xs text-slate-400 hover:text-white flex items-center gap-1 mb-3 transition-colors"
+              className="text-xs text-slate-400 hover:text-white flex items-center gap-1 mb-3 transition-colors disabled:opacity-50"
             >
               ← {lang === 'en' ? 'Change email' : 'Cambiar correo'}
             </button>
@@ -280,9 +299,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
               <span className="text-white font-semibold">{email}</span>
             </p>
 
+            {/* Banner visual de estado en tiempo real */}
+            {verifyStatus === 'verifying' && (
+              <div className="bg-orange-500/10 border border-orange-500/40 text-orange-300 text-sm p-3 rounded-xl mb-4 flex items-center justify-center gap-2.5">
+                <span className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+                <span>
+                  {lang === 'en' ? 'Verifying your email code...' : 'Verificando tu código de correo...'}
+                </span>
+              </div>
+            )}
+
+            {verifyStatus === 'success' && (
+              <div className="bg-emerald-500/15 border border-emerald-500/50 text-emerald-300 text-sm p-3 rounded-xl mb-4 flex items-center justify-center gap-2 font-medium">
+                <span>✓</span>
+                <span>
+                  {lang === 'en'
+                    ? 'Email verified! Setting up your account...'
+                    : '¡Correo verificado! Preparando tu cuenta...'}
+                </span>
+              </div>
+            )}
+
             {error && (
               <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm p-3 rounded-xl mb-4 text-center">
-                {error}
+                ✕ {error}
               </div>
             )}
 
@@ -294,10 +334,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
                 <input
                   type="text"
                   required
+                  disabled={loading || verifyStatus === 'success'}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={lang === 'en' ? 'How should we call you?' : '¿Cómo te llamas?'}
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition"
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition disabled:opacity-60"
                 />
               </div>
 
@@ -313,10 +354,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
                       type="text"
                       inputMode="numeric"
                       maxLength={1}
+                      disabled={loading || verifyStatus === 'success'}
                       value={digit}
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                      className="w-11 h-12 text-center text-lg font-bold bg-slate-800/80 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition"
+                      className={`w-11 h-12 text-center text-lg font-bold bg-slate-800/80 border rounded-xl text-white focus:outline-none transition disabled:opacity-60 ${
+                        verifyStatus === 'success'
+                          ? 'border-emerald-500 text-emerald-300'
+                          : verifyStatus === 'error'
+                          ? 'border-red-500/70 focus:border-red-500'
+                          : 'border-slate-700 focus:border-orange-500 focus:ring-1 focus:ring-orange-500'
+                      }`}
                     />
                   ))}
                 </div>
@@ -324,10 +372,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
 
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-orange-500/20 transition disabled:opacity-50"
+                disabled={loading || verifyStatus === 'success'}
+                className={`w-full font-semibold py-3 rounded-xl shadow-lg transition disabled:opacity-80 ${
+                  verifyStatus === 'success'
+                    ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                    : 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-orange-500/20'
+                }`}
               >
-                {loading
+                {verifyStatus === 'success'
+                  ? (lang === 'en' ? 'Verified ✓' : 'Verificado ✓')
+                  : loading
                   ? (lang === 'en' ? 'Verifying...' : 'Verificando...')
                   : (lang === 'en' ? 'Verify & Claim 30 Credits' : 'Verificar y Reclamar 30 Créditos')}
               </button>
@@ -344,8 +398,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
                 <button
                   type="button"
                   onClick={handleResendCode}
-                  disabled={loading}
-                  className="text-orange-400 hover:text-orange-300 hover:underline font-semibold transition"
+                  disabled={loading || verifyStatus === 'success'}
+                  className="text-orange-400 hover:text-orange-300 hover:underline font-semibold transition disabled:opacity-50"
                 >
                   {lang === 'en' ? "Didn't receive it? Resend code" : '¿No lo recibiste? Reenviar código'}
                 </button>
