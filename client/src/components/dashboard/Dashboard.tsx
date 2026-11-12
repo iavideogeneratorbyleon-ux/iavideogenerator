@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useLanguage } from '../landing/LanguageContext';
+import UpgradeModal from '../upgrate-modal/UpgrateModal'; // <--- Importamos el componente modal creado
 
 interface DashboardProps {
   onStartWizard: () => void;
@@ -20,6 +21,9 @@ export default function Dashboard({ onStartWizard }: DashboardProps) {
 
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  
+  // Estado para controlar la visibilidad del UpgradeModal
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     if (user?.email) {
@@ -44,6 +48,25 @@ export default function Dashboard({ onStartWizard }: DashboardProps) {
   const currentCredits = user?.credits ?? 0;
   const needsMoreCredits = currentCredits < 30;
 
+  // Función manejadora para el botón de crear video con validación de créditos
+  const handleCreateVideoClick = () => {
+    if (needsMoreCredits) {
+      // En lugar de un alert simple, abrimos el UpgradeModal con las opciones de pago
+      setIsUpgradeModalOpen(true);
+      return;
+    }
+    onStartWizard();
+  };
+
+  const handleSelectPlan = (planName: string) => {
+    alert(
+      lang === 'en'
+        ? `Selected plan: ${planName}. (Here you will integrate Stripe/PayPal)`
+        : `Plan seleccionado: ${planName}. (Aquí integrarás Stripe/PayPal)`
+    );
+    setIsUpgradeModalOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-[#0b0f19] text-white p-6 sm:p-10">
       <div className="max-w-7xl mx-auto flex flex-col gap-8">
@@ -63,7 +86,7 @@ export default function Dashboard({ onStartWizard }: DashboardProps) {
 
           <button
             type="button"
-            onClick={onStartWizard}
+            onClick={handleCreateVideoClick}
             className="rounded-xl bg-[#ff6b00] px-5 py-3 text-sm font-bold text-white shadow-lg hover:bg-[#e05d00] transition-all"
           >
             {lang === 'en' ? '🚀 Create New Video' : '🚀 Crear Nuevo Video'}
@@ -164,6 +187,13 @@ export default function Dashboard({ onStartWizard }: DashboardProps) {
         </div>
 
       </div>
+
+      {/* Componente UpgradeModal integrado */}
+      <UpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        onSelectPlan={handleSelectPlan}
+      />
     </div>
   );
 }
