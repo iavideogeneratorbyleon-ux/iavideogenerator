@@ -59,7 +59,7 @@ export default function WizardStep5({
       return;
     }
 
-    if (user.credits < 1) {
+    if (user.credits < 30) {
       onOpenPricingModal();
       return;
     }
@@ -196,7 +196,7 @@ export default function WizardStep5({
               {isAuthenticated ? `Créditos: ${user?.credits ?? 0}` : (lang === 'en' ? 'Ready to Generate' : 'Listo para Generar')}
             </p>
             <p className={styles.creditsDesc}>
-              {isAuthenticated ? 'Se descontará 1 crédito de tu balance.' : 'Haz clic en generar para reclamar tu video gratis o elegir un plan.'}
+              {isAuthenticated ? 'Se descontarán 30 crédito de tu balance.' : 'Haz clic en generar para reclamar tu video gratis o elegir un plan.'}
             </p>
           </div>
         </div>

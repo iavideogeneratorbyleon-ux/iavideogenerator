@@ -6,7 +6,7 @@ const User = require('../models/User');
 // 1. Guardar video al terminar el Wizard y descontar créditos de Studio Lite
 router.post('/save', async (req, res) => {
   try {
-    const { email, title, mode, aspectRatio, userId } = req.body;
+    const { email, title, mode, aspectRatio, userId, parameters } = req.body;
 
     let validUserId = userId;
     let user = null;
@@ -39,13 +39,14 @@ router.post('/save', async (req, res) => {
     user.credits -= COSTO_VIDEO_LITE;
     await user.save();
 
-    // Guardar el video asociado
+    // Guardar el video asociado con los 6 parámetros dinámicos
     const newVideo = new Video({
       userId: validUserId,
       email: user.email,
       title: title || 'Studio Lite Video',
       mode: mode || 'idea',
-      aspectRatio: aspectRatio || '9:16'
+      aspectRatio: aspectRatio || parameters?.aspectRatio || '9:16',
+      parameters: parameters || {} // <--- Guardamos todos los parámetros dinámicos en MongoDB
     });
 
     await newVideo.save();

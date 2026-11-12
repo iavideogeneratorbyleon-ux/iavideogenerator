@@ -6,6 +6,7 @@ const VideoSchema = new mongoose.Schema({
   title: { type: String, required: true, default: 'Studio Lite Video' },
   mode: { type: String, default: 'idea' },
   aspectRatio: { type: String, default: '9:16' },
+  parameters: { type: Object, default: {} }, // <--- Añadido para almacenar los 6 parámetros dinámicos
   createdAt: { type: Date, default: Date.now }
 });
 

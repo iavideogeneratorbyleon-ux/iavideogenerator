@@ -15,7 +15,7 @@ interface StepItem {
 
 export default function WizardProcessingStep({ onComplete }: WizardProcessingStepProps) {
   const { lang } = useLanguage();
-  const { user, updateCredits } = useAuth(); // <--- Extraemos updateCredits del contexto
+  const { user, updateCredits } = useAuth();
   const [activeStepIndex, setActiveStepIndex] = useState<number>(0);
   const [progress, setProgress] = useState<number>(0);
   const [isFinished, setIsFinished] = useState<boolean>(false);
@@ -41,24 +41,51 @@ export default function WizardProcessingStep({ onComplete }: WizardProcessingSte
         if (next >= totalSteps) {
           clearInterval(timer);
           
-          // Guardar el video generado UNA SOLA VEZ verificando el candado
+          // Guardar el video generado con los parámetros dinámicos UNA SOLA VEZ
           if (user?.email && !hasSavedRef.current) {
             hasSavedRef.current = true;
+
+            // Recuperamos los parámetros del borrador o usamos valores por defecto
+            let wizardParameters = {
+              scriptIdea: 'Studio Lite Video Generation',
+              tone: 'professional',
+              voiceId: 'carlos',
+              aspectRatio: '9:16',
+              visualStyle: 'cinematic',
+              musicStyle: 'none'
+            };
+
+            try {
+              // const savedDraft = localStorage.getItem('cempa_wizard_draft');
+              const savedDraft = localStorage.getItem('cempa_pending_video_draft');
+              if (savedDraft) {
+                const parsed = JSON.parse(savedDraft);
+                wizardParameters = {
+                  scriptIdea: parsed.scriptIdea || wizardParameters.scriptIdea,
+                  tone: parsed.tone || wizardParameters.tone,
+                  voiceId: parsed.voiceId || wizardParameters.voiceId,
+                  aspectRatio: parsed.aspectRatio || wizardParameters.aspectRatio,
+                  visualStyle: parsed.visualStyle || wizardParameters.visualStyle,
+                  musicStyle: parsed.musicStyle || wizardParameters.musicStyle,
+                };
+              }
+            } catch (e) {
+              console.error('Error al leer el borrador del wizard:', e);
+            }
+
             fetch('http://localhost:3030/api/videos/save', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 email: user.email,
-                title: 'Studio Lite Project',
-                mode: 'idea',
-                aspectRatio: '9:16'
+                title: wizardParameters.scriptIdea.slice(0, 40) + '...',
+                mode: 'lite',
+                parameters: wizardParameters // <--- Enviamos los 6 parámetros dinámicos al backend
               })
             })
             .then(async (res) => {
               const data = await res.json();
               if (data.success) {
-                // ACTUALIZACIÓN DE CRÉDITOS EN TIEMPO REAL:
-                // Si el servidor devuelve los créditos restantes (ej. 20), los actualizamos en el contexto
                 if (typeof data.remainingCredits === 'number') {
                   updateCredits(data.remainingCredits);
                 }
@@ -110,7 +137,6 @@ export default function WizardProcessingStep({ onComplete }: WizardProcessingSte
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%', marginTop: '1.5rem' }}>
-            {/* Botón de descarga simulada */}
             <button
               type="button"
               onClick={() => alert(lang === 'en' ? 'Downloading video file...' : 'Descargando archivo de video...')}
@@ -133,7 +159,6 @@ export default function WizardProcessingStep({ onComplete }: WizardProcessingSte
               📥 {lang === 'en' ? 'Download Video (.mp4)' : 'Descargar Video (.mp4)'}
             </button>
 
-            {/* Botón para cerrar el wizard y llevar al usuario al Dashboard */}
             <button
               type="button"
               onClick={onComplete}
@@ -157,7 +182,6 @@ export default function WizardProcessingStep({ onComplete }: WizardProcessingSte
     );
   }
 
-  // Vista mientras se encuentra procesando paso a paso
   return (
     <div className={styles.container}>
       <div className={styles.card}>
