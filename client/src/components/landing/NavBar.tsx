@@ -7,9 +7,10 @@ interface NavbarProps {
   onStartWizard: () => void;
   onOpenAuthModal?: (mode: 'login' | 'signup') => void;
   onGoHome?: () => void;
+  onGoDashboard?: () => void; // <--- Añadido para llevar al usuario a su dashboard
 }
 
-export default function Navbar({ onStartWizard, onOpenAuthModal, onGoHome }: NavbarProps) {
+export default function Navbar({ onStartWizard, onOpenAuthModal, onGoHome, onGoDashboard }: NavbarProps) {
   const { lang, setLang, t } = useLanguage();
   const { user, isAuthenticated, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -43,6 +44,16 @@ export default function Navbar({ onStartWizard, onOpenAuthModal, onGoHome }: Nav
       onGoHome();
     } else {
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleDashboardClick = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setDropdownOpen(false);
+    setUserMenuOpen(false);
+    setMobileMenuOpen(false);
+    if (onGoDashboard) {
+      onGoDashboard();
     }
   };
 
@@ -167,12 +178,21 @@ export default function Navbar({ onStartWizard, onOpenAuthModal, onGoHome }: Nav
                         <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
                       </div>
 
+                      {/* Botón para ir al Dashboard de usuario logueado */}
+                      <button 
+                        type="button"
+                        onClick={handleDashboardClick} 
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700/50 rounded-lg transition-colors flex items-center justify-between"
+                      >
+                        <span>{lang === 'en' ? '📊 Dashboard' : '📊 Ir al Dashboard'}</span>
+                      </button>
+
                       <button 
                         type="button"
                         onClick={handleWizardClick} 
                         className="w-full text-left px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700/50 rounded-lg transition-colors"
                       >
-                        {lang === 'en' ? '🎬 My Projects' : '🎬 Mis Proyectos'}
+                        {lang === 'en' ? '🎬 Create New Video' : '🎬 Crear Nuevo Video'}
                       </button>
 
                       <button 
@@ -293,6 +313,14 @@ export default function Navbar({ onStartWizard, onOpenAuthModal, onGoHome }: Nav
                 <span>⚡ {lang === 'en' ? 'Available Credits' : 'Créditos Disponibles'}</span>
                 <span>{user?.credits}</span>
               </div>
+
+              <button
+                type="button"
+                onClick={handleDashboardClick}
+                className="w-full rounded-lg bg-slate-800 border border-slate-700 py-2.5 text-xs font-semibold text-white hover:bg-slate-700 transition-colors"
+              >
+                {lang === 'en' ? '📊 Go to Dashboard' : '📊 Ir al Dashboard'}
+              </button>
 
               <button
                 type="button"

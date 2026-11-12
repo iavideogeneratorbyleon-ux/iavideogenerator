@@ -12,6 +12,9 @@ export default function App() {
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup' | null>(null);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
 
+  // 🧭 Estado para controlar si el usuario logueado ve la Landing o su Dashboard
+  const [currentView, setCurrentView] = useState<'landing' | 'dashboard'>('landing');
+
   // 🛡️ Referencia para detectar exclusivamente cuando ocurre un Sign Out real
   const prevAuthRef = useRef(isAuthenticated);
 
@@ -20,12 +23,13 @@ export default function App() {
     if (prevAuthRef.current && !isAuthenticated) {
       setIsWizardOpen(false);
       clearPendingDraft();
+      setCurrentView('landing');
     }
     // Actualizamos la referencia con el estado actual
     prevAuthRef.current = isAuthenticated;
   }, [isAuthenticated]);
 
-  // 🎁 Auto-claim: Si el usuario completa el registro y tenía un borrador pendiente, reabrimos el Wizard
+  // 🎁 Auto-claim: Si el usuario completa el registro y tenía un borrador pendiente, reabrimos el Wizard y lo mandaremos al Dashboard al terminar
   useEffect(() => {
     if (isAuthenticated) {
       const pendingDraft = getPendingDraft();
@@ -44,6 +48,8 @@ export default function App() {
       <Navbar 
         onStartWizard={handleOpenWizard} 
         onOpenAuthModal={(mode) => setAuthModalMode(mode)} 
+        onGoHome={() => setCurrentView('landing')}
+        onGoDashboard={() => setCurrentView('dashboard')}
       />
 
       {isWizardOpen ? (
@@ -56,6 +62,7 @@ export default function App() {
           onComplete={() => {
             setIsWizardOpen(false);
             clearPendingDraft();
+            setCurrentView('dashboard'); // <--- 🚀 Al terminar de generar el video, lo mandamos al Dashboard
           }} 
           onOpenAuthModal={(mode) => setAuthModalMode(mode)}
           onOpenPricingModal={() => {
@@ -64,14 +71,13 @@ export default function App() {
           }}
         />
       ) : (
-        isAuthenticated ? (
+        isAuthenticated && currentView === 'dashboard' ? (
           <Dashboard onStartWizard={handleOpenWizard} />
         ) : (
           <LandingPage onStartWizard={handleOpenWizard} />
         )
       )}
 
-      {/* Se agregó isOpen para cumplir con AuthModalProps y solucionar el bloqueo */}
       {authModalMode && (
         <AuthModal 
           isOpen={authModalMode !== null}
