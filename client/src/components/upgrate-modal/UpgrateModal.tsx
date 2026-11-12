@@ -13,8 +13,26 @@ export default function UpgradeModal({ isOpen, onClose, onSelectPlan }: UpgradeM
   if (!isOpen) return null;
 
   return (
-    <div className={styles.overlay}>
-      <div className={styles.modalCard}>
+    <div
+      className={styles.overlay}
+      onClick={onClose}
+      style={{
+        overflowY: 'auto',
+        alignItems: 'flex-start',
+        paddingTop: '1.5rem',
+        paddingBottom: '1.5rem',
+      }}
+    >
+      <div
+        className={styles.modalCard}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          margin: 'auto',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
         
         {/* Botón de cierre */}
         <button
