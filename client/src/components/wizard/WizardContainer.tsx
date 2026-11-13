@@ -36,6 +36,7 @@ export default function WizardContainer({
     aspectRatio: "9:16",
     visualStyle: "cinematic",
     musicStyle: "none",
+    subtitles: true,
   });
 
   const updateFormData = (fields: Partial<WizardData>) => {
@@ -366,6 +367,21 @@ export default function WizardContainer({
                         formData.musicStyle}
                     </p>
                   </div>
+                </div>
+
+                <div className={styles.summaryCard}>
+                  <span className={styles.summaryCardLabel}>
+                    {lang === "en" ? "Subtitles" : "Subtítulos"}
+                  </span>
+                  <p className={styles.highlightValue}>
+                    {formData.subtitles
+                      ? lang === "en"
+                        ? "Enabled (Auto-generated)"
+                        : "Activados (Automáticos)"
+                      : lang === "en"
+                      ? "Disabled"
+                      : "Desactivados"}
+                  </p>
                 </div>
 
                 <div className={styles.summaryCard}>

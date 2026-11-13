@@ -11,6 +11,7 @@ export type WizardData = {
   aspectRatio?: string;
   visualStyle?: string;
   musicStyle?: 'none' | 'lofi' | 'epic' | 'upbeat' | 'tech';
+  subtitles: boolean;
 };
 
 interface Step1Props {

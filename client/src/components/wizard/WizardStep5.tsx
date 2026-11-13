@@ -3,6 +3,7 @@ import type { WizardData } from './WizardStep1';
 import { useLanguage } from '../landing/LanguageContext';
 import { useAuth } from '../auth/AuthContext';
 import { savePendingDraft } from './wizardStorage';
+import { buildMasterVideoPayload, type UserPlan } from '../../utils/masterVideoPayload';
 import styles from './WizardStep5.module.css';
 
 interface Step5Props {
@@ -64,13 +65,43 @@ export default function WizardStep5({
       return;
     }
 
-    const success = await deductCredit(0);
-    if (success) {
-      if (onStartProcessing) {
-        onStartProcessing(); // <--- Dispara la pantalla de progreso dinámico en el WizardContainer
+    // Construcción del JSON Maestro con los datos del usuario y del Wizard
+    const masterPayload = buildMasterVideoPayload({
+      wizardData: data,
+      userId: (user as any).id || (user as any)._id || 'usr_authenticated',
+      userPlan: 'free_trial',
+      language: lang === 'en' ? 'en' : 'es',
+    });
+
+    console.log('🚀 MASTER VIDEO PAYLOAD GENERATED:', JSON.stringify(masterPayload, null, 2));
+
+    try {
+      // 🔗 Llamada al backend para conectar con el Cerebro LLM
+      const response = await fetch('http://localhost:3030/api/llm/generate-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(masterPayload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Error en la generación del script con IA.');
       }
-    } else {
-      onOpenPricingModal();
+
+      console.log('🎉 ¡Guion estructurado y título recibidos del LLM!', result.payload);
+
+      const success = await deductCredit(0);
+      if (success) {
+        if (onStartProcessing) {
+          onStartProcessing(); // <--- Dispara la pantalla de progreso dinámico en el WizardContainer
+        }
+      } else {
+        onOpenPricingModal();
+      }
+    } catch (error) {
+      console.error('❌ Error conectando con el pipeline de IA del backend:', error);
+      alert(lang === 'en' ? 'Failed to generate video script. Please try again.' : 'Error al generar el guion del video. Por favor intenta de nuevo.');
     }
   };
 
@@ -127,9 +158,19 @@ export default function WizardStep5({
             </div>
           </div>
 
-          <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            <span className={styles.labelTitle}>{t('step4_style_label')}</span>
-            <p className={styles.itemValue}>{data.visualStyle ? (styleLabels[data.visualStyle] || data.visualStyle) : t('summary_undefined')}</p>
+          <div className={styles.gridTwoColsLast} style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <div>
+              <span className={styles.labelTitle}>{t('step4_style_label')}</span>
+              <p className={styles.itemValue}>{data.visualStyle ? (styleLabels[data.visualStyle] || data.visualStyle) : t('summary_undefined')}</p>
+            </div>
+            <div>
+              <span className={styles.labelTitle}>{lang === 'en' ? 'Subtitles' : 'Subtítulos'}</span>
+              <p className={styles.itemValue}>
+                {data.subtitles
+                  ? (lang === 'en' ? 'Enabled (Auto)' : 'Activados (Automáticos)')
+                  : (lang === 'en' ? 'Disabled' : 'Desactivados')}
+              </p>
+            </div>
           </div>
         </div>
 
