@@ -13,7 +13,7 @@ router.post('/generate-script', async (req, res) => {
       return res.status(400).json({ error: 'Payload de video inválido o vacío.' });
     }
 
-    console.log(`🎬 Iniciando pipeline LLM para usuario ${masterPayload.meta.userId} (Plan: ${masterPayload.meta.userPlan})`);
+    console.log(`🎬 Iniciando pipeline LLM para usuario ${masterPayload.meta?.userId || 'anónimo'} (Plan: ${masterPayload.meta?.userPlan || 'free_trial'})`);
 
     // Ejecutamos el servicio LLM que enriquece el payload con título y escenas
     const enrichedPayload = await generateStructuredScript(masterPayload);

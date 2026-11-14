@@ -1,29 +1,20 @@
+// server/routes/audio.routes.js
 const express = require('express');
 const router = express.Router();
-const { generateAudioStream } = require('../services/elevenlabs.service');
+const { generateAllScenesAudio } = require('../services/audioService');
 
-router.post('/generate', async (req, res) => {
-    try {
-        const { text } = req.body;
-
-        if (!text) {
-            return res.status(400).json({ error: 'El campo "text" es obligatorio.' });
-        }
-
-        console.log(`🎙️ Recibida solicitud para generar audio: "${text}"`);
-
-        const audioStream = await generateAudioStream(text);
-
-        // Indicamos que la respuesta es un archivo de audio MP3
-        res.setHeader('Content-Type', 'audio/mpeg');
-
-        // Enviamos el stream directamente al cliente
-        audioStream.pipe(res);
-
-    } catch (error) {
-        console.error('❌ Error en el endpoint /generate:', error.message);
-        res.status(500).json({ error: 'Error interno al generar el audio.' });
-    }
+router.post('/generate-audio', async (req, res) => {
+  try {
+    const masterPayload = req.body;
+    const enrichedPayload = await generateAllScenesAudio(masterPayload);
+    return res.status(200).json(enrichedPayload);
+  } catch (error) {
+    console.error('❌ Error en /api/audio/generate-audio:', error);
+    return res.status(500).json({
+      error: 'Error generando los audios con ElevenLabs',
+      details: error.message
+    });
+  }
 });
 
 module.exports = router;

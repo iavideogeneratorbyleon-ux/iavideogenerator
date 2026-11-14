@@ -10,12 +10,15 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
+const path = require('path');
 // require('dotenv').config({ path: '../.env' });
 
 
 const authRoutes = require('./routes/auth.routes');
 const videoRoutes = require('./routes/video.routes'); // <--- 1. Importa las rutas de video
 const llmRoutes = require('./routes/llm.routes');
+const audioRoutes = require('./routes/audio.routes');
+
 
 const app = express();
 const PORT = process.env.PORT || 3030;
@@ -23,6 +26,7 @@ const PORT = process.env.PORT || 3030;
 // Middlewares
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Conexión a MongoDB Atlas (cempa-dara-cluster)
 mongoose.connect(process.env.MONGO_URI)
@@ -33,6 +37,7 @@ mongoose.connect(process.env.MONGO_URI)
 app.use('/api/auth', authRoutes)
 app.use('/api/videos', videoRoutes); // <--- 2. Monta las rutas en /api/videos
 app.use('/api/llm', llmRoutes); //Monta las rutas del llm en /api/llm
+app.use('/api/audio', audioRoutes);
 
 app.get('/', (req, res) => {
   res.send('API de cempa.ai funcionando al 100% 🚀');
