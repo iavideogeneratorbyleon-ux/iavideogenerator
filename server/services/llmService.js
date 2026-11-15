@@ -10,43 +10,49 @@ async function getGeminiClient() {
     aiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     SchemaType = Type;
   }
-  return { ai: aiClient, Type: SchemaType };
+  return { aiClient, Type: SchemaType };
 }
 
-async function generateStructuredScript(masterPayload) {
-  const { ai, Type } = await getGeminiClient();
+async function generateStructuredScript(rawPayload) {
+  const { aiClient, Type } = await getGeminiClient();
+
+  const masterPayload = rawPayload?.payload || rawPayload?.data || rawPayload;
 
   const { meta = {}, userInputs = {}, config = {} } = masterPayload;
   const userPlan = meta.userPlan || 'free_trial';
+  const targetLanguage = meta.language || userInputs.language || 'en';
 
   const isFreeTrial = userPlan === 'free_trial';
   const maxDurationSeconds = isFreeTrial ? 30 : 70;
   const sceneRange = isFreeTrial ? '4 to 5' : '8 to 10';
 
-  const systemInstruction = `
-You are an expert viral short-form video director for Cempai.ai, targeting the US market.
-Your task is to transform the user's raw idea or script into a tightly paced, high-retention scene-by-scene production JSON.
+  const isSpanish = targetLanguage.toLowerCase() === 'es';
 
-STRICT BUSINESS & PRODUCTION RULES:
-1. Total cumulative duration across all scenes MUST NOT exceed ${maxDurationSeconds} seconds.
-2. Divide the video into ${sceneRange} distinct, engaging scenes.
-3. LANGUAGE RULE: ALL fields ("title", "voiceoverText", and "visualPrompt") MUST BE WRITTEN ENTIRELY IN ENGLISH, optimized for US audiences and AI media generation models.
-4. Keep voiceover sentences natural, punchy, and timed realistically for the scene's duration (approx. 2.5 words per second).
-`;
+  const systemInstruction = isSpanish
+    ? `Eres un director experto en videos cortos virales para Cempai.ai enfocados en el mercado hispano de Estados Unidos.
+REGLAS OBLIGATORIAS:
+1. La duración total acumulada no debe superar ${maxDurationSeconds} segundos.
+2. Divide el video en ${sceneRange} escenas.
+3. IDIOMA: El campo "title" y el campo "voiceoverText" de cada escena DEBEN estar escritos 100% en ESPAÑOL natural y persuasivo.
+4. El campo "visualPrompt" de cada escena DEBE estar escrito ESTRICTAMENTE EN INGLÉS (para modelos de IA visuales).`
+    : `You are an expert viral short-form video director for Cempai.ai.
+MANDATORY RULES:
+1. Total duration must not exceed ${maxDurationSeconds} seconds.
+2. Divide into ${sceneRange} scenes.
+3. LANGUAGE: All fields ("title", "voiceoverText", and "visualPrompt") MUST be in ENGLISH.`;
 
   const userPrompt = `
-Create a structured video script based on these inputs:
-- Mode: ${userInputs.mode || 'idea'}
-- Raw Content / Script: ${userInputs.rawContent}
-- Tone: ${userInputs.tone || 'dynamic'}
-- Aspect Ratio: ${config.aspectRatio || userInputs.aspectRatio || '9:16'}
-- Visual Style: ${config.visualStyle || userInputs.visualStyle || 'cinematic'}
+Genera el guion estructurado en idioma: [${targetLanguage.toUpperCase()}]
+- Modo: ${userInputs.mode || 'idea'}
+- Idea / Contenido base: ${userInputs.rawContent}
+- Tono: ${userInputs.tone || 'dynamic'}
+- Estilo visual: ${config.visualStyle || userInputs.visualStyle || 'cinematic'}
 `;
 
   try {
-    console.log(`🚀 [English Pipeline] Generando guion con gemini-3.8-flash...`);
+    console.log(`🚀 [Pipeline LLM] Generando en idioma: [${targetLanguage.toUpperCase()}]...`);
 
-    const response = await ai.models.generateContent({
+    const response = await aiClient.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: userPrompt,
       config: {
@@ -56,18 +62,17 @@ Create a structured video script based on these inputs:
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            title: { type: Type.STRING, description: 'Catchy video title in English' },
-            totalDurationSeconds: { type: Type.NUMBER, description: `Sum of all scene durations, <= ${maxDurationSeconds}` },
+            title: { type: Type.STRING },
+            totalDurationSeconds: { type: Type.NUMBER },
             scenes: {
               type: Type.ARRAY,
-              description: 'Ordered list of video scenes in English',
               items: {
                 type: Type.OBJECT,
                 properties: {
                   sceneNumber: { type: Type.INTEGER },
                   durationSeconds: { type: Type.NUMBER },
-                  voiceoverText: { type: Type.STRING, description: 'Spoken narration in English' },
-                  visualPrompt: { type: Type.STRING, description: 'Detailed visual scene description in English' }
+                  voiceoverText: { type: Type.STRING },
+                  visualPrompt: { type: Type.STRING }
                 },
                 required: ['sceneNumber', 'durationSeconds', 'voiceoverText', 'visualPrompt']
               }
@@ -84,7 +89,6 @@ Create a structured video script based on these inputs:
 
     const structuredScript = JSON.parse(response.text);
 
-    // Guardrail de duración según plan
     let accumulatedDuration = 0;
     const validatedScenes = [];
 
@@ -105,14 +109,13 @@ Create a structured video script based on these inputs:
     structuredScript.scenes = validatedScenes;
     structuredScript.totalDurationSeconds = accumulatedDuration;
 
-    console.log(`✅ ¡Guion en inglés listo! Título: "${structuredScript.title}"`);
-
     return {
       ...masterPayload,
       llmDirective: {
         ...(masterPayload.llmDirective || {}),
         provider: 'google-gemini',
         model: 'gemini-3.8-flash',
+        language: targetLanguage,
         structuredScript
       }
     };
