@@ -154,6 +154,8 @@ vite.config.ts.timestamp-*
 server/public/audio/*.mp3
 server/public/images/*.jpg
 server/public/audio/bg_music/*.mp3
+server/public/videos/*.mp4
+server/public/temp_render/*
 .DS_Store
 **/._*
 

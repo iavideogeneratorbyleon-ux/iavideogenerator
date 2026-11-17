@@ -9,14 +9,14 @@ if (!fs.existsSync(AUDIO_OUTPUT_DIR)) {
   fs.mkdirSync(AUDIO_OUTPUT_DIR, { recursive: true });
 }
 
-// Mapeo seguro de nombres legibles del Wizard a IDs reales de voces de ElevenLabs
+// Mapeo dinámico y completo para todas las voces (Free Tier y Planes Pro)
 const VOICE_MAP = {
-  carlos: 'pNInz6obpgDQGcFmaJgB', // Ejemplo de ID nativo
-  sofia: 'EXAVITQu4vr4xnSDxMaL',   // ID de Sofia en ElevenLabs (o puedes ajustarlo)
-  alex: 'AZnzlk1XvdvUeBnXmlld',
-  valeria: 'jsCqWAovK2LkecY7zXl4',
-  mateo: 'VR6AewLTigWG4xSOukaG',
-  elena: '21m00Tcm4TlvDq8ikWAM'
+  carlos: 'xfcOcwRJ5AZQ8qZsQMw2', // Free Tier - Narrative
+  sofia: 'o29gBvqcJGwrA2NOoBL9',   // Free Tier - Commercial
+  alex: 'uf0ZrRtyyJlbbGIn43uD',    // Free Tier - Young/Casual
+  valeria: '22VndfJPBU7AZORAZZTT', // Pro - Executive
+  mateo: 'y1ORRnLsPhYkUEggxyAY',   // Pro - Cinematic trailer
+  elena: 'w4DBBAtZhQtfCihqCw5b'    // Pro - Warm storyteller
 };
 
 async function generateSceneAudio({ text, voiceId, jobId, sceneNumber }) {
@@ -25,9 +25,9 @@ async function generateSceneAudio({ text, voiceId, jobId, sceneNumber }) {
     throw new Error('Falta ELEVENLABS_API_KEY en el archivo .env');
   }
 
-  // Resolver el voiceId: si mandaron un nombre como 'sofia', lo mapeamos; si es un ID de ElevenLabs, lo respetamos
+  // Resolver el voiceId: si mandaron un nombre como 'alex' o 'valeria', lo mapeamos; si ya es un ID de ElevenLabs, lo respetamos
   const cleanVoiceKey = (voiceId || '').toLowerCase();
-  const selectedVoiceId = VOICE_MAP[cleanVoiceKey] || voiceId || process.env.ELEVENLABS_DEFAULT_VOICE_ID || 'pNInz6obpgDQGcFmaJgB';
+  const selectedVoiceId = VOICE_MAP[cleanVoiceKey] || voiceId || process.env.ELEVENLABS_DEFAULT_VOICE_ID || 'xfcOcwRJ5AZQ8qZsQMw2';
   
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`;
 
@@ -84,15 +84,15 @@ async function generateAllScenesAudio(rawPayload) {
 
   const jobId = masterPayload?.meta?.jobId || rawPayload?.meta?.jobId || `job_${Date.now()}`;
   
-  // Búsqueda inteligente y robusta del voiceId en todo el payload maestro
+  // Búsqueda inteligente y ampliada del voiceId en el payload maestro (soportando userInputs, voiceConfig y config)
   const requestedVoiceId = 
+    masterPayload?.userInputs?.voiceId || 
     masterPayload?.voiceConfig?.voiceId || 
     masterPayload?.config?.voiceId || 
-    masterPayload?.userInputs?.voiceId || 
     rawPayload?.voiceConfig?.voiceId ||
     process.env.ELEVENLABS_DEFAULT_VOICE_ID;
 
-  console.log(`🎙️ [ElevenLabs] Generando audio para ${structuredScript.scenes.length} escenas usando voz ID/Key: [${requestedVoiceId}] (Job: ${jobId})...`);
+  console.log(`🎙️ [ElevenLabs] Generando audio para ${structuredScript.scenes.length} escenas usando voz solicitada: [${requestedVoiceId}] (Job: ${jobId})...`);
 
   const updatedScenes = [];
 
@@ -100,7 +100,7 @@ async function generateAllScenesAudio(rawPayload) {
     console.log(`   🔊 Sintetizando escena ${scene.sceneNumber}: "${scene.voiceoverText}"`);
     const audioResult = await generateSceneAudio({
       text: scene.voiceoverText,
-      voiceId: requestedVoiceId,
+      voiceId: requestedVoiceId, // La función interna se encarga de cruzarlo contra el VOICE_MAP
       jobId,
       sceneNumber: scene.sceneNumber
     });
@@ -111,7 +111,7 @@ async function generateAllScenesAudio(rawPayload) {
     });
   }
 
-  console.log(`✅ [ElevenLabs] Todos los audios generados con éxito.`);
+  console.log(`✅ [ElevenLabs] Todos los audios generados con éxito respetando la selección del usuario.`);
 
   return {
     success: true,

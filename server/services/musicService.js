@@ -8,32 +8,35 @@ if (!fs.existsSync(MUSIC_DIR)) {
   fs.mkdirSync(MUSIC_DIR, { recursive: true });
 }
 
-// Catálogo base de pistas instrumentales clasificadas por temática/nicho
+// Catálogo ampliado y mapeado directamente por clave exacta
 const MUSIC_CATALOG = {
+  lofi: { name: 'Lo-Fi Chill & Smooth', url: '/audio/bg_music/lofi_chill.mp3' },
   tech: { name: 'Tech Upbeat & Fast', url: '/audio/bg_music/tech_upbeat.mp3' },
   business: { name: 'Corporate Inspiring', url: '/audio/bg_music/corporate_inspiring.mp3' },
-  lifestyle: { name: 'Lo-Fi Chill & Smooth', url: '/audio/bg_music/lofi_chill.mp3' },
+  lifestyle: { name: 'Lifestyle & Ambient', url: '/audio/bg_music/lifestyle_ambient.mp3' }, // Asegúrate de tener este archivo o ajusta el nombre
+  upbeat: { name: 'Upbeat Energetic Beat', url: '/audio/bg_music/default_energetic.mp3' },
   default: { name: 'Universal Energetic Beat', url: '/audio/bg_music/default_energetic.mp3' }
 };
 
 function selectBackgroundMusic(nicheOrTone = 'default') {
-  console.log(`🎵 [Music] Seleccionando pista de fondo para: "${nicheOrTone}"...`);
+  const cleanKey = (nicheOrTone || 'default').toLowerCase();
+  console.log(`🎵 [Music Engine] Estilo de música solicitado en el Payload: "${cleanKey}"`);
   
-  const key = nicheOrTone.toLowerCase();
-  let selected = MUSIC_CATALOG.default;
+  // Búsqueda directa: Si existe la clave exacta en el catálogo, la usa. Si no, busca coincidencia o usa default.
+  let selected = MUSIC_CATALOG[cleanKey];
 
-  if (key.includes('tech') || key.includes('ai') || key.includes('software') || key.includes('tool')) {
-    selected = MUSIC_CATALOG.tech;
-  } else if (key.includes('business') || key.includes('money') || key.includes('work')) {
-    selected = MUSIC_CATALOG.business;
-  } else if (key.includes('lifestyle') || key.includes('travel') || key.includes('daily')) {
-    selected = MUSIC_CATALOG.lifestyle;
+  if (!selected) {
+    // Búsqueda flexible por subcadenas si mandan un texto compuesto
+    const matchedKey = Object.keys(MUSIC_CATALOG).find(k => cleanKey.includes(k));
+    selected = matchedKey ? MUSIC_CATALOG[matchedKey] : MUSIC_CATALOG.default;
   }
+
+  console.log(`🎧 [Music Engine] Pista seleccionada: [${selected.name}] (${selected.url})`);
 
   return {
     trackName: selected.name,
     audioUrl: selected.url,
-    volume: 0.15, // Sugerencia de volumen al 15% para no opacar la voz de ElevenLabs
+    volume: 0.15, // Volumen al 15% para no opacar la voz de ElevenLabs
     ducking: true // Atenuación automática cuando hable la locución
   };
 }
