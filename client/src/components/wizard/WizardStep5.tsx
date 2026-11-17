@@ -3,7 +3,6 @@ import type { WizardData } from './WizardStep1';
 import { useLanguage } from '../landing/LanguageContext';
 import { useAuth } from '../auth/AuthContext';
 import { savePendingDraft } from './wizardStorage';
-import { buildMasterVideoPayload, type UserPlan } from '../../utils/masterVideoPayload';
 import styles from './WizardStep5.module.css';
 
 interface Step5Props {
@@ -12,7 +11,7 @@ interface Step5Props {
   toneLabels: Record<string, string>;
   voiceLabels: Record<string, string>;
   styleLabels: Record<string, string>;
-  onStartProcessing?: () => void; // <--- Activador de la pantalla de procesamiento dinámico
+  onStartProcessing?: () => void;
   onOpenAuthModal: (mode: 'login' | 'signup', onSuccess?: () => void) => void;
   onOpenPricingModal: () => void;
   onOpenTermsModal?: (type: 'terms' | 'policy') => void;
@@ -34,7 +33,6 @@ export default function WizardStep5({
   
   const [showConversionModal, setShowConversionModal] = useState(false);
 
-  // Estados para la casilla de Términos y Condiciones y control local por si no viene por props
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [internalLegalModal, setInternalLegalModal] = useState<'terms' | 'policy' | null>(null);
 
@@ -54,6 +52,7 @@ export default function WizardStep5({
     tech: lang === 'en' ? 'Cyberpunk / Tech' : 'Cyberpunk / Tech',
   };
 
+  // Delegamos el proceso al contenedor principal sin hacer fetch duplicado aquí
   const handleGenerateClick = async () => {
     if (!isAuthenticated || !user) {
       setShowConversionModal(true);
@@ -65,52 +64,23 @@ export default function WizardStep5({
       return;
     }
 
-    // 1. Construir correctamente el Master Payload completo utilizando el contrato oficial
-    const masterPayload = buildMasterVideoPayload({
-      wizardData: data,
-      userId: (user as any).id || (user as any)._id || 'usr_authenticated',
-      userPlan: 'free_trial',
-      language: lang === 'en' ? 'en' : 'es',
-    });
+    // Guardamos el borrador antes de iniciar
+    savePendingDraft(data);
 
-    console.log('🚀 ENVIANDO MASTER PAYLOAD COMPLETO:', JSON.stringify(masterPayload, null, 2));
-
-    try {
-      // 2. Disparar el endpoint unificado mandando TODO el masterPayload
-      const response = await fetch('http://localhost:3030/api/studio-lite/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(masterPayload), // <--- Aquí va el payload maestro completo, no datos sueltos
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Error en el pipeline de generación.');
+    // Descontamos crédito localmente y abrimos el modal de procesamiento al instante
+    const success = await deductCredit(0);
+    if (success) {
+      if (onStartProcessing) {
+        onStartProcessing(); // <--- Abre las barras de estado de inmediato y dispara el backend en el contenedor
       }
-
-      console.log('🎉 ¡Pipeline completado con éxito!', result);
-
-      const success = await deductCredit(0);
-      if (success) {
-        if (onStartProcessing) {
-          onStartProcessing(); // <--- Ahora sí abrirá el modal de las barras de estado al recibir el éxito real
-        }
-      } else {
-        onOpenPricingModal();
-      }
-    } catch (error: any) {
-      console.error('❌ Error crítico en el pipeline:', error);
-      alert(`Error: ${error.message || 'Error generando el video.'}`);
+    } else {
+      onOpenPricingModal();
     }
   };
 
-
-  // 🎁 Opción 1: Guardar borrador y abrir modal de registro pasando la acción de auto-generar
   const handleClaimFreeVideo = () => {
     savePendingDraft(data);
     setShowConversionModal(false);
-    // Al registrarse con éxito, el sistema reanudará inmediatamente la generación del video
     onOpenAuthModal('signup', () => {
       handleGenerateClick();
     });
@@ -259,7 +229,7 @@ export default function WizardStep5({
         </button>
       </div>
 
-      {/* Modal de Conversión (Las 3 opciones) */}
+      {/* Modal de Conversión */}
       {showConversionModal && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
@@ -282,7 +252,6 @@ export default function WizardStep5({
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {/* Opción 1: Sign up & Claim Free Video */}
               <button 
                 type="button"
                 onClick={handleClaimFreeVideo}
@@ -296,7 +265,6 @@ export default function WizardStep5({
                 <span style={{ fontSize: '0.75rem', background: 'rgba(0,0,0,0.2)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>$0</span>
               </button>
 
-              {/* Opción 2: Buy Single Video Pass */}
               <button 
                 type="button"
                 onClick={() => { setShowConversionModal(false); onOpenPricingModal(); }}
@@ -310,7 +278,6 @@ export default function WizardStep5({
                 <span style={{ color: '#ff6b00', fontWeight: '700' }}>$4.99</span>
               </button>
 
-              {/* Opción 3: Pro Subscription */}
               <button 
                 type="button"
                 onClick={() => { setShowConversionModal(false); onOpenPricingModal(); }}
@@ -339,7 +306,7 @@ export default function WizardStep5({
         </div>
       )}
 
-      {/* Modal interno de respaldo por si no se pasa por props */}
+      {/* Modal interno de respaldo */}
       {!onOpenTermsModal && internalLegalModal && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',

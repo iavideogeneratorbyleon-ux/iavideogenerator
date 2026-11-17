@@ -1,13 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '../landing/LanguageContext';
-import { useAuth } from '../auth/AuthContext';
 import styles from './WizardProcessingStep.module.css';
-import { buildMasterVideoPayload } from '../../utils/masterVideoPayload';
-import type { WizardData } from './WizardStep1';
+import { type GenerateVideoResponse } from '../../features/studio-lite/types';
 
 interface WizardProcessingStepProps {
-  onComplete: () => void; // Callback para cerrar el Wizard y mandar al Dashboard
-  setIsProcessing: (isProcessing: boolean) => void
+  onComplete: () => void;
+  setIsProcessing: (isProcessing: boolean) => void;
+  generatedResult?: GenerateVideoResponse | null;
 }
 
 interface StepItem {
@@ -16,15 +15,11 @@ interface StepItem {
   defaultTitle: string;
 }
 
-export default function WizardProcessingStep({ onComplete, setIsProcessing }: WizardProcessingStepProps) {
+export default function WizardProcessingStep({ onComplete, setIsProcessing, generatedResult }: WizardProcessingStepProps) {
   const { lang } = useLanguage();
-  const { user, updateCredits } = useAuth();
   const [activeStepIndex, setActiveStepIndex] = useState<number>(0);
   const [progress, setProgress] = useState<number>(0);
   const [isFinished, setIsFinished] = useState<boolean>(false);
-
-  // Candado para evitar peticiones duplicadas al backend 
-  const hasSavedRef = useRef<boolean>(false);
 
   const steps: StepItem[] = [
     { id: 1, titleKey: 'proc_step_1', defaultTitle: lang === 'en' ? 'Analyzing script and creative parameters...' : 'Analizando guión y parámetros creativos...' },
@@ -34,88 +29,38 @@ export default function WizardProcessingStep({ onComplete, setIsProcessing }: Wi
     { id: 5, titleKey: 'proc_step_5', defaultTitle: lang === 'en' ? 'Finalizing and packaging your video...' : 'Finalizando y empaquetando tu video...' },
   ];
 
+  // Simulamos el avance fluido de las barras de estado mientras llega la respuesta del contenedor
   useEffect(() => {
-    // Evitar llamadas duplicadas con el ref
-    if (hasSavedRef.current) return;
-    hasSavedRef.current = true;
+    setActiveStepIndex(0); 
+    setProgress(15);
 
-    async function executeRealPipeline() {
-      try {
-        // 1. Simular avance visual fluido en los primeros 4 pasos mientras el backend procesa
-        setActiveStepIndex(0); setProgress(15); // Paso 1: Analizando guion
-        
-        // Recuperar borrador del wizard guardado en localStorage
-        let wizardParameters: WizardData = {
-          mode: 'idea',
-          scriptIdea: 'Studio Lite Video Generation',
-          tone: 'professional',
-          voiceId: 'carlos',
-          aspectRatio: '9:16',
-          visualStyle: 'cinematic',
-          musicStyle: 'none',
-          subtitles: true
-        };
+    const t1 = setTimeout(() => { setActiveStepIndex(1); setProgress(35); }, 1500);
+    const t2 = setTimeout(() => { setActiveStepIndex(2); setProgress(60); }, 4000);
+    const t3 = setTimeout(() => { setActiveStepIndex(3); setProgress(80); }, 7500);
 
-        const savedDraft = localStorage.getItem('cempa_pending_video_draft');
-        if (savedDraft) {
-          const parsed = JSON.parse(savedDraft);
-          wizardParameters = { ...wizardParameters, ...parsed };
-        }
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, []);
 
-        // Construir el Master Payload usando el idioma actual de la app (lang)
-        const masterPayload = buildMasterVideoPayload({
-          wizardData: wizardParameters,
-          userId: (user as any)?.id || (user as any)?._id || 'usr_authenticated',
-          userPlan: 'free_trial',
-          language: lang === 'en' ? 'en' : 'es',
-        });
-
-        setTimeout(() => { setActiveStepIndex(1); setProgress(35); }, 1500); // Paso 2: ElevenLabs
-        setTimeout(() => { setActiveStepIndex(2); setProgress(60); }, 4000); // Paso 3: Visuales Gemini
-        setTimeout(() => { setActiveStepIndex(3); setProgress(80); }, 7500); // Paso 4: Música
-
-        // 🔗 2. Disparar el endpoint unificado real del backend que corre los 5 pasos (incluyendo FFmpeg)
-        const response = await fetch('http://localhost:3030/api/studio-lite/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(masterPayload)
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || 'Error en el pipeline de renderizado.');
-        }
-
-        // 3. Todo OK: Llegamos al paso 5 (Finalizado real)
-        setActiveStepIndex(4);
-        setProgress(100);
-
-        if (typeof data.remainingCredits === 'number' && updateCredits) {
-          updateCredits(data.remainingCredits);
-        }
-
-        // Pequeña pausa elegante antes de mostrar la pantalla de éxito con el botón de descarga y Dashboard
-        setTimeout(() => {
-          setIsFinished(true);
-        }, 800);
-
-      } catch (err) {
-        console.error('❌ Error crítico ejecutando el pipeline desde el Wizard:', err);
-        alert(lang === 'en' ? 'Error generating video. Please try again.' : 'Error generando el video. Por favor intenta de nuevo.');
-        setIsProcessing(false); // <--- Aquí se estaría usando, eliminando la advertencia
-      }
-
+  // En cuanto `generatedResult` llega desde el WizardContainer, completamos el 100% y mostramos el éxito
+  useEffect(() => {
+    if (generatedResult) {
+      setActiveStepIndex(4);
+      setProgress(100);
+      const finishTimer = setTimeout(() => {
+        setIsFinished(true);
+      }, 600);
+      return () => clearTimeout(finishTimer);
     }
+  }, [generatedResult]);
 
-    if (user?.email) {
-      executeRealPipeline();
-    }
-  }, [user, lang, updateCredits, onComplete]);
+  // Si ya terminó el proceso y tenemos el resultado, mostramos la tarjeta de éxito con descarga real
+  if (isFinished && generatedResult) {
+    const downloadUrl = `http://localhost:3030${generatedResult.videoUrl}`;
 
-
-  // Si ya terminó el proceso, mostramos la tarjeta de éxito con opciones de descarga
-  if (isFinished) {
     return (
       <div className={styles.container}>
         <div className={styles.card} style={{ textAlign: 'center' }}>
@@ -130,9 +75,11 @@ export default function WizardProcessingStep({ onComplete, setIsProcessing }: Wi
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%', marginTop: '1.5rem' }}>
-            <button
-              type="button"
-              onClick={() => alert(lang === 'en' ? 'Downloading video file...' : 'Descargando archivo de video...')}
+            <a
+              href={downloadUrl}
+              download={generatedResult.videoFileName || 'cempai_video.mp4'}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 background: 'linear-gradient(to right, #10b981, #059669)',
                 color: '#fff',
@@ -146,11 +93,12 @@ export default function WizardProcessingStep({ onComplete, setIsProcessing }: Wi
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.5rem',
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                textDecoration: 'none'
               }}
             >
               📥 {lang === 'en' ? 'Download Video (.mp4)' : 'Descargar Video (.mp4)'}
-            </button>
+            </a>
 
             <button
               type="button"

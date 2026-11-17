@@ -8,6 +8,10 @@ import WizardStep5 from "./WizardStep5";
 import WizardProcessingStep from "./WizardProcessingStep";
 import styles from "./WizardContainer.module.css";
 
+// 1. Importamos nuestra función de conexión con el Backend y los tipos
+import { generateStudioLiteVideo } from "../../features/studio-lite/api";
+import type { GenerateVideoResponse, VoiceId, AspectRatio, VisualStyle, MusicStyle } from "../../features/studio-lite/types";
+
 interface WizardContainerProps {
   onClose?: () => void;
   onComplete?: () => void;
@@ -27,6 +31,10 @@ export default function WizardContainer({
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+
+  // 2. Nuevos estados para guardar la respuesta del video generado o errores del backend
+  const [generatedResult, setGeneratedResult] = useState<GenerateVideoResponse | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<WizardData>({
     mode: "idea",
@@ -68,6 +76,36 @@ export default function WizardContainer({
     setShowExitConfirm(false);
     if (onClose) onClose();
     else window.location.reload();
+  };
+
+  // 3. Orquestador centralizado que abre el modal al instante y llama al backend de forma única
+  const handleStartGeneration = async () => {
+    setIsProcessing(true); // <--- Abre el modal de las barras de estado AL INSTANTE
+    setGenerationError(null);
+    setGeneratedResult(null);
+
+    try {
+      const mappedVisualStyle = (formData.visualStyle === "3d-render" ? "3d" : formData.visualStyle || "cinematic") as VisualStyle;
+
+      const result = await generateStudioLiteVideo(
+        {
+          rawContent: formData.scriptIdea,
+          tone: formData.tone,
+          voiceId: (formData.voiceId || "alex") as VoiceId,
+          aspectRatio: (formData.aspectRatio || "9:16") as AspectRatio,
+          visualStyle: mappedVisualStyle,
+          musicStyle: (formData.musicStyle || "none") as MusicStyle,
+          subtitlesEnabled: formData.subtitles ?? true,
+        },
+        wizardMode === "pro" ? "pro" : "free_trial"
+      );
+
+      setGeneratedResult(result);
+    } catch (err: any) {
+      console.error("❌ Error generando el video desde el Wizard:", err);
+      setGenerationError(err.message || "Ocurrió un error inesperado al generar el video.");
+      setIsProcessing(false); // Regresamos al Paso 5 si hubo un fallo para mostrar la alerta
+    }
   };
 
   const handleProcessingComplete = () => {
@@ -137,7 +175,11 @@ export default function WizardContainer({
         {/* MODO DE PROCESAMIENTO / GENERACIÓN EN VIVO */}
         {isProcessing ? (
           <div className="w-full flex justify-center items-center py-6">
-            <WizardProcessingStep onComplete={handleProcessingComplete} setIsProcessing={setIsProcessing} />
+            <WizardProcessingStep
+              onComplete={handleProcessingComplete}
+              setIsProcessing={setIsProcessing}
+              generatedResult={generatedResult}
+            />
           </div>
         ) : (
           <>
@@ -163,7 +205,6 @@ export default function WizardContainer({
                     <span className={styles.progressPercent}>
                       {currentStep * 20}% {t("wizard_completed")}
                     </span>
-                    {/* Botón de cierre visible también en móvil junto al porcentaje */}
                     {!isProcessing && (
                       <button
                         type="button"
@@ -184,6 +225,12 @@ export default function WizardContainer({
                   />
                 </div>
               </div>
+
+              {generationError && (
+                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                  ⚠️ {generationError}
+                </div>
+              )}
 
               {/* Paso 1 */}
               {currentStep === 1 && (
@@ -228,7 +275,7 @@ export default function WizardContainer({
                 />
               )}
 
-              {/* Paso 5 (Sumario final con opciones de conversión) */}
+              {/* Paso 5 */}
               {currentStep === 5 && (
                 <WizardStep5
                   data={formData}
@@ -236,7 +283,7 @@ export default function WizardContainer({
                   toneLabels={toneLabels}
                   voiceLabels={voiceLabels}
                   styleLabels={styleLabels}
-                  onStartProcessing={() => setIsProcessing(true)}
+                  onStartProcessing={handleStartGeneration}
                   onOpenAuthModal={(mode, onSuccess) => {
                     if (onOpenAuthModal) {
                       onOpenAuthModal(mode, onSuccess);
@@ -263,7 +310,7 @@ export default function WizardContainer({
               </div>
             </div>
 
-            {/* COLUMNA DERECHA: Resumen en Vivo Actualizado Dinámicamente */}
+            {/* COLUMNA DERECHA: Resumen en Vivo */}
             <div className={styles.rightColumn}>
               <div className={styles.summaryContent}>
                 <div>
