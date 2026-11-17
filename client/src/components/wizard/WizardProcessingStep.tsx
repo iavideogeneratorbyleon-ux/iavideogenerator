@@ -2,9 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../landing/LanguageContext';
 import { useAuth } from '../auth/AuthContext';
 import styles from './WizardProcessingStep.module.css';
+import { buildMasterVideoPayload } from '../../utils/masterVideoPayload';
+import type { WizardData } from './WizardStep1';
 
 interface WizardProcessingStepProps {
   onComplete: () => void; // Callback para cerrar el Wizard y mandar al Dashboard
+  setIsProcessing: (isProcessing: boolean) => void
 }
 
 interface StepItem {
@@ -13,7 +16,7 @@ interface StepItem {
   defaultTitle: string;
 }
 
-export default function WizardProcessingStep({ onComplete }: WizardProcessingStepProps) {
+export default function WizardProcessingStep({ onComplete, setIsProcessing }: WizardProcessingStepProps) {
   const { lang } = useLanguage();
   const { user, updateCredits } = useAuth();
   const [activeStepIndex, setActiveStepIndex] = useState<number>(0);
@@ -32,94 +35,84 @@ export default function WizardProcessingStep({ onComplete }: WizardProcessingSte
   ];
 
   useEffect(() => {
-    const intervalTime = 900; 
-    const totalSteps = steps.length;
+    // Evitar llamadas duplicadas con el ref
+    if (hasSavedRef.current) return;
+    hasSavedRef.current = true;
 
-    const timer = setInterval(() => {
-      setActiveStepIndex((prev) => {
-        const next = prev + 1;
-        if (next >= totalSteps) {
-          clearInterval(timer);
-          
-          // Guardar el video generado con los parámetros dinámicos UNA SOLA VEZ
-          if (user?.email && !hasSavedRef.current) {
-            hasSavedRef.current = true;
+    async function executeRealPipeline() {
+      try {
+        // 1. Simular avance visual fluido en los primeros 4 pasos mientras el backend procesa
+        setActiveStepIndex(0); setProgress(15); // Paso 1: Analizando guion
+        
+        // Recuperar borrador del wizard guardado en localStorage
+        let wizardParameters: WizardData = {
+          mode: 'idea',
+          scriptIdea: 'Studio Lite Video Generation',
+          tone: 'professional',
+          voiceId: 'carlos',
+          aspectRatio: '9:16',
+          visualStyle: 'cinematic',
+          musicStyle: 'none',
+          subtitles: true
+        };
 
-            // Recuperamos los parámetros del borrador o usamos valores por defecto
-            let wizardParameters = {
-              scriptIdea: 'Studio Lite Video Generation',
-              tone: 'professional',
-              voiceId: 'carlos',
-              aspectRatio: '9:16',
-              visualStyle: 'cinematic',
-              musicStyle: 'none'
-            };
-
-            try {
-              // const savedDraft = localStorage.getItem('cempa_wizard_draft');
-              const savedDraft = localStorage.getItem('cempa_pending_video_draft');
-              if (savedDraft) {
-                const parsed = JSON.parse(savedDraft);
-                wizardParameters = {
-                  scriptIdea: parsed.scriptIdea || wizardParameters.scriptIdea,
-                  tone: parsed.tone || wizardParameters.tone,
-                  voiceId: parsed.voiceId || wizardParameters.voiceId,
-                  aspectRatio: parsed.aspectRatio || wizardParameters.aspectRatio,
-                  visualStyle: parsed.visualStyle || wizardParameters.visualStyle,
-                  musicStyle: parsed.musicStyle || wizardParameters.musicStyle,
-                };
-              }
-            } catch (e) {
-              console.error('Error al leer el borrador del wizard:', e);
-            }
-
-            fetch('http://localhost:3030/api/videos/save', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: user.email,
-                title: wizardParameters.scriptIdea.slice(0, 40) + '...',
-                mode: 'lite',
-                parameters: wizardParameters // <--- Enviamos los 6 parámetros dinámicos al backend
-              })
-            })
-            .then(async (res) => {
-              const data = await res.json();
-              if (data.success) {
-                if (typeof data.remainingCredits === 'number') {
-                  updateCredits(data.remainingCredits);
-                }
-              } else {
-                console.warn('Aviso del servidor:', data.error);
-              }
-            })
-            .catch((err) => console.error('Error al guardar video en historial:', err));
-          }
-
-          setTimeout(() => {
-            setIsFinished(true);
-          }, 600);
-          return prev;
+        const savedDraft = localStorage.getItem('cempa_pending_video_draft');
+        if (savedDraft) {
+          const parsed = JSON.parse(savedDraft);
+          wizardParameters = { ...wizardParameters, ...parsed };
         }
-        return next;
-      });
-    }, intervalTime);
 
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(progressInterval);
-          return 100;
+        // Construir el Master Payload usando el idioma actual de la app (lang)
+        const masterPayload = buildMasterVideoPayload({
+          wizardData: wizardParameters,
+          userId: (user as any)?.id || (user as any)?._id || 'usr_authenticated',
+          userPlan: 'free_trial',
+          language: lang === 'en' ? 'en' : 'es',
+        });
+
+        setTimeout(() => { setActiveStepIndex(1); setProgress(35); }, 1500); // Paso 2: ElevenLabs
+        setTimeout(() => { setActiveStepIndex(2); setProgress(60); }, 4000); // Paso 3: Visuales Gemini
+        setTimeout(() => { setActiveStepIndex(3); setProgress(80); }, 7500); // Paso 4: Música
+
+        // 🔗 2. Disparar el endpoint unificado real del backend que corre los 5 pasos (incluyendo FFmpeg)
+        const response = await fetch('http://localhost:3030/api/studio-lite/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(masterPayload)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Error en el pipeline de renderizado.');
         }
-        return prev + 2;
-      });
-    }, 90);
 
-    return () => {
-      clearInterval(timer);
-      clearInterval(progressInterval);
-    };
-  }, [user, updateCredits]);
+        // 3. Todo OK: Llegamos al paso 5 (Finalizado real)
+        setActiveStepIndex(4);
+        setProgress(100);
+
+        if (typeof data.remainingCredits === 'number' && updateCredits) {
+          updateCredits(data.remainingCredits);
+        }
+
+        // Pequeña pausa elegante antes de mostrar la pantalla de éxito con el botón de descarga y Dashboard
+        setTimeout(() => {
+          setIsFinished(true);
+        }, 800);
+
+      } catch (err) {
+        console.error('❌ Error crítico ejecutando el pipeline desde el Wizard:', err);
+        alert(lang === 'en' ? 'Error generating video. Please try again.' : 'Error generando el video. Por favor intenta de nuevo.');
+        setIsProcessing(false); // <--- Aquí se estaría usando, eliminando la advertencia
+      }
+
+    }
+
+    if (user?.email) {
+      executeRealPipeline();
+    }
+  }, [user, lang, updateCredits, onComplete]);
+
 
   // Si ya terminó el proceso, mostramos la tarjeta de éxito con opciones de descarga
   if (isFinished) {

@@ -137,7 +137,7 @@ export default function WizardContainer({
         {/* MODO DE PROCESAMIENTO / GENERACIÓN EN VIVO */}
         {isProcessing ? (
           <div className="w-full flex justify-center items-center py-6">
-            <WizardProcessingStep onComplete={handleProcessingComplete} />
+            <WizardProcessingStep onComplete={handleProcessingComplete} setIsProcessing={setIsProcessing} />
           </div>
         ) : (
           <>

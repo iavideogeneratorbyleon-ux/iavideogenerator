@@ -2,89 +2,82 @@
 const express = require('express');
 const router = express.Router();
 
-const { generateStructuredScript } = require('../services/llmService'); // ✅ Corregido aquí
+const { generateStructuredScript } = require('../services/llmService'); 
 const { generateAllScenesAudio } = require('../services/audioService'); 
 const { generateAllScenesVisuals } = require('../services/visualService'); 
 const { selectBackgroundMusic } = require('../services/musicService');
+const { renderFinalVideo } = require('../services/renderService');
 const VideoProject = require('../models/VideoProject'); 
 
 router.post('/generate', async (req, res) => {
   try {
-    const { topic, language = 'en', targetAudience = 'US General', aspectRatio = '9:16' } = req.body;
+    // Recibimos el masterVideoPayload completo enviado desde el Wizard (Step 5)
+    const masterPayload = req.body;
 
-    if (!topic) {
-      return res.status(400).json({ error: 'El campo "topic" es obligatorio.' });
+    if (!masterPayload || !masterPayload.userInputs || !masterPayload.userInputs.rawContent) {
+      return res.status(400).json({ success: false, error: 'El payload maestro está incompleto o no contiene rawContent.' });
     }
 
     const jobId = `job_${Date.now()}`;
+    // Inyectamos el jobId en la raíz y en meta por compatibilidad con Mongoose
+    masterPayload.jobId = jobId;
+    if (!masterPayload.meta) masterPayload.meta = {};
+    masterPayload.meta.jobId = jobId;
+    masterPayload.meta.status = 'processing';
+
     console.log(`\n🚀 [Studio Lite Pipeline] Iniciando flujo maestro para Job ID: ${jobId}`);
-    console.log(`   📌 Tema: "${topic}" | Idioma: ${language} | Aspecto: ${aspectRatio}`);
+    console.log(`   📌 Contenido: "${masterPayload.userInputs.rawContent.slice(0, 40)}..." | Tono: ${masterPayload.userInputs.tone} | Voz: ${masterPayload.userInputs.voiceId}`);
 
-    // Construimos el payload inicial que espera tu llmService.js
-    const initialPayload = {
-      meta: {
-        jobId,
-        language,
-        userPlan: 'lite'
-      },
-      userInputs: {
-        mode: 'idea',
-        rawContent: topic,
-        tone: 'dynamic',
-        visualStyle: 'cinematic',
-        language
-      },
-      config: {
-        aspectRatio
-      }
-    };
+    // Paso 1: Generar Guion Estructurado (Gemini con Directivas del Payload)
+    console.log('\n--- PASO 1/5: Generando Guion Estructurado ---');
+    const scriptPayload = await generateStructuredScript(masterPayload);
 
-    // Paso 1: Generar Guion Estructurado (Usando tu llmService existente)
-    console.log('\n--- PASO 1/4: Generando Guion ---');
-    const scriptPayload = await generateStructuredScript(initialPayload);
-
-    // Paso 2: Generar Locución por Escena (ElevenLabs)
-    console.log('\n--- PASO 2/4: Generando Locución (Audio) ---');
+    // Paso 2: Generar Locución por Escena (ElevenLabs usando la voz elegida en el Wizard: voiceId)
+    console.log('\n--- PASO 2/5: Generando Locución (Audio) ---');
     const audioPayload = await generateAllScenesAudio(scriptPayload);
 
-    // Paso 3: Generar Imágenes Fieles al Prompt (Gemini 2.5 Flash Image)
-    console.log('\n--- PASO 3/4: Generando Visuales (Imágenes IA) ---');
+    // Paso 3: Generar Imágenes Fieles al Prompt (Gemini 2.5 Flash Image aplicando el estilo visual)
+    console.log('\n--- PASO 3/5: Generando Visuales (Imágenes IA) ---');
     const visualPayload = await generateAllScenesVisuals(audioPayload);
 
-    // Paso 4: Seleccionar Música de Fondo y Consolidar Payload Maestro
-    console.log('\n--- PASO 4/4: Integrando Música y Consolidando Payload ---');
-    const backgroundMusic = selectBackgroundMusic(topic);
+    // Paso 4: Seleccionar Música de Fondo basada en el styleKey del Wizard (ej. 'lofi', 'upbeat', etc.)
+    console.log('\n--- PASO 4/5: Integrando Música de Fondo ---');
+    const musicStyleChoice = visualPayload.userInputs?.musicStyle || 'default';
+    const backgroundMusic = selectBackgroundMusic(musicStyleChoice);
 
-    const masterVideoPayload = {
-      jobId, // 👈 ¡Agregado aquí en la raíz para cumplir con el esquema de Mongoose!
-      ...visualPayload, // Ya trae meta, config, y llmDirective con structuredScript enriquecido
-      audioLayer: {
-        backgroundMusic,
-        mixSettings: {
-          voiceVolume: 1.0,
-          musicVolume: backgroundMusic.volume,
-          duckingEnabled: backgroundMusic.ducking
-        }
+    visualPayload.audioLayer = {
+      backgroundMusic,
+      mixSettings: {
+        voiceVolume: 1.0,
+        musicVolume: backgroundMusic.volume,
+        duckingEnabled: backgroundMusic.ducking
       }
     };
 
+    // Paso 5: Renderizar Video Final MP4 (FFmpeg con Zoom dinámico, subtítulos y marca de agua si es free)
+    console.log('\n--- PASO 5/5: Renderizando Video Final MP4 ---');
+    const renderResult = await renderFinalVideo(visualPayload);
 
-    // Guardar en MongoDB Atlas
-    console.log('\n💾 Guardando proyecto maestro en MongoDB Atlas...');
-    const newProject = new VideoProject(masterVideoPayload);
+    visualPayload.finalVideo = renderResult;
+    visualPayload.meta.status = 'completed';
+
+    // Guardar proyecto consolidado en MongoDB Atlas
+    console.log('\n💾 Guardando proyecto maestro final en MongoDB Atlas...');
+    const newProject = new VideoProject(visualPayload);
     await newProject.save();
 
-    console.log(`✨ [Studio Lite] Pipeline ejecutado y guardado con éxito para el Job: ${jobId}`);
+    console.log(`✨ [Studio Lite] Pipeline completado con éxito para el Job: ${jobId}`);
 
     return res.status(200).json({
       success: true,
-      message: 'Pipeline completo de Studio Lite ejecutado con éxito.',
+      message: 'Video generado y renderizado con éxito de punta a punta.',
       jobId,
-      data: masterVideoPayload
+      videoUrl: renderResult.videoUrl,
+      data: visualPayload
     });
 
   } catch (error) {
-    console.error('❌ Error en el Pipeline de Studio Lite:', error);
+    console.error('❌ Error crítico en el Pipeline de Studio Lite:', error);
     return res.status(500).json({
       success: false,
       error: 'Error interno ejecutando el pipeline de Studio Lite.',

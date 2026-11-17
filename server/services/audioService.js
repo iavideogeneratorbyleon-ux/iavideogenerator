@@ -9,13 +9,26 @@ if (!fs.existsSync(AUDIO_OUTPUT_DIR)) {
   fs.mkdirSync(AUDIO_OUTPUT_DIR, { recursive: true });
 }
 
+// Mapeo seguro de nombres legibles del Wizard a IDs reales de voces de ElevenLabs
+const VOICE_MAP = {
+  carlos: 'pNInz6obpgDQGcFmaJgB', // Ejemplo de ID nativo
+  sofia: 'EXAVITQu4vr4xnSDxMaL',   // ID de Sofia en ElevenLabs (o puedes ajustarlo)
+  alex: 'AZnzlk1XvdvUeBnXmlld',
+  valeria: 'jsCqWAovK2LkecY7zXl4',
+  mateo: 'VR6AewLTigWG4xSOukaG',
+  elena: '21m00Tcm4TlvDq8ikWAM'
+};
+
 async function generateSceneAudio({ text, voiceId, jobId, sceneNumber }) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     throw new Error('Falta ELEVENLABS_API_KEY en el archivo .env');
   }
 
-  const selectedVoiceId = voiceId || process.env.ELEVENLABS_DEFAULT_VOICE_ID || 'pNInz6obpgDQGcFmaJgB';
+  // Resolver el voiceId: si mandaron un nombre como 'sofia', lo mapeamos; si es un ID de ElevenLabs, lo respetamos
+  const cleanVoiceKey = (voiceId || '').toLowerCase();
+  const selectedVoiceId = VOICE_MAP[cleanVoiceKey] || voiceId || process.env.ELEVENLABS_DEFAULT_VOICE_ID || 'pNInz6obpgDQGcFmaJgB';
+  
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`;
 
   const response = await fetch(url, {
@@ -56,10 +69,8 @@ async function generateSceneAudio({ text, voiceId, jobId, sceneNumber }) {
 }
 
 async function generateAllScenesAudio(rawPayload) {
-  // Desempaqueta automáticamente si viene envuelto en { success, payload } o { data }
   const masterPayload = rawPayload?.payload || rawPayload?.data || rawPayload;
 
-  // Búsqueda inteligente flexible de las escenas en cualquier nivel conocido
   const structuredScript = 
     masterPayload?.llmDirective?.structuredScript || 
     masterPayload?.structuredScript || 
@@ -72,9 +83,16 @@ async function generateAllScenesAudio(rawPayload) {
   }
 
   const jobId = masterPayload?.meta?.jobId || rawPayload?.meta?.jobId || `job_${Date.now()}`;
-  const requestedVoiceId = masterPayload?.config?.voiceId || rawPayload?.config?.voiceId || process.env.ELEVENLABS_DEFAULT_VOICE_ID;
+  
+  // Búsqueda inteligente y robusta del voiceId en todo el payload maestro
+  const requestedVoiceId = 
+    masterPayload?.voiceConfig?.voiceId || 
+    masterPayload?.config?.voiceId || 
+    masterPayload?.userInputs?.voiceId || 
+    rawPayload?.voiceConfig?.voiceId ||
+    process.env.ELEVENLABS_DEFAULT_VOICE_ID;
 
-  console.log(`🎙️ [ElevenLabs] Generando audio para ${structuredScript.scenes.length} escenas (Job: ${jobId})...`);
+  console.log(`🎙️ [ElevenLabs] Generando audio para ${structuredScript.scenes.length} escenas usando voz ID/Key: [${requestedVoiceId}] (Job: ${jobId})...`);
 
   const updatedScenes = [];
 

@@ -12,7 +12,7 @@ interface Step5Props {
   toneLabels: Record<string, string>;
   voiceLabels: Record<string, string>;
   styleLabels: Record<string, string>;
-  onStartProcessing?: () => void; // <--- Añadido para activar la pantalla de procesamiento dinámico
+  onStartProcessing?: () => void; // <--- Activador de la pantalla de procesamiento dinámico
   onOpenAuthModal: (mode: 'login' | 'signup', onSuccess?: () => void) => void;
   onOpenPricingModal: () => void;
   onOpenTermsModal?: (type: 'terms' | 'policy') => void;
@@ -65,7 +65,7 @@ export default function WizardStep5({
       return;
     }
 
-    // Construcción del JSON Maestro con los datos del usuario y del Wizard
+    // 1. Construir correctamente el Master Payload completo utilizando el contrato oficial
     const masterPayload = buildMasterVideoPayload({
       wizardData: data,
       userId: (user as any).id || (user as any)._id || 'usr_authenticated',
@@ -73,37 +73,38 @@ export default function WizardStep5({
       language: lang === 'en' ? 'en' : 'es',
     });
 
-    console.log('🚀 MASTER VIDEO PAYLOAD GENERATED:', JSON.stringify(masterPayload, null, 2));
+    console.log('🚀 ENVIANDO MASTER PAYLOAD COMPLETO:', JSON.stringify(masterPayload, null, 2));
 
     try {
-      // 🔗 Llamada al backend para conectar con el Cerebro LLM
-      const response = await fetch('http://localhost:3030/api/llm/generate-script', {
+      // 2. Disparar el endpoint unificado mandando TODO el masterPayload
+      const response = await fetch('http://localhost:3030/api/studio-lite/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(masterPayload),
+        body: JSON.stringify(masterPayload), // <--- Aquí va el payload maestro completo, no datos sueltos
       });
 
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Error en la generación del script con IA.');
+        throw new Error(result.error || 'Error en el pipeline de generación.');
       }
 
-      console.log('🎉 ¡Guion estructurado y título recibidos del LLM!', result.payload);
+      console.log('🎉 ¡Pipeline completado con éxito!', result);
 
       const success = await deductCredit(0);
       if (success) {
         if (onStartProcessing) {
-          onStartProcessing(); // <--- Dispara la pantalla de progreso dinámico en el WizardContainer
+          onStartProcessing(); // <--- Ahora sí abrirá el modal de las barras de estado al recibir el éxito real
         }
       } else {
         onOpenPricingModal();
       }
-    } catch (error) {
-      console.error('❌ Error conectando con el pipeline de IA del backend:', error);
-      alert(lang === 'en' ? 'Failed to generate video script. Please try again.' : 'Error al generar el guion del video. Por favor intenta de nuevo.');
+    } catch (error: any) {
+      console.error('❌ Error crítico en el pipeline:', error);
+      alert(`Error: ${error.message || 'Error generando el video.'}`);
     }
   };
+
 
   // 🎁 Opción 1: Guardar borrador y abrir modal de registro pasando la acción de auto-generar
   const handleClaimFreeVideo = () => {
