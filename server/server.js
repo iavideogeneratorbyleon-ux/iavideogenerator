@@ -11,13 +11,14 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 const path = require('path');
-// require('dotenv').config({ path: '../.env' });
 
 const authRoutes = require('./routes/auth.routes');
 const videoRoutes = require('./routes/video.routes'); // <--- 1. Importa las rutas de video
 const llmRoutes = require('./routes/llm.routes');
 const audioRoutes = require('./routes/audio.routes');
 const pipelineRoutes = require('./routes/pipeline.routes');
+const visualRoutes = require('./routes/visual.routes');
+const studioLiteRoutes = require('./routes/studioLite');
 
 const app = express();
 const PORT = process.env.PORT || 3030;
@@ -38,6 +39,8 @@ app.use('/api/videos', videoRoutes); // <--- 2. Monta las rutas en /api/videos
 app.use('/api/llm', llmRoutes); //Monta las rutas del llm en /api/llm
 app.use('/api/audio', audioRoutes);
 app.use('/api/pipeline', pipelineRoutes);
+app.use('/api/visual', visualRoutes);
+app.use('/api/studio-lite', studioLiteRoutes);
 
 app.get('/', (req, res) => {
   res.send('API de cempa.ai funcionando al 100% 🚀');

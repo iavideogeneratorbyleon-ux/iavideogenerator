@@ -150,3 +150,9 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+server/public/audio/*.mp3
+server/public/images/*.jpg
+.DS_Store
+**/._*
+
