@@ -25,7 +25,6 @@ async function generateSceneImage({ prompt, aspectRatio = '9:16', jobId, sceneNu
     }
   });
 
-  // Extraemos la parte que contiene la imagen en Base64
   const parts = response.candidates?.[0]?.content?.parts || [];
   const imagePart = parts.find((part) => part.inlineData && part.inlineData.data);
 
@@ -55,15 +54,34 @@ async function generateAllScenesVisuals(rawPayload) {
   }
 
   const jobId = masterPayload?.meta?.jobId || `job_${Date.now()}`;
-  const aspectRatio = masterPayload?.config?.aspectRatio || '9:16';
+  
+  // 🔍 Extracción dinámica y robusta del Aspect Ratio desde cualquier nivel del payload
+  const aspectRatio = 
+    masterPayload?.userInputs?.aspectRatio || 
+    masterPayload?.visualConfig?.aspectRatio || 
+    masterPayload?.config?.aspectRatio || 
+    '9:16';
 
-  console.log(`🚀 [Visuals] Generando ${structuredScript.scenes.length} imágenes con Gemini para Job: ${jobId}...`);
+  // 🎨 Extracción del Modificador de Estilo Visual (ej. vector, cinematic, etc.)
+  const styleModifier = 
+    masterPayload?.visualConfig?.stylePromptModifier || 
+    masterPayload?.userInputs?.visualStyleModifier || 
+    '';
+
+  console.log(`🚀 [Visuals] Generando ${structuredScript.scenes.length} imágenes con Gemini (Aspect Ratio: ${aspectRatio}) para Job: ${jobId}...`);
 
   const updatedScenes = [];
 
   for (const scene of structuredScript.scenes) {
+    // Fusionamos el prompt de la escena con el estilo visual elegido por el usuario de forma dinámica
+    const enhancedPrompt = styleModifier 
+      ? `${scene.visualPrompt}, ${styleModifier}` 
+      : scene.visualPrompt;
+
+    console.log(`   ✨ Prompt enriquecido escena ${scene.sceneNumber}: "${enhancedPrompt.slice(0, 60)}..."`);
+
     const visualResult = await generateSceneImage({
-      prompt: scene.visualPrompt,
+      prompt: enhancedPrompt,
       aspectRatio,
       jobId,
       sceneNumber: scene.sceneNumber
@@ -75,7 +93,7 @@ async function generateAllScenesVisuals(rawPayload) {
     });
   }
 
-  console.log(`✅ [Visuals] Todas las imágenes generadas con éxito.`);
+  console.log(`✅ [Visuals] Todas las imágenes generadas con éxito aplicando el estilo y formato dinámico.`);
 
   return {
     ...masterPayload,

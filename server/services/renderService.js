@@ -25,11 +25,28 @@ function getAudioDuration(filePath) {
   });
 }
 
-// Helper para crear el clip individual de cada escena de forma segura sin errores de filtros
-function renderSceneClip({ imagePath, audioPath, duration, outputClipPath }) {
+// server/services/renderService.js
+
+// Helper para mapear las proporciones del Wizard a resoluciones reales de video
+function getResolutionConfig(aspectRatio) {
+  switch (aspectRatio) {
+    case '16:9':
+      return { width: 1920, height: 1080, filter: 'scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080' };
+    case '1:1':
+      return { width: 1080, height: 1080, filter: 'scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080' };
+    case '9:16':
+    default:
+      return { width: 1080, height: 1920, filter: 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920' };
+  }
+}
+
+// Helper para crear el clip individual adaptado al formato elegido dinámicamente
+function renderSceneClip({ imagePath, audioPath, duration, outputClipPath, aspectRatio }) {
   return new Promise((resolve, reject) => {
-    // Filtro simplificado compatible con todas las versiones de FFmpeg y fluent-ffmpeg
-    let videoFilter = 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920:(ow-iw)/2:(oh-ih)/2';
+    // Obtenemos la configuración de resolución basada en lo que eligió el usuario en el Wizard
+    const resConfig = getResolutionConfig(aspectRatio);
+
+    console.log(`   🎞️ Renderizando clip con Aspect Ratio [${aspectRatio}] -> Resolución: ${resConfig.width}x${resConfig.height}`);
 
     ffmpeg()
       .input(imagePath)
@@ -43,12 +60,13 @@ function renderSceneClip({ imagePath, audioPath, duration, outputClipPath }) {
         '-r 30',
         `-t ${duration}`
       ])
-      .videoFilters(videoFilter)
+      .videoFilters(resConfig.filter) // Filtro dinámico según sea 9:16, 16:9 o 1:1
       .save(outputClipPath)
       .on('end', () => resolve(outputClipPath))
       .on('error', (err) => reject(err));
   });
 }
+
 
 
 function mergeClipsAndMusic({ clipPaths, bgMusicPath, musicVolume = 0.15, finalOutputPath, jobId }) {
@@ -104,6 +122,13 @@ async function renderFinalVideo(masterPayload) {
   const scenes = masterPayload?.llmDirective?.structuredScript?.scenes || [];
   const isFreePlan = (masterPayload?.meta?.userPlan || 'free_trial') === 'free_trial';
   
+  // 🔍 Extracción dinámica del Aspect Ratio desde cualquier nivel del Master Payload (9:16, 16:9 o 1:1)
+  const aspectRatio = 
+    masterPayload?.userInputs?.aspectRatio || 
+    masterPayload?.visualConfig?.aspectRatio || 
+    masterPayload?.config?.aspectRatio || 
+    '9:16';
+
   // Detectar si el usuario activó subtítulos en el Wizard
   const subtitlesEnabled = masterPayload?.config?.subtitles !== false && masterPayload?.userInputs?.subtitles !== false;
 
@@ -111,7 +136,7 @@ async function renderFinalVideo(masterPayload) {
     throw new Error('No hay escenas disponibles en el payload para renderizar.');
   }
 
-  console.log(`🎬 [Render] Iniciando ensamblaje de video para Job: ${jobId} (${scenes.length} escenas)...`);
+  console.log(`🎬 [Render] Iniciando ensamblaje de video en formato [${aspectRatio}] para Job: ${jobId} (${scenes.length} escenas)...`);
 
   const clipPaths = [];
 
@@ -137,7 +162,8 @@ async function renderFinalVideo(masterPayload) {
       outputClipPath: clipPath,
       isFreePlan,
       subtitleText: scene.voiceoverText,
-      subtitlesEnabled
+      subtitlesEnabled,
+      aspectRatio // <-- Parámetro dinámico integrado para que FFmpeg aplique la resolución correcta (9:16, 16:9 o 1:1)
     });
 
     clipPaths.push(clipPath);
@@ -167,6 +193,7 @@ async function renderFinalVideo(masterPayload) {
     renderedAt: new Date()
   };
 }
+
 
 module.exports = {
   renderFinalVideo
