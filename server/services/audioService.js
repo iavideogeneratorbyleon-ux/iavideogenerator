@@ -96,9 +96,40 @@ async function generateAllScenesAudio(rawPayload) {
 
   const updatedScenes = [];
 
+  // Función interna de reintento robusta con timeout por escena para evitar bloqueos y errores de red
+  async function generateSceneAudioWithRetry(payload, maxRetries = 3, timeoutMs = 30000) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const audioResult = await generateSceneAudio({
+          ...payload,
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        return audioResult;
+
+      } catch (error) {
+        clearTimeout(timeoutId);
+        console.warn(`⚠️ [ElevenLabs] Intento ${attempt}/${maxRetries} fallido para escena ${payload.sceneNumber} (${error.message}). Reintentando...`);
+        
+        if (attempt === maxRetries) {
+          throw new Error(`Fallo definitivo en ElevenLabs para la escena ${payload.sceneNumber} tras ${maxRetries} intentos: ${error.message}`);
+        }
+        
+        // Espera de 1.5 segundos antes de reintentar la escena
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+    }
+  }
+
   for (const scene of structuredScript.scenes) {
     console.log(`   🔊 Sintetizando escena ${scene.sceneNumber}: "${scene.voiceoverText}"`);
-    const audioResult = await generateSceneAudio({
+    
+    // Llamada blindada con reintentos automáticos
+    const audioResult = await generateSceneAudioWithRetry({
       text: scene.voiceoverText,
       voiceId: requestedVoiceId, // La función interna se encarga de cruzarlo contra el VOICE_MAP
       jobId,
@@ -109,25 +140,29 @@ async function generateAllScenesAudio(rawPayload) {
       ...scene,
       audio: audioResult
     });
+
+    // Pequeña pausa de cortesía entre peticiones para cuidar el rate limit de ElevenLabs
+    await new Promise((resolve) => setTimeout(resolve, 600));
   }
 
-  console.log(`✅ [ElevenLabs] Todos los audios generados con éxito respetando la selección del usuario.`);
-
+  // Devolvemos el payload completo asegurando todas las rutas que el Paso 3 pueda requerir
   return {
-    success: true,
-    payload: {
-      ...masterPayload,
-      llmDirective: {
-        ...(masterPayload.llmDirective || {}),
-        provider: masterPayload?.llmDirective?.provider || 'google-gemini',
-        structuredScript: {
-          ...structuredScript,
-          scenes: updatedScenes
-        }
+    ...masterPayload,
+    llmDirective: {
+      ...(masterPayload.llmDirective || {}),
+      structuredScript: {
+        ...structuredScript,
+        scenes: updatedScenes
       }
-    }
+    },
+    structuredScript: {
+      ...structuredScript,
+      scenes: updatedScenes
+    },
+    scenes: updatedScenes
   };
 }
+
 
 module.exports = {
   generateSceneAudio,

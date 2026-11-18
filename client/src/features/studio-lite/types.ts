@@ -19,4 +19,5 @@ export interface GenerateVideoResponse {
   videoFileName: string;
   videoUrl: string;
   renderedAt: string;
+  remainingCredits?: number;
 }

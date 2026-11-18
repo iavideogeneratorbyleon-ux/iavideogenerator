@@ -11,6 +11,7 @@ import styles from "./WizardContainer.module.css";
 // 1. Importamos nuestra función de conexión con el Backend y los tipos
 import { generateStudioLiteVideo } from "../../features/studio-lite/api";
 import type { GenerateVideoResponse, VoiceId, AspectRatio, VisualStyle, MusicStyle } from "../../features/studio-lite/types";
+import { useAuth } from "../auth/AuthContext";
 
 interface WizardContainerProps {
   onClose?: () => void;
@@ -31,6 +32,7 @@ export default function WizardContainer({
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const { updateCredits } = useAuth();
 
   // 2. Nuevos estados para guardar la respuesta del video generado o errores del backend
   const [generatedResult, setGeneratedResult] = useState<GenerateVideoResponse | null>(null);
@@ -79,8 +81,9 @@ export default function WizardContainer({
   };
 
   // 3. Orquestador centralizado que abre el modal al instante y llama al backend de forma única
+  // En tu WizardContainer.tsx dentro de handleStartGeneration:
   const handleStartGeneration = async () => {
-    setIsProcessing(true); // <--- Abre el modal de las barras de estado AL INSTANTE
+    setIsProcessing(true);
     setGenerationError(null);
     setGeneratedResult(null);
 
@@ -101,12 +104,21 @@ export default function WizardContainer({
       );
 
       setGeneratedResult(result);
+
+      // ⚡ ¡AQUÍ ESTABA EL DETALLE! Actualizamos el balance global de créditos en el AuthContext
+      if (typeof result.remainingCredits === 'number') {
+        // Si tienes una función en tu AuthContext para actualizar créditos (ej. updateCredits), úsala aquí.
+        // O si tu AuthContext expone una función para refrescar el perfil de usuario:
+        updateCredits(result.remainingCredits);
+      }
+
     } catch (err: any) {
       console.error("❌ Error generando el video desde el Wizard:", err);
       setGenerationError(err.message || "Ocurrió un error inesperado al generar el video.");
-      setIsProcessing(false); // Regresamos al Paso 5 si hubo un fallo para mostrar la alerta
+      setIsProcessing(false);
     }
   };
+
 
   const handleProcessingComplete = () => {
     setIsProcessing(false);

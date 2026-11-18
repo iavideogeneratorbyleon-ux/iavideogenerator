@@ -34,6 +34,7 @@ export async function generateStudioLiteVideo(
   };
 
   const response = await fetch(`${API_BASE_URL}/generate`, {
+  // const response = await fetch(`${API_BASE_URL}/generate-mock`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

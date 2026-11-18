@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const data = await response.json();
-
+    console.log(data)
     if (!response.ok) {
       throw new Error(data.error || 'Error al registrar el usuario');
     }
