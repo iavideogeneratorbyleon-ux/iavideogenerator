@@ -38,6 +38,7 @@ router.post('/generate', async (req, res) => {
           $or: [{ email: userId }, { id: userId }] // <-- Sin _id aquí para evitar el CastError
         });
       }
+      
 
       // Fallback por si acaso el ID no matchea de ninguna forma exacta
       if (!dbUser) {
