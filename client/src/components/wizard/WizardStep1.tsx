@@ -1,11 +1,14 @@
 import React from 'react';
 import { useLanguage } from '../landing/LanguageContext';
+import { useAuth } from '../auth/AuthContext';
 import styles from './WizardStep1.module.css';
 
 export type WizardData = {
   mode?: 'idea' | 'script';
   scriptIdea: string;
   visualPrompt?: string;
+  introHook?: string;
+  outroCta?: string;
   tone: string;
   voiceId?: string;
   aspectRatio?: string;
@@ -28,10 +31,12 @@ export default function WizardStep1({
   wizardMode = 'lite' 
 }: Step1Props) {
   const { t, lang } = useLanguage();
+  const { user } = useAuth();
 
-  // En Studio Lite, forzamos el modo a 'idea'
-  const isPro = wizardMode === 'pro';
-  const currentMode = isPro ? (data.mode || 'idea') : 'idea';
+  // AI Idea Generator es activo para todos los planes (incluido free_trial); My Own Script en planes de pago o wizardMode === 'pro'
+  const isPaidPlan = ['pro', 'unlimited', 'pay_per_video'].includes((user as any)?.plan);
+  const canUseOwnScript = wizardMode === 'pro' || isPaidPlan;
+  const currentMode = canUseOwnScript ? (data.mode || 'idea') : 'idea';
 
   const tones = [
     { 
@@ -78,7 +83,7 @@ export default function WizardStep1({
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             
-            {/* Opción 1: Generar desde idea (Habilitada en ambos) */}
+            {/* Opción 1: Generar desde idea (Habilitada en todos los planes incluido free_trial) */}
             <button
               type="button"
               onClick={() => onUpdate({ mode: 'idea' })}
@@ -98,38 +103,38 @@ export default function WizardStep1({
               {lang === 'en' ? '💡 AI Idea Generator' : '💡 Generar desde Idea'}
             </button>
 
-            {/* Opción 2: Guion propio (Exclusiva Studio Pro) */}
+            {/* Opción 2: Guion propio (Habilitada en planes de pago / Studio Pro) */}
             <button
               type="button"
-              disabled={!isPro}
-              onClick={() => isPro && onUpdate({ mode: 'script' })}
-              title={!isPro ? (lang === 'en' ? 'Available in Studio Pro' : 'Disponible en Studio Pro') : undefined}
+              disabled={!canUseOwnScript}
+              onClick={() => canUseOwnScript && onUpdate({ mode: 'script' })}
+              title={!canUseOwnScript ? (lang === 'en' ? 'Available in paid plans' : 'Disponible en planes de pago') : undefined}
               style={{
                 background: currentMode === 'script' 
                   ? 'rgba(255, 107, 0, 0.15)' 
-                  : isPro 
+                  : canUseOwnScript 
                     ? 'rgba(30, 41, 59, 0.5)' 
                     : 'rgba(30, 41, 59, 0.25)',
                 border: `1px solid ${currentMode === 'script' ? 'var(--color-brand-primary, #FF6B00)' : 'rgba(255, 255, 255, 0.08)'}`,
-                color: isPro 
+                color: canUseOwnScript 
                   ? (currentMode === 'script' ? 'var(--color-brand-primary, #FF6B00)' : 'var(--color-text-muted, #94A3B8)') 
                   : '#64748B',
                 padding: '0.75rem',
                 borderRadius: '0.75rem',
                 fontSize: '0.85rem',
                 fontWeight: 600,
-                cursor: isPro ? 'pointer' : 'not-allowed',
+                cursor: canUseOwnScript ? 'pointer' : 'not-allowed',
                 textAlign: 'center',
                 transition: 'all 0.2s ease',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.35rem',
-                opacity: isPro ? 1 : 0.6
+                opacity: canUseOwnScript ? 1 : 0.6
               }}
             >
               <span>{lang === 'en' ? '📝 My Own Script' : '📝 Tengo mi Guion'}</span>
-              {!isPro && (
+              {!canUseOwnScript && (
                 <span style={{ 
                   background: '#FF6B00', 
                   color: '#FFF', 
@@ -147,7 +152,7 @@ export default function WizardStep1({
           </div>
         </div>
 
-        {/* MODO A: GENERAR DESDE IDEA GENERAL (Studio Lite & Pro) */}
+        {/* MODO A: GENERAR DESDE IDEA GENERAL (Todos los planes) */}
         {currentMode === 'idea' ? (
           <div className={styles.inputGroup}>
             <label className={styles.inputLabel}>
@@ -168,7 +173,7 @@ export default function WizardStep1({
             </span>
           </div>
         ) : (
-          /* MODO B: GUION PROPIO + PROMPT DIRECCIÓN VISUAL (Exclusivo Studio Pro) */
+          /* MODO B: GUION PROPIO + PROMPT DIRECCIÓN VISUAL (Planes de pago / Studio Pro) */
           <>
             <div className={styles.inputGroup}>
               <label className={styles.inputLabel}>
@@ -204,7 +209,7 @@ export default function WizardStep1({
           </>
         )}
 
-        {/* SELECTOR DE TONO (Habilitado para Studio Lite y Studio Pro) */}
+        {/* SELECTOR DE TONO */}
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
             {t('step1_tone_label')}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLanguage } from "../landing/LanguageContext";
 import WizardStep1, { type WizardData } from "./WizardStep1";
+import WizardStep1B from "./WizardStep1B";
 import WizardStep2 from "./WizardStep2";
 import WizardStep3 from "./WizardStep3";
 import WizardStep4 from "./WizardStep4";
@@ -34,6 +35,9 @@ export default function WizardContainer({
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const { updateCredits } = useAuth();
 
+  const totalSteps = 6;
+  const progressPercent = Math.round((currentStep / totalSteps) * 100);
+
   // 2. Nuevos estados para guardar la respuesta del video generado o errores del backend
   const [generatedResult, setGeneratedResult] = useState<GenerateVideoResponse | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -41,6 +45,8 @@ export default function WizardContainer({
   const [formData, setFormData] = useState<WizardData>({
     mode: "idea",
     scriptIdea: "",
+    introHook: "",
+    outroCta: "",
     tone: "professional",
     voiceId: "",
     aspectRatio: "9:16",
@@ -54,7 +60,7 @@ export default function WizardContainer({
   };
 
   const nextStep = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, 5));
+    setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -90,9 +96,15 @@ export default function WizardContainer({
     try {
       const mappedVisualStyle = (formData.visualStyle === "3d-render" ? "3d" : formData.visualStyle || "cinematic") as VisualStyle;
 
+      const templateParts: string[] = [];
+      if (formData.introHook) templateParts.push(`[Intro Template: ${formData.introHook}]`);
+      templateParts.push(formData.scriptIdea);
+      if (formData.outroCta) templateParts.push(`[Outro Template: ${formData.outroCta}]`);
+      const composedContent = templateParts.join("\n\n");
+
       const result = await generateStudioLiteVideo(
         {
-          rawContent: formData.scriptIdea,
+          rawContent: composedContent,
           tone: formData.tone,
           voiceId: (formData.voiceId || "alex") as VoiceId,
           aspectRatio: (formData.aspectRatio || "9:16") as AspectRatio,
@@ -200,7 +212,7 @@ export default function WizardContainer({
               <div className={styles.progressHeader}>
                 <div className={styles.progressTopRow}>
                   <div className={styles.stepInfoGroup}>
-                    {currentStep > 1 && currentStep < 5 && (
+                    {currentStep > 1 && currentStep < totalSteps && (
                       <button
                         type="button"
                         onClick={prevStep}
@@ -210,12 +222,12 @@ export default function WizardContainer({
                       </button>
                     )}
                     <span className={styles.stepBadge}>
-                      {t("wizard_step")} {currentStep} {t("wizard_of")} 5
+                      {t("wizard_step")} {currentStep} {t("wizard_of")} {totalSteps}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={styles.progressPercent}>
-                      {currentStep * 20}% {t("wizard_completed")}
+                      {progressPercent}% {t("wizard_completed")}
                     </span>
                     {!isProcessing && (
                       <button
@@ -233,7 +245,7 @@ export default function WizardContainer({
                 <div className={styles.progressBarTrack}>
                   <div
                     className={styles.progressBarFill}
-                    style={{ width: `${currentStep * 20}%` }}
+                    style={{ width: `${progressPercent}%` }}
                   />
                 </div>
               </div>
@@ -244,7 +256,7 @@ export default function WizardContainer({
                 </div>
               )}
 
-              {/* Paso 1 */}
+              {/* Paso 1: Creation Method + Initial Idea or Script */}
               {currentStep === 1 && (
                 <WizardStep1
                   data={formData}
@@ -254,9 +266,9 @@ export default function WizardContainer({
                 />
               )}
 
-              {/* Paso 2 */}
+              {/* Paso 2: Pre-designed Voice Template (Hooks & CTAs) */}
               {currentStep === 2 && (
-                <WizardStep2
+                <WizardStep1B
                   data={formData}
                   onUpdate={updateFormData}
                   onNext={nextStep}
@@ -267,7 +279,7 @@ export default function WizardContainer({
 
               {/* Paso 3 */}
               {currentStep === 3 && (
-                <WizardStep3
+                <WizardStep2
                   data={formData}
                   onUpdate={updateFormData}
                   onNext={nextStep}
@@ -278,7 +290,7 @@ export default function WizardContainer({
 
               {/* Paso 4 */}
               {currentStep === 4 && (
-                <WizardStep4
+                <WizardStep3
                   data={formData}
                   onUpdate={updateFormData}
                   onNext={nextStep}
@@ -289,6 +301,17 @@ export default function WizardContainer({
 
               {/* Paso 5 */}
               {currentStep === 5 && (
+                <WizardStep4
+                  data={formData}
+                  onUpdate={updateFormData}
+                  onNext={nextStep}
+                  onPrev={prevStep}
+                  wizardMode={wizardMode}
+                />
+              )}
+
+              {/* Paso 6 */}
+              {currentStep === 6 && (
                 <WizardStep5
                   data={formData}
                   onPrev={prevStep}
@@ -468,7 +491,7 @@ export default function WizardContainer({
               <div className={styles.summaryFooter}>
                 <p className={styles.footerText}>
                   {t("summary_engine_label")} • {t("wizard_step")} {currentStep}{" "}
-                  {t("wizard_of")} 5
+                  {t("wizard_of")} {totalSteps}
                 </p>
               </div>
             </div>
