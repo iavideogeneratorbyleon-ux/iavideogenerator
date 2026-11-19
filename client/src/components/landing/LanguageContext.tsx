@@ -90,7 +90,7 @@ const translations: Record<Language, Record<string, string>> = {
     step3_orientation_label: "Video Orientation",
     step3_style_label: "AI Rendering Style",
     step3_back_btn: "← Back",
-    step3_next_btn: "Next: Final Summary",
+    step3_next_btn: "Next: Background Music",
     step4_title: "Project Summary",
     step4_sub:
       "Review that all parameters are correct before activating generation with Artificial Intelligence.",
@@ -198,7 +198,7 @@ const translations: Record<Language, Record<string, string>> = {
     step3_orientation_label: "Orientación del Video",
     step3_style_label: "Estilo de Renderizado IA",
     step3_back_btn: "← Regresar",
-    step3_next_btn: "Siguiente: Resumen Final",
+    step3_next_btn: "Siguiente: Musica de Fondo",
     step4_title: "Resumen de tu proyecto",
     step4_sub:
       "Revisa que todos los parámetros sean correctos antes de activar la generación con Inteligencia Artificial.",

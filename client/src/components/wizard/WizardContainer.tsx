@@ -11,8 +11,15 @@ import styles from "./WizardContainer.module.css";
 
 // 1. Importamos nuestra función de conexión con el Backend y los tipos
 import { generateStudioLiteVideo } from "../../features/studio-lite/api";
-import type { GenerateVideoResponse, VoiceId, AspectRatio, VisualStyle, MusicStyle } from "../../features/studio-lite/types";
+import type {
+  GenerateVideoResponse,
+  VoiceId,
+  AspectRatio,
+  VisualStyle,
+  MusicStyle,
+} from "../../features/studio-lite/types";
 import { useAuth } from "../auth/AuthContext";
+import { SCRIPT_TEMPLATES } from "../../constants/templates";
 
 interface WizardContainerProps {
   onClose?: () => void;
@@ -39,7 +46,8 @@ export default function WizardContainer({
   const progressPercent = Math.round((currentStep / totalSteps) * 100);
 
   // 2. Nuevos estados para guardar la respuesta del video generado o errores del backend
-  const [generatedResult, setGeneratedResult] = useState<GenerateVideoResponse | null>(null);
+  const [generatedResult, setGeneratedResult] =
+    useState<GenerateVideoResponse | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<WizardData>({
@@ -87,19 +95,24 @@ export default function WizardContainer({
   };
 
   // 3. Orquestador centralizado que abre el modal al instante y llama al backend de forma única
-  // En tu WizardContainer.tsx dentro de handleStartGeneration:
   const handleStartGeneration = async () => {
     setIsProcessing(true);
     setGenerationError(null);
     setGeneratedResult(null);
 
     try {
-      const mappedVisualStyle = (formData.visualStyle === "3d-render" ? "3d" : formData.visualStyle || "cinematic") as VisualStyle;
+      const mappedVisualStyle = (
+        formData.visualStyle === "3d-render"
+          ? "3d"
+          : formData.visualStyle || "cinematic"
+      ) as VisualStyle;
 
       const templateParts: string[] = [];
-      if (formData.introHook) templateParts.push(`[Intro Template: ${formData.introHook}]`);
+      if (formData.introHook)
+        templateParts.push(`[Intro Template: ${formData.introHook}]`);
       templateParts.push(formData.scriptIdea);
-      if (formData.outroCta) templateParts.push(`[Outro Template: ${formData.outroCta}]`);
+      if (formData.outroCta)
+        templateParts.push(`[Outro Template: ${formData.outroCta}]`);
       const composedContent = templateParts.join("\n\n");
 
       const result = await generateStudioLiteVideo(
@@ -117,20 +130,17 @@ export default function WizardContainer({
 
       setGeneratedResult(result);
 
-      // ⚡ ¡AQUÍ ESTABA EL DETALLE! Actualizamos el balance global de créditos en el AuthContext
-      if (typeof result.remainingCredits === 'number') {
-        // Si tienes una función en tu AuthContext para actualizar créditos (ej. updateCredits), úsala aquí.
-        // O si tu AuthContext expone una función para refrescar el perfil de usuario:
+      if (typeof result.remainingCredits === "number") {
         updateCredits(result.remainingCredits);
       }
-
     } catch (err: any) {
       console.error("❌ Error generando el video desde el Wizard:", err);
-      setGenerationError(err.message || "Ocurrió un error inesperado al generar el video.");
+      setGenerationError(
+        err.message || "Ocurrió un error inesperado al generar el video."
+      );
       setIsProcessing(false);
     }
   };
-
 
   const handleProcessingComplete = () => {
     setIsProcessing(false);
@@ -151,6 +161,7 @@ export default function WizardContainer({
   const toneLabels: Record<string, string> = {
     professional:
       lang === "en" ? "Professional & Corporate" : "Profesional y Corporativo",
+    dynamic: lang === "en" ? "Dynamic" : "Dinámico",
     casual: lang === "en" ? "Casual & Friendly" : "Casual y Amigable",
     energetic: lang === "en" ? "Energetic & Dynamic" : "Enérgico y Dinámico",
     dramatic:
@@ -172,6 +183,7 @@ export default function WizardContainer({
     vector: lang === "en" ? "Minimalist Vector" : "Vector Minimalista",
     anime: "Anime / Concept Art",
     photorealistic: "Photorealistic Studio",
+    comic: lang === "en" ? "Comic / Graphic Novel" : "Cómic / Novela Gráfica",
   };
 
   const musicLabels: Record<string, string> = {
@@ -181,6 +193,29 @@ export default function WizardContainer({
     upbeat: lang === "en" ? "Upbeat / Corporate" : "Animado / Corporativo",
     tech: lang === "en" ? "Cyberpunk / Tech" : "Cyberpunk / Tecnológico",
   };
+
+  const selectedHookLabel = formData.introHook
+    ? SCRIPT_TEMPLATES.find((tpl) => tpl.id === formData.introHook)?.label?.[
+        lang
+      ] || formData.introHook
+    : lang === "en"
+    ? "Auto / Default"
+    : "Automático";
+
+  const selectedCtaLabel = formData.outroCta
+    ? SCRIPT_TEMPLATES.find((tpl) => tpl.id === formData.outroCta)?.label?.[
+        lang
+      ] || formData.outroCta
+    : lang === "en"
+    ? "None / Default"
+    : "Ninguno / Default";
+
+  const selectedMusicLabel =
+    (formData as any).musicTrackId && (formData as any).musicTrackId !== "none"
+      ? `${
+          musicLabels[formData.musicStyle || "none"] || formData.musicStyle
+        } • ${String((formData as any).musicTrackId).replace("_", " #")}`
+      : musicLabels[formData.musicStyle || "none"] || formData.musicStyle;
 
   return (
     <div className={styles.wrapper}>
@@ -222,7 +257,8 @@ export default function WizardContainer({
                       </button>
                     )}
                     <span className={styles.stepBadge}>
-                      {t("wizard_step")} {currentStep} {t("wizard_of")} {totalSteps}
+                      {t("wizard_step")} {currentStep} {t("wizard_of")}{" "}
+                      {totalSteps}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -346,6 +382,7 @@ export default function WizardContainer({
             </div>
 
             {/* COLUMNA DERECHA: Resumen en Vivo */}
+            {/* COLUMNA DERECHA: Resumen en Vivo */}
             <div className={styles.rightColumn}>
               <div className={styles.summaryContent}>
                 <div>
@@ -361,7 +398,12 @@ export default function WizardContainer({
                   </p>
                 </div>
 
-                <div className={styles.summaryCard}>
+                {/* Paso 1: Modo de Creación */}
+                <div
+                  className={`${styles.summaryCard} ${
+                    currentStep === 1 ? styles.summaryCardActive : ""
+                  }`}
+                >
                   <span className={styles.summaryCardLabel}>
                     {lang === "en" ? "Creation Mode" : "Modo de Creación"}
                   </span>
@@ -370,7 +412,12 @@ export default function WizardContainer({
                   </p>
                 </div>
 
-                <div className={styles.summaryCard}>
+                {/* Paso 1: Idea o Guion */}
+                <div
+                  className={`${styles.summaryCard} ${
+                    currentStep === 1 ? styles.summaryCardActive : ""
+                  }`}
+                >
                   <span className={styles.summaryCardLabel}>
                     {formData.scriptIdea && formData.scriptIdea.length > 150
                       ? lang === "en"
@@ -394,8 +441,47 @@ export default function WizardContainer({
                   </p>
                 </div>
 
+                {/* Paso 2: Intro Hook y Outro CTA */}
                 <div className={styles.summaryGrid}>
-                  <div className={styles.summarySubCard}>
+                  <div
+                    className={`${styles.summarySubCard} ${
+                      currentStep === 2 ? styles.summarySubCardActive : ""
+                    }`}
+                  >
+                    <span className={styles.summaryCardLabel}>
+                      {lang === "en" ? "Intro Hook" : "Gancho Inicial"}
+                    </span>
+                    <p
+                      className={styles.highlightValue}
+                      style={{ fontSize: "0.7rem" }}
+                    >
+                      {selectedHookLabel}
+                    </p>
+                  </div>
+                  <div
+                    className={`${styles.summarySubCard} ${
+                      currentStep === 2 ? styles.summarySubCardActive : ""
+                    }`}
+                  >
+                    <span className={styles.summaryCardLabel}>
+                      {lang === "en" ? "Outro CTA" : "Cierre / CTA"}
+                    </span>
+                    <p
+                      className={styles.highlightValue}
+                      style={{ fontSize: "0.7rem" }}
+                    >
+                      {selectedCtaLabel}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tono (Paso 2) y Formato (Paso 4) por separado */}
+                <div className={styles.summaryGrid}>
+                  <div
+                    className={`${styles.summarySubCard} ${
+                      currentStep === 2 ? styles.summarySubCardActive : ""
+                    }`}
+                  >
                     <span className={styles.summaryCardLabel}>
                       {t("summary_tone_label")}
                     </span>
@@ -403,7 +489,11 @@ export default function WizardContainer({
                       {toneLabels[formData.tone] || formData.tone}
                     </p>
                   </div>
-                  <div className={styles.summarySubCard}>
+                  <div
+                    className={`${styles.summarySubCard} ${
+                      currentStep === 4 ? styles.summarySubCardActive : ""
+                    }`}
+                  >
                     <span className={styles.summaryCardLabel}>
                       {t("summary_format_label")}
                     </span>
@@ -413,8 +503,13 @@ export default function WizardContainer({
                   </div>
                 </div>
 
+                {/* Voz (Paso 3) y Música (Paso 5) por separado */}
                 <div className={styles.summaryGrid}>
-                  <div className={styles.summarySubCard}>
+                  <div
+                    className={`${styles.summarySubCard} ${
+                      currentStep === 3 ? styles.summarySubCardActive : ""
+                    }`}
+                  >
                     <span className={styles.summaryCardLabel}>
                       {t("summary_voice_label")}
                     </span>
@@ -437,7 +532,11 @@ export default function WizardContainer({
                       )}
                     </p>
                   </div>
-                  <div className={styles.summarySubCard}>
+                  <div
+                    className={`${styles.summarySubCard} ${
+                      currentStep === 5 ? styles.summarySubCardActive : ""
+                    }`}
+                  >
                     <span className={styles.summaryCardLabel}>
                       {lang === "en" ? "Music" : "Música"}
                     </span>
@@ -445,13 +544,17 @@ export default function WizardContainer({
                       className={styles.highlightValue}
                       style={{ fontSize: "0.7rem" }}
                     >
-                      {musicLabels[formData.musicStyle || "none"] ||
-                        formData.musicStyle}
+                      {selectedMusicLabel}
                     </p>
                   </div>
                 </div>
 
-                <div className={styles.summaryCard}>
+                {/* Paso 4: Subtítulos */}
+                <div
+                  className={`${styles.summaryCard} ${
+                    currentStep === 4 ? styles.summaryCardActive : ""
+                  }`}
+                >
                   <span className={styles.summaryCardLabel}>
                     {lang === "en" ? "Subtitles" : "Subtítulos"}
                   </span>
@@ -466,7 +569,12 @@ export default function WizardContainer({
                   </p>
                 </div>
 
-                <div className={styles.summaryCard}>
+                {/* Paso 4: Estilo Visual */}
+                <div
+                  className={`${styles.summaryCard} ${
+                    currentStep === 4 ? styles.summaryCardActive : ""
+                  }`}
+                >
                   <span className={styles.summaryCardLabel}>
                     {t("summary_style_label")}
                   </span>

@@ -45,7 +45,6 @@
   }
 }
 
-/* Columnas de Ganchos y Cierres */
 .templatesGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -99,10 +98,45 @@
   cursor: not-allowed;
 }
 
+.templateOptionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
 .templateOptionTitle {
   font-size: 0.73rem;
   font-weight: 700;
   color: var(--color-text-main, #F8FAFC);
+}
+
+.listenBtn {
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  font-size: 0.62rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.listenBtn:hover {
+  background-color: rgba(255, 107, 0, 0.22);
+  border-color: var(--color-brand-primary, #FF6B00);
+}
+
+.listenBtnActive {
+  background-color: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
 }
 
 .inputGroup {
@@ -120,7 +154,6 @@
   letter-spacing: 0.05em;
 }
 
-/* Selector de Tonos Grid */
 .tonesGrid {
   display: grid;
   grid-template-columns: repeat(1, minmax(0, 1fr));
@@ -155,8 +188,7 @@
 .toneCardSelected {
   background-color: var(--color-bg-surface, #1E293B);
   border-color: var(--color-brand-primary, #FF6B00);
-  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.1);
-  box-shadow: 0 0 0 1px var(--color-brand-primary, #FF6B00);
+  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.1), 0 0 0 1px var(--color-brand-primary, #FF6B00);
 }
 
 .toneHeader {
@@ -201,7 +233,6 @@
   line-height: 1.4;
 }
 
-/* Footer / Botones Back y Next */
 .footerAction {
   padding-top: 1.5rem;
   margin-top: 2rem;
