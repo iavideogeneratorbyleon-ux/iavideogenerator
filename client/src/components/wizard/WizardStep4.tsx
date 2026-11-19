@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { WizardData } from './WizardStep1';
 import { useLanguage } from '../landing/LanguageContext';
 import { useAuth } from '../auth/AuthContext';
-import styles from './WizardStep3.module.css';
+import styles from './WizardStep4.module.css';
 
 type MusicStyleGroup = 'all' | 'lofi' | 'upbeat' | 'epic' | 'tech';
 type EngineMusicStyle = 'none' | 'lofi' | 'epic' | 'upbeat' | 'tech';
@@ -254,7 +254,7 @@ export default function WizardStep4({
         </div>
 
         {/* Pestañas de estilo */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+        <div className={styles.tabsRow}>
           {tabs.map((tab) => {
             const isActive = activeGroup === tab.id;
             return (
@@ -266,17 +266,7 @@ export default function WizardStep4({
                   setActiveGroup(tab.id);
                   setPage(0);
                 }}
-                style={{
-                  padding: '0.4rem 0.8rem',
-                  borderRadius: '9999px',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  border: `1px solid ${isActive ? '#FF6B00' : 'rgba(255,255,255,0.1)'}`,
-                  background: isActive ? 'rgba(255, 107, 0, 0.18)' : 'rgba(15, 23, 42, 0.55)',
-                  color: isActive ? '#FF6B00' : '#94A3B8',
-                  transition: 'all 0.15s ease',
-                }}
+                className={`${styles.tabBtn} ${isActive ? styles.tabBtnActive : ''}`}
               >
                 {tab.label}
               </button>
@@ -285,17 +275,7 @@ export default function WizardStep4({
         </div>
 
         {/* Lista compacta de pistas */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.45rem',
-            background: 'rgba(11, 15, 25, 0.65)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '0.85rem',
-            padding: '0.65rem',
-          }}
-        >
+        <div className={styles.trackListBox}>
           {paginatedTracks.map((track) => {
             const isSelected = currentTrackId
               ? currentTrackId === track.id
@@ -315,64 +295,28 @@ export default function WizardStep4({
                     handleSelectTrack(track);
                   }
                 }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '0.75rem',
-                  padding: '0.6rem 0.75rem',
-                  borderRadius: '0.65rem',
-                  border: `1px solid ${
-                    isSelected ? 'rgba(255, 107, 0, 0.55)' : 'rgba(255, 255, 255, 0.05)'
-                  }`,
-                  background: isSelected ? 'rgba(255, 107, 0, 0.1)' : 'rgba(30, 41, 59, 0.45)',
-                  opacity: isLocked ? 0.55 : 1,
-                  cursor: isLocked ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
+                className={`${styles.trackRow} ${isSelected ? styles.trackRowSelected : ''} ${
+                  isLocked ? styles.trackRowLocked : ''
+                }`}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
-                  <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{track.icon}</span>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#F8FAFC' }}>
+                <div className={styles.trackLeft}>
+                  <span className={styles.trackIcon}>{track.icon}</span>
+                  <div className={styles.trackMeta}>
+                    <div className={styles.trackTitleRow}>
+                      <span className={styles.trackTitle}>
                         {track.id === 'none'
                           ? lang === 'en'
                             ? 'No Background Music'
                             : 'Sin Música de Fondo'
                           : track.title}
                       </span>
-                      {isLocked && (
-                        <span
-                          style={{
-                            background: '#FF6B00',
-                            color: '#FFF',
-                            fontSize: '0.6rem',
-                            padding: '0.08rem 0.35rem',
-                            borderRadius: '0.25rem',
-                            fontWeight: 800,
-                          }}
-                        >
-                          PRO 🔒
-                        </span>
-                      )}
+                      {isLocked && <span className={styles.proBadge}>PRO 🔒</span>}
                     </div>
-                    <p
-                      style={{
-                        fontSize: '0.72rem',
-                        color: '#94A3B8',
-                        margin: '0.1rem 0 0',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {track.subtitle[lang]}
-                    </p>
+                    <p className={styles.trackSubtitle}>{track.subtitle[lang]}</p>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                <div className={styles.trackRight}>
                   {track.audioUrl && !isLocked && (
                     <button
                       type="button"
@@ -381,46 +325,16 @@ export default function WizardStep4({
                         handlePlayTrack(track);
                       }}
                       aria-label={isPlaying ? 'Stop preview' : 'Play preview'}
-                      style={{
-                        width: '1.85rem',
-                        height: '1.85rem',
-                        borderRadius: '9999px',
-                        border: 'none',
-                        background: isPlaying ? '#EF4444' : 'rgba(255, 255, 255, 0.1)',
-                        color: '#FFFFFF',
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
+                      className={`${styles.playBtn} ${isPlaying ? styles.playBtnPlaying : ''}`}
                     >
                       {isPlaying ? '⏹' : '▶'}
                     </button>
                   )}
 
                   <span
-                    style={{
-                      width: '1.05rem',
-                      height: '1.05rem',
-                      borderRadius: '9999px',
-                      border: `2px solid ${isSelected ? '#FF6B00' : 'rgba(148, 163, 184, 0.45)'}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
+                    className={`${styles.radioCircle} ${isSelected ? styles.radioCircleSelected : ''}`}
                   >
-                    {isSelected && (
-                      <span
-                        style={{
-                          width: '0.48rem',
-                          height: '0.48rem',
-                          borderRadius: '9999px',
-                          background: '#FF6B00',
-                        }}
-                      />
-                    )}
+                    {isSelected && <span className={styles.radioDot} />}
                   </span>
                 </div>
               </div>
@@ -429,33 +343,16 @@ export default function WizardStep4({
 
           {/* Paginación limpia */}
           {totalPages > 1 && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingTop: '0.35rem',
-                fontSize: '0.72rem',
-                color: '#94A3B8',
-              }}
-            >
+            <div className={styles.paginationBar}>
               <span>
                 {lang === 'en' ? 'Page' : 'Página'} {safePage + 1} / {totalPages}
               </span>
-              <div style={{ display: 'flex', gap: '0.35rem' }}>
+              <div className={styles.paginationActions}>
                 <button
                   type="button"
                   disabled={safePage === 0}
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  style={{
-                    padding: '0.25rem 0.6rem',
-                    borderRadius: '0.4rem',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    background: 'rgba(30, 41, 59, 0.6)',
-                    color: '#E2E8F0',
-                    cursor: safePage === 0 ? 'not-allowed' : 'pointer',
-                    opacity: safePage === 0 ? 0.45 : 1,
-                  }}
+                  className={styles.pageBtn}
                 >
                   {lang === 'en' ? 'Prev' : 'Ant.'}
                 </button>
@@ -463,15 +360,7 @@ export default function WizardStep4({
                   type="button"
                   disabled={safePage >= totalPages - 1}
                   onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  style={{
-                    padding: '0.25rem 0.6rem',
-                    borderRadius: '0.4rem',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    background: 'rgba(30, 41, 59, 0.6)',
-                    color: '#E2E8F0',
-                    cursor: safePage >= totalPages - 1 ? 'not-allowed' : 'pointer',
-                    opacity: safePage >= totalPages - 1 ? 0.45 : 1,
-                  }}
+                  className={styles.pageBtn}
                 >
                   {lang === 'en' ? 'Next' : 'Sig.'}
                 </button>
@@ -481,24 +370,12 @@ export default function WizardStep4({
         </div>
 
         {/* Barra inferior estética de preescucha */}
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '0.65rem',
-            padding: '0.7rem 0.9rem',
-            borderRadius: '0.75rem',
-            background: 'rgba(30, 41, 59, 0.65)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-          }}
-        >
-          <div style={{ fontSize: '0.78rem' }}>
-            <span style={{ color: '#94A3B8' }}>
+        <div className={styles.previewBar}>
+          <div className={styles.previewInfo}>
+            <span className={styles.previewLabel}>
               {lang === 'en' ? 'Preview mode: ' : 'Modo de escucha: '}
             </span>
-            <strong style={{ color: '#F8FAFC' }}>
+            <strong className={styles.previewTrackName}>
               {activePreviewTrack.id === 'none'
                 ? lang === 'en'
                   ? 'No Background Music'
@@ -507,23 +384,16 @@ export default function WizardStep4({
             </strong>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <div className={styles.previewModes}>
             <button
               type="button"
               onClick={() => {
                 stopAudio();
                 setPreviewMode('snippet');
               }}
-              style={{
-                padding: '0.28rem 0.55rem',
-                borderRadius: '0.4rem',
-                fontSize: '0.72rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                border: `1px solid ${previewMode === 'snippet' ? '#FF6B00' : 'rgba(255,255,255,0.12)'}`,
-                background: previewMode === 'snippet' ? 'rgba(255, 107, 0, 0.16)' : 'transparent',
-                color: previewMode === 'snippet' ? '#FF6B00' : '#CBD5E1',
-              }}
+              className={`${styles.modeBtn} ${
+                previewMode === 'snippet' ? styles.modeBtnActive : ''
+              }`}
             >
               {lang === 'en' ? `Clip (${SNIPPET_SECONDS}s)` : `Fragmento (${SNIPPET_SECONDS}s)`}
             </button>
@@ -533,16 +403,7 @@ export default function WizardStep4({
                 stopAudio();
                 setPreviewMode('full');
               }}
-              style={{
-                padding: '0.28rem 0.55rem',
-                borderRadius: '0.4rem',
-                fontSize: '0.72rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                border: `1px solid ${previewMode === 'full' ? '#FF6B00' : 'rgba(255,255,255,0.12)'}`,
-                background: previewMode === 'full' ? 'rgba(255, 107, 0, 0.16)' : 'transparent',
-                color: previewMode === 'full' ? '#FF6B00' : '#CBD5E1',
-              }}
+              className={`${styles.modeBtn} ${previewMode === 'full' ? styles.modeBtnActive : ''}`}
             >
               {lang === 'en' ? 'Full Track' : 'Completa'}
             </button>

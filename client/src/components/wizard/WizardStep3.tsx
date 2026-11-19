@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import type { WizardData } from "./WizardStep1";
 import { useLanguage } from "../landing/LanguageContext";
 import styles from "./WizardStep3.module.css";
@@ -7,7 +8,17 @@ interface Step3Props {
   onUpdate: (fields: Partial<WizardData>) => void;
   onNext: () => void;
   onPrev: () => void;
-  wizardMode?: "lite" | "pro"; // Recibimos el modo para aplicar restricciones
+  wizardMode?: "lite" | "pro";
+}
+
+type StyleCategory = "all" | "realistic" | "animation" | "graphic";
+
+interface VisualStyleOption {
+  id: string;
+  category: Exclude<StyleCategory, "all">;
+  label: string;
+  desc: string;
+  isProOnly: boolean;
 }
 
 export default function WizardStep3({
@@ -19,8 +30,8 @@ export default function WizardStep3({
 }: Step3Props) {
   const { lang, t } = useLanguage();
   const isPro = wizardMode === "pro";
+  const [selectedCategory, setSelectedCategory] = useState<StyleCategory>("all");
 
-  // Formatos: 1:1 es exclusivo Pro
   const aspectRatios = [
     {
       id: "9:16",
@@ -32,69 +43,96 @@ export default function WizardStep3({
     {
       id: "16:9",
       label: lang === "en" ? "Horizontal (16:9)" : "Horizontal (16:9)",
-      tag: "YouTube / TV",
+      tag: "YouTube / Widescreen",
       icon: "🖥️",
       isProOnly: false,
     },
     {
       id: "1:1",
       label: lang === "en" ? "Square (1:1)" : "Cuadrado (1:1)",
-      tag: "Instagram Feed / LinkedIn",
+      tag: "Feed / Social Square",
       icon: "⏹️",
       isProOnly: true,
     },
   ];
 
-  // Estilos visuales: 3 base + 2 exclusivos Pro
-  const visualStyles = [
-    // Base (Lite y Pro)
-    {
-      id: "cinematic",
-      label: lang === "en" ? "Cinematic" : "Cinematográfico",
-      desc:
-        lang === "en"
-          ? "High realism, dramatic lighting"
-          : "Realismo alto, iluminación dramática",
-      isProOnly: false,
-    },
-    {
-      id: "3d-render",
-      label: lang === "en" ? "3D Render" : "Render 3D",
-      desc:
-        lang === "en"
-          ? "Modern and colorful 3D animation style"
-          : "Estilo animación 3D moderno y colorido",
-      isProOnly: false,
-    },
-    {
-      id: "vector",
-      label: lang === "en" ? "Minimalist Vector" : "Vector Minimalista",
-      desc:
-        lang === "en"
-          ? "Clean lines and corporate graphic style"
-          : "Líneas limpias y estilo gráfico corporativo",
-      isProOnly: false,
-    },
-    // Exclusivos Pro
-    {
-      id: "anime",
-      label: lang === "en" ? "Anime / Concept Art" : "Anime / Arte Conceptual",
-      desc:
-        lang === "en"
-          ? "Vibrant Japanese animation and artistic concept design"
-          : "Animación japonesa vibrante y diseño artístico conceptual",
-      isProOnly: true,
-    },
-    {
-      id: "photorealistic",
-      label: lang === "en" ? "Photorealistic Studio" : "Estudio Fotorrealista",
-      desc:
-        lang === "en"
-          ? "Ultra-high fidelity studio photography style"
-          : "Estilo de fotografía de estudio de ultra alta fidelidad",
-      isProOnly: true,
-    },
+  const visualStyles: VisualStyleOption[] = useMemo(
+    () => [
+      {
+        id: "cinematic",
+        category: "realistic",
+        label: lang === "en" ? "Cinematic" : "Cinematográfico",
+        desc:
+          lang === "en"
+            ? "Dramatic lighting, depth and film-like framing"
+            : "Iluminación dramática, profundidad y estética de cine",
+        isProOnly: false,
+      },
+      {
+        id: "3d-render",
+        category: "animation",
+        label: lang === "en" ? "3D Render" : "Render 3D",
+        desc:
+          lang === "en"
+            ? "Modern 3D depth, soft lighting and tactile volume"
+            : "Volumen 3D moderno, iluminación suave y acabados limpios",
+        isProOnly: false,
+      },
+      {
+        id: "vector",
+        category: "graphic",
+        label: lang === "en" ? "Minimalist Vector" : "Vector Minimalista",
+        desc:
+          lang === "en"
+            ? "Clean shapes, crisp edges and modern brand clarity"
+            : "Formas limpias, bordes definidos y claridad visual",
+        isProOnly: false,
+      },
+      {
+        id: "anime",
+        category: "animation",
+        label: lang === "en" ? "Anime / Concept Art" : "Anime / Arte Conceptual",
+        desc:
+          lang === "en"
+            ? "Expressive animation look and stylized concept art"
+            : "Estética de animación expresiva y arte conceptual",
+        isProOnly: true,
+      },
+      {
+        id: "photorealistic",
+        category: "realistic",
+        label: lang === "en" ? "Photorealistic Studio" : "Estudio Fotorrealista",
+        desc:
+          lang === "en"
+            ? "Crisp studio-grade realism and natural textures"
+            : "Realismo tipo estudio con texturas naturales y detalladas",
+        isProOnly: true,
+      },
+      {
+        id: "comic",
+        category: "graphic",
+        label: lang === "en" ? "Comic / Graphic Novel" : "Cómic / Novela Gráfica",
+        desc:
+          lang === "en"
+            ? "Bold ink contours and dynamic graphic storytelling"
+            : "Trazos marcados y narrativa visual con fuerza gráfica",
+        isProOnly: true,
+      },
+    ],
+    [lang]
+  );
+
+  const categories: { id: StyleCategory; label: string }[] = [
+    { id: "all", label: lang === "en" ? "All Styles" : "Todos" },
+    { id: "realistic", label: lang === "en" ? "Film & Photo" : "Cine y Foto" },
+    { id: "animation", label: lang === "en" ? "3D & Anime" : "3D y Anime" },
+    { id: "graphic", label: lang === "en" ? "Vector & Comic" : "Vector y Cómic" },
   ];
+
+  const filteredStyles = useMemo(() => {
+    if (selectedCategory === "all") return visualStyles;
+    return visualStyles.filter((item) => item.category === selectedCategory);
+  }, [selectedCategory, visualStyles]);
 
   const handleSelectAspect = (ratioId: string, isProOnly: boolean) => {
     if (isProOnly && !isPro) return;
@@ -114,7 +152,7 @@ export default function WizardStep3({
           <p className={styles.headingSub}>{t("step3_sub")}</p>
         </div>
 
-        {/* Selector de Aspect Ratio */}
+        {/* Selector de Formato / Aspect Ratio */}
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
             {t("step3_orientation_label")}
@@ -130,39 +168,18 @@ export default function WizardStep3({
                   type="button"
                   disabled={isDisabled}
                   onClick={() => handleSelectAspect(ratio.id, ratio.isProOnly)}
-                  style={{
-                    opacity: isDisabled ? 0.6 : 1,
-                    cursor: isDisabled ? "not-allowed" : "pointer",
-                  }}
                   className={`${styles.selectionCard} ${
                     isSelected ? styles.selectionCardSelected : ""
-                  }`}
+                  } ${isDisabled ? styles.selectionCardDisabled : ""}`}
                 >
                   <div className={styles.cardHeader}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.4rem",
-                      }}
-                    >
+                    <div className={styles.cardBadgeGroup}>
                       <span className={styles.cardIcon}>{ratio.icon}</span>
                       {ratio.isProOnly && (
-                        <span
-                          style={{
-                            background: "#FF6B00",
-                            color: "#FFF",
-                            fontSize: "0.55rem",
-                            padding: "0.1rem 0.3rem",
-                            borderRadius: "0.2rem",
-                            fontWeight: 800,
-                          }}
-                        >
-                          PRO 🔒
-                        </span>
+                        <span className={styles.proBadge}>PRO 🔒</span>
                       )}
                     </div>
-                    {!ratio.isProOnly || isPro ? (
+                    {!isDisabled ? (
                       <span
                         className={`${styles.radioCircle} ${
                           isSelected ? styles.radioCircleSelected : ""
@@ -171,7 +188,7 @@ export default function WizardStep3({
                         {isSelected && <span className={styles.radioDot} />}
                       </span>
                     ) : (
-                      <span style={{ fontSize: "0.8rem" }}>🔒</span>
+                      <span className={styles.lockIcon}>🔒</span>
                     )}
                   </div>
                   <div>
@@ -184,11 +201,34 @@ export default function WizardStep3({
           </div>
         </div>
 
-        {/* Selector de Estilo Visual */}
+        {/* Selector de Estilo Visual con filtro por grupo */}
         <div className={styles.inputGroup}>
-          <label className={styles.inputLabel}>{t("step3_style_label")}</label>
+          <div className={styles.sectionHeaderRow}>
+            <label className={styles.inputLabel}>
+              {t("step3_style_label")}
+            </label>
+
+            <div className={styles.filterPillsGroup}>
+              {categories.map((cat) => {
+                const active = selectedCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`${styles.filterPill} ${
+                      active ? styles.filterPillActive : ""
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className={styles.cardsGrid}>
-            {visualStyles.map((style) => {
+            {filteredStyles.map((style) => {
               const isSelected = data.visualStyle === style.id;
               const isDisabled = style.isProOnly && !isPro;
 
@@ -198,39 +238,18 @@ export default function WizardStep3({
                   type="button"
                   disabled={isDisabled}
                   onClick={() => handleSelectStyle(style.id, style.isProOnly)}
-                  style={{
-                    opacity: isDisabled ? 0.6 : 1,
-                    cursor: isDisabled ? "not-allowed" : "pointer",
-                  }}
                   className={`${styles.selectionCard} ${
                     isSelected ? styles.selectionCardSelected : ""
-                  }`}
+                  } ${isDisabled ? styles.selectionCardDisabled : ""}`}
                 >
                   <div className={styles.cardHeader}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.4rem",
-                      }}
-                    >
+                    <div className={styles.cardBadgeGroup}>
                       <span className={styles.cardTitle}>{style.label}</span>
                       {style.isProOnly && (
-                        <span
-                          style={{
-                            background: "#FF6B00",
-                            color: "#FFF",
-                            fontSize: "0.55rem",
-                            padding: "0.1rem 0.3rem",
-                            borderRadius: "0.2rem",
-                            fontWeight: 800,
-                          }}
-                        >
-                          PRO 🔒
-                        </span>
+                        <span className={styles.proBadge}>PRO 🔒</span>
                       )}
                     </div>
-                    {!style.isProOnly || isPro ? (
+                    {!isDisabled ? (
                       <span
                         className={`${styles.radioCircle} ${
                           isSelected ? styles.radioCircleSelected : ""
@@ -239,7 +258,7 @@ export default function WizardStep3({
                         {isSelected && <span className={styles.radioDot} />}
                       </span>
                     ) : (
-                      <span style={{ fontSize: "0.8rem" }}>🔒</span>
+                      <span className={styles.lockIcon}>🔒</span>
                     )}
                   </div>
                   <p className={styles.cardDesc}>{style.desc}</p>
@@ -248,7 +267,8 @@ export default function WizardStep3({
             })}
           </div>
         </div>
-        {/* --- SECCIÓN DE SUBTÍTULOS --- */}
+
+        {/* Sección de Subtítulos */}
         <div className={styles.subtitlesSection}>
           <div className={styles.subtitlesInfo}>
             <h4 className={styles.subtitlesTitle}>
