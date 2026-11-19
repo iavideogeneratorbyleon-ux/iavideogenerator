@@ -11,6 +11,39 @@ if (!fs.existsSync(IMAGE_OUTPUT_DIR)) {
   fs.mkdirSync(IMAGE_OUTPUT_DIR, { recursive: true });
 }
 
+function resolveJobId(masterPayload, scenes) {
+  if (masterPayload?.meta?.jobId) {
+    return masterPayload.meta.jobId;
+  }
+  const firstAudioFile = scenes.find((s) => s?.audio?.fileName)?.audio?.fileName;
+  if (firstAudioFile) {
+    const match = firstAudioFile.match(/^(.+)_scene_\d+\.[^.]+$/);
+    if (match?.[1]) return match[1];
+  }
+  return `job_${Date.now()}`;
+}
+
+function buildSceneImagePrompt(scene, structuredScript, styleModifier) {
+  const basePrompt =
+    scene.imagePrompt ||
+    [structuredScript.characterAndStyleBible, scene.visualPrompt].filter(Boolean).join(' | ') ||
+    scene.visualPrompt ||
+    '';
+
+  const parts = [basePrompt];
+
+  if (styleModifier) {
+    parts.push(`Style override: ${styleModifier}`);
+  }
+
+  const avoidStyles = structuredScript?.styleGuide?.avoidStyles;
+  if (avoidStyles) {
+    parts.push(`Strictly avoid: ${avoidStyles}`);
+  }
+
+  return parts.filter(Boolean).join('. ');
+}
+
 async function generateSceneImage({ prompt, aspectRatio = '9:16', jobId, sceneNumber }) {
   console.log(`   🎨 [Gemini Image] Generando escena ${sceneNumber} (${aspectRatio})...`);
 
@@ -53,32 +86,33 @@ async function generateAllScenesVisuals(rawPayload) {
     throw new Error('El payload no contiene llmDirective.structuredScript.scenes válido.');
   }
 
-  const jobId = masterPayload?.meta?.jobId || `job_${Date.now()}`;
-  
+  const jobId = resolveJobId(masterPayload, structuredScript.scenes);
+
   // 🔍 Extracción dinámica y robusta del Aspect Ratio desde cualquier nivel del payload
-  const aspectRatio = 
-    masterPayload?.userInputs?.aspectRatio || 
-    masterPayload?.visualConfig?.aspectRatio || 
-    masterPayload?.config?.aspectRatio || 
+  const aspectRatio =
+    masterPayload?.userInputs?.aspectRatio ||
+    masterPayload?.visualConfig?.aspectRatio ||
+    masterPayload?.config?.aspectRatio ||
     '9:16';
 
   // 🎨 Extracción del Modificador de Estilo Visual (ej. vector, cinematic, etc.)
-  const styleModifier = 
-    masterPayload?.visualConfig?.stylePromptModifier || 
-    masterPayload?.userInputs?.visualStyleModifier || 
+  const styleModifier =
+    masterPayload?.visualConfig?.stylePromptModifier ||
+    masterPayload?.userInputs?.visualStyleModifier ||
     '';
 
-  console.log(`🚀 [Visuals] Generando ${structuredScript.scenes.length} imágenes con Gemini (Aspect Ratio: ${aspectRatio}) para Job: ${jobId}...`);
+  console.log(
+    `🚀 [Visuals] Generando ${structuredScript.scenes.length} imágenes con Gemini (Aspect Ratio: ${aspectRatio}) para Job: ${jobId}...`
+  );
 
   const updatedScenes = [];
 
   for (const scene of structuredScript.scenes) {
-    // Fusionamos el prompt de la escena con el estilo visual elegido por el usuario de forma dinámica
-    const enhancedPrompt = styleModifier 
-      ? `${scene.visualPrompt}, ${styleModifier}` 
-      : scene.visualPrompt;
+    const enhancedPrompt = buildSceneImagePrompt(scene, structuredScript, styleModifier);
 
-    console.log(`   ✨ Prompt enriquecido escena ${scene.sceneNumber}: "${enhancedPrompt.slice(0, 60)}..."`);
+    console.log(
+      `   ✨ Prompt enriquecido escena ${scene.sceneNumber}: "${enhancedPrompt.slice(0, 80)}..."`
+    );
 
     const visualResult = await generateSceneImage({
       prompt: enhancedPrompt,
@@ -93,7 +127,9 @@ async function generateAllScenesVisuals(rawPayload) {
     });
   }
 
-  console.log(`✅ [Visuals] Todas las imágenes generadas con éxito aplicando el estilo y formato dinámico.`);
+  console.log(
+    `✅ [Visuals] Todas las imágenes generadas con éxito aplicando el estilo y formato dinámico.`
+  );
 
   return {
     ...masterPayload,
