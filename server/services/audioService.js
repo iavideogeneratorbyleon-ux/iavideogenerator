@@ -23,6 +23,25 @@ const VOICE_MAP = Object.fromEntries(
   Object.entries(VOICE_CATALOG).map(([key, meta]) => [key, meta.id])
 );
 
+const TONE_ALIASES = {
+  professional: 'direct',
+  casual: 'storytelling'
+};
+
+function normalizeTextForSpeech(text = '') {
+  if (!text || typeof text !== 'string') return '';
+
+  return text
+    .replace(/\s+/g, ' ')
+    .replace(/\b(\d+)\s*min\b/gi, '$1 minutes')
+    .replace(/\b(\d+)\s*mins\b/gi, '$1 minutes')
+    .replace(/\b(\d+)\s*hrs?\b/gi, '$1 hours')
+    .replace(/&/g, ' and ')
+    .replace(/%/g, ' percent')
+    .replace(/\$(\d+)/g, '$1 dollars')
+    .trim();
+}
+
 function resolveVoiceId({ requestedVoiceId, userPlan = 'free_trial' }) {
   const defaultFreeId = process.env.ELEVENLABS_DEFAULT_VOICE_ID || 'xfcOcwRJ5AZQ8qZsQMw2';
   const isPaidPlan = ['pay_per_video', 'pro', 'unlimited'].includes(userPlan);
@@ -65,7 +84,8 @@ function resolveVoiceId({ requestedVoiceId, userPlan = 'free_trial' }) {
 }
 
 function getVoiceTuningByTone(tone = 'engaging') {
-  const normalizedTone = String(tone).toLowerCase().trim();
+  const rawTone = String(tone).toLowerCase().trim();
+  const normalizedTone = TONE_ALIASES[rawTone] || rawTone;
 
   const presets = {
     dramatic: {
@@ -154,6 +174,7 @@ async function generateSceneAudio({
     'xfcOcwRJ5AZQ8qZsQMw2';
 
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`;
+  const spokenText = normalizeTextForSpeech(text);
 
   const response = await fetch(url, {
     method: 'POST',
@@ -164,7 +185,7 @@ async function generateSceneAudio({
     },
     signal,
     body: JSON.stringify({
-      text,
+      text: spokenText,
       model_id: modelId,
       voice_settings: voiceSettings
     })
@@ -214,6 +235,10 @@ async function generateAllScenesAudio(rawPayload) {
     masterPayload?.script?.tone ||
     rawPayload?.userInputs?.tone ||
     'engaging';
+  const endingBufferSeconds =
+    typeof masterPayload?.orchestration?.endingBufferSeconds === 'number'
+      ? masterPayload.orchestration.endingBufferSeconds
+      : structuredScript.endingBufferSeconds ?? 1.5;
 
   const requestedVoiceId =
     masterPayload?.userInputs?.voiceId ||
@@ -331,6 +356,7 @@ async function generateAllScenesAudio(rawPayload) {
       provider: 'elevenlabs',
       modelId,
       tone,
+      endingBufferSeconds,
       voiceKey: resolvedVoice.voiceKey,
       voiceId: resolvedVoice.voiceId,
       downgradedFromPro: resolvedVoice.downgradedFromPro

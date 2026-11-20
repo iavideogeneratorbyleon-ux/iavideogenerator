@@ -74,13 +74,18 @@ async function generateSceneImage({ prompt, aspectRatio = '9:16', jobId, sceneNu
   return {
     fileName,
     imageUrl: `/images/${fileName}`,
-    provider: 'gemini-2.5-flash-image'
+    provider: 'gemini-2.5-flash-image',
+    aspectRatio,
+    promptUsed: prompt
   };
 }
 
 async function generateAllScenesVisuals(rawPayload) {
   const masterPayload = rawPayload?.payload || rawPayload?.data || rawPayload;
-  const structuredScript = masterPayload?.llmDirective?.structuredScript;
+  const structuredScript =
+    masterPayload?.llmDirective?.structuredScript ||
+    masterPayload?.structuredScript ||
+    (Array.isArray(masterPayload?.scenes) ? masterPayload : null);
 
   if (!structuredScript || !Array.isArray(structuredScript.scenes)) {
     throw new Error('El payload no contiene llmDirective.structuredScript.scenes válido.');
@@ -133,13 +138,39 @@ async function generateAllScenesVisuals(rawPayload) {
 
   return {
     ...masterPayload,
-    llmDirective: {
-      ...masterPayload.llmDirective,
-      structuredScript: {
-        ...structuredScript,
-        scenes: updatedScenes
-      }
-    }
+    meta: {
+      ...(masterPayload.meta || {}),
+      jobId
+    },
+    visual: {
+      ...(masterPayload.visual || {}),
+      provider: 'gemini-2.5-flash-image',
+      jobId,
+      aspectRatio,
+      styleModifier: styleModifier || null,
+      styleAnchor: structuredScript?.styleGuide?.styleAnchor || null,
+      avoidStyles: structuredScript?.styleGuide?.avoidStyles || null
+    },
+    ...(masterPayload.llmDirective
+      ? {
+          llmDirective: {
+            ...masterPayload.llmDirective,
+            structuredScript: {
+              ...structuredScript,
+              scenes: updatedScenes
+            }
+          }
+        }
+      : {}),
+    ...(masterPayload.structuredScript
+      ? {
+          structuredScript: {
+            ...masterPayload.structuredScript,
+            scenes: updatedScenes
+          }
+        }
+      : {}),
+    ...(Array.isArray(masterPayload.scenes) ? { scenes: updatedScenes } : {})
   };
 }
 

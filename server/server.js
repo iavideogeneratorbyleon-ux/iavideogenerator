@@ -19,6 +19,8 @@ const audioRoutes = require('./routes/audio.routes');
 const pipelineRoutes = require('./routes/pipeline.routes');
 const visualRoutes = require('./routes/visual.routes');
 const studioLiteRoutes = require('./routes/studioLite');
+const renderRoutes = require('./routes/render.routes');
+
 
 const app = express();
 const PORT = process.env.PORT || 3030;
@@ -41,6 +43,7 @@ app.use('/api/audio', audioRoutes);
 app.use('/api/pipeline', pipelineRoutes);
 app.use('/api/visual', visualRoutes);
 app.use('/api/studio-lite', studioLiteRoutes);
+app.use('/api/render', renderRoutes);
 
 app.get('/', (req, res) => {
   res.send('API de cempa.ai funcionando al 100% 🚀');
