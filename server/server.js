@@ -13,13 +13,17 @@ require('dotenv').config();
 const path = require('path');
 
 const authRoutes = require('./routes/auth.routes');
-const videoRoutes = require('./routes/video.routes'); // <--- 1. Importa las rutas de video
+const videoRoutes = require('./routes/video.routes'); 
 const llmRoutes = require('./routes/llm.routes');
 const audioRoutes = require('./routes/audio.routes');
 const pipelineRoutes = require('./routes/pipeline.routes');
 const visualRoutes = require('./routes/visual.routes');
-const studioLiteRoutes = require('./routes/studioLite');
 const renderRoutes = require('./routes/render.routes');
+const musicRoutes = require('./routes/music.routes');
+const studioLiteRoutes = require('./routes/studioLite.routes');
+const usageRoutes = require('./routes/usage.routes');
+
+
 
 
 const app = express();
@@ -42,8 +46,10 @@ app.use('/api/llm', llmRoutes); //Monta las rutas del llm en /api/llm
 app.use('/api/audio', audioRoutes);
 app.use('/api/pipeline', pipelineRoutes);
 app.use('/api/visual', visualRoutes);
-app.use('/api/studio-lite', studioLiteRoutes);
 app.use('/api/render', renderRoutes);
+app.use('/api/music', musicRoutes);
+app.use('/api/studio-lite', studioLiteRoutes);
+app.use('/api/usage', usageRoutes);
 
 app.get('/', (req, res) => {
   res.send('API de cempa.ai funcionando al 100% 🚀');

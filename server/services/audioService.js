@@ -1,4 +1,4 @@
-// server/services/audioService.js
+// audioService.js // server/services/audioService.js
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
@@ -89,32 +89,32 @@ function getVoiceTuningByTone(tone = 'engaging') {
 
   const presets = {
     dramatic: {
-      stability: 0.34,
-      similarity_boost: 0.82,
-      style: 0.42,
+      stability: 0.42,
+      similarity_boost: 0.80,
+      style: 0.28,
       use_speaker_boost: true,
-      speed: 0.96
+      speed: 0.95
     },
     storytelling: {
-      stability: 0.44,
-      similarity_boost: 0.8,
-      style: 0.32,
+      stability: 0.48,
+      similarity_boost: 0.78,
+      style: 0.22,
       use_speaker_boost: true,
-      speed: 0.98
+      speed: 0.97
     },
     engaging: {
-      stability: 0.34,
-      similarity_boost: 0.80,
-      style: 0.40,
+      stability: 0.44,
+      similarity_boost: 0.78,
+      style: 0.26,
       use_speaker_boost: true,
-      speed: 1.03
+      speed: 0.99
     },
     dynamic: {
-      stability: 0.46,
+      stability: 0.50,
       similarity_boost: 0.78,
-      style: 0.25,
+      style: 0.18,
       use_speaker_boost: true,
-      speed: 1.05
+      speed: 0.98
     },
     calm: {
       stability: 0.68,
@@ -128,7 +128,7 @@ function getVoiceTuningByTone(tone = 'engaging') {
       similarity_boost: 0.78,
       style: 0.15,
       use_speaker_boost: true,
-      speed: 1.04
+      speed: 1.0
     }
   };
 
@@ -136,20 +136,23 @@ function getVoiceTuningByTone(tone = 'engaging') {
 }
 
 function computeSceneSpeed({ text, durationSeconds, baseSpeed, overrideSpeed }) {
+  const safeBase =
+    typeof baseSpeed === 'number' && !Number.isNaN(baseSpeed) ? baseSpeed : 0.98;
+
   if (typeof overrideSpeed === 'number' && !Number.isNaN(overrideSpeed)) {
-    return Number(Math.max(0.75, Math.min(overrideSpeed, 1.25)).toFixed(2));
+    return Number(Math.max(0.7, Math.min(overrideSpeed, 1.2)).toFixed(2));
   }
 
   if (!text || !durationSeconds || durationSeconds <= 0) {
-    return baseSpeed;
+    return Number(Math.max(0.7, Math.min(safeBase, 1.2)).toFixed(2));
   }
 
   const words = text.trim().split(/\s+/).filter(Boolean).length;
-  const estimatedNaturalSec = words / 2.4;
+  const estimatedNaturalSec = words / 2.3;
   const ratio = estimatedNaturalSec / durationSeconds;
 
-  const adjusted = baseSpeed * Math.max(0.85, Math.min(ratio, 1.18));
-  return Number(Math.max(0.82, Math.min(adjusted, 1.22)).toFixed(2));
+  const adjusted = safeBase * Math.max(0.88, Math.min(ratio, 1.1));
+  return Number(Math.max(0.85, Math.min(adjusted, 1.08)).toFixed(2));
 }
 
 async function generateSceneAudio({
@@ -175,6 +178,13 @@ async function generateSceneAudio({
 
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}`;
   const spokenText = normalizeTextForSpeech(text);
+  const safeVoiceSettings =
+    voiceSettings && typeof voiceSettings.speed === 'number'
+      ? {
+          ...voiceSettings,
+          speed: Number(Math.max(0.7, Math.min(voiceSettings.speed, 1.2)).toFixed(2))
+        }
+      : voiceSettings;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -187,7 +197,7 @@ async function generateSceneAudio({
     body: JSON.stringify({
       text: spokenText,
       model_id: modelId,
-      voice_settings: voiceSettings
+      voice_settings: safeVoiceSettings
     })
   });
 
@@ -208,7 +218,7 @@ async function generateSceneAudio({
     fileName,
     audioUrl: `/audio/${fileName}`,
     voiceIdUsed: selectedVoiceId,
-    voiceSettingsUsed: voiceSettings
+    voiceSettingsUsed: safeVoiceSettings
   };
 }
 

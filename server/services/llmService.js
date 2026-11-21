@@ -63,7 +63,7 @@ function attachVisualConsistency(structuredScript) {
   const styleGuide = {
     styleAnchor: bible,
     avoidStyles:
-      'anime, cartoon, 3d render, comic book, neon cyberpunk, inconsistent character appearance or outfit changes'
+      'anime, cartoon, comic book, neon cyberpunk, inconsistent character appearance or outfit changes'
   };
 
   const scenes = Array.isArray(structuredScript.scenes)
