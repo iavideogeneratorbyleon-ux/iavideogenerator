@@ -5,6 +5,8 @@ const path = require('path');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 const ffprobePath = require('ffprobe-static').path;
+const { GLOBALS } = require('../config/globals');
+const { clampNumber, normalizeKey, resolvePlanPolicy } = require('../utils/sharedHelpers');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 ffmpeg.setFfprobePath(ffprobePath);
@@ -62,7 +64,9 @@ const PRESET_TO_MUSIC_KEY = {
   mr_beast: 'upbeat_hype',
   tiktok_viral: 'viral_beat',
   luxury: 'luxury_ambient',
+  luxury_brand: 'luxury_ambient',
   tech: 'tech_pulse',
+  tech_modern: 'tech_pulse',
   default: 'warm_storytelling'
 };
 
@@ -76,26 +80,35 @@ function getMediaDuration(filePath) {
 }
 
 function resolveMusicConfig(masterPayload = {}) {
-  const userPlan =
+  const rawPlan =
     masterPayload?.meta?.userPlan ||
     masterPayload?.orchestration?.planApplied ||
     'free_trial';
+  const userPlan = normalizeKey(rawPlan, {}, GLOBALS.PLAN_POLICIES, 'free_trial');
+  const planPolicy = resolvePlanPolicy(userPlan);
   const isFreePlan = userPlan === 'free_trial';
+  const allowsCustomMusic = Boolean(planPolicy.allowCustomOverrides);
 
   const musicConfig = masterPayload?.musicConfig || masterPayload?.music || {};
 
   const enabled =
     typeof musicConfig.enabled === 'boolean' ? musicConfig.enabled : true;
 
-  const preset =
+  const rawPreset =
     masterPayload?.video?.preset ||
     masterPayload?.videoConfig?.preset ||
     'default';
+  const preset = normalizeKey(
+    rawPreset,
+    GLOBALS.PRESET_ALIASES,
+    PRESET_TO_MUSIC_KEY,
+    'default'
+  );
 
   const tone = masterPayload?.userInputs?.tone || '';
 
   // Selección de pista por track explícito, preset o tono
-  let selectedKey =
+  const selectedKey =
     musicConfig.track && MUSIC_CATALOG[musicConfig.track]
       ? musicConfig.track
       : PRESET_TO_MUSIC_KEY[preset] ||
@@ -105,13 +118,13 @@ function resolveMusicConfig(masterPayload = {}) {
 
   // Custom musicUrl solo permitido en planes de pago
   const customMusicUrl =
-    !isFreePlan && typeof musicConfig.customMusicUrl === 'string'
+    !isFreePlan && allowsCustomMusic && typeof musicConfig.customMusicUrl === 'string'
       ? musicConfig.customMusicUrl.trim()
       : null;
 
   const baseVolume =
     typeof musicConfig.volume === 'number'
-      ? Math.min(0.6, Math.max(0.05, musicConfig.volume))
+      ? clampNumber(musicConfig.volume, 0.05, 0.6, 2)
       : catalogItem.defaultVolume;
 
   const duckingEnabled =
@@ -119,7 +132,7 @@ function resolveMusicConfig(masterPayload = {}) {
 
   const fadeOutSeconds =
     typeof musicConfig.fadeOutSeconds === 'number'
-      ? Math.max(0.5, Math.min(5, musicConfig.fadeOutSeconds))
+      ? clampNumber(musicConfig.fadeOutSeconds, 0.5, 5, 2)
       : 2.0;
 
   return {

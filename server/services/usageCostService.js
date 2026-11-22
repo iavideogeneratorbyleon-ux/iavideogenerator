@@ -1,25 +1,42 @@
 // server/services/usageCostService.js
+const { GLOBALS } = require('../config/globals');
+const { clampNumber, normalizeKey, buildUsageRecord } = require('../utils/sharedHelpers');
+
 const usageRecords = new Map();
 
 // Tarifas estimadas de referencia (ajustables por .env y reemplazables si el proveedor devuelve costo real)
 const DEFAULT_RATES = {
-  llmPer1kTokens: Number(process.env.COST_LLM_PER_1K_TOKENS || 0.002),
-  ttsPer1kChars: Number(process.env.COST_TTS_PER_1K_CHARS || 0.015),
-  imagePerUnit: Number(process.env.COST_IMAGE_PER_UNIT || 0.02),
-  videoClipPerSecond: Number(process.env.COST_VIDEO_CLIP_PER_SEC || 0.08),
-  renderPerSecond: Number(process.env.COST_RENDER_PER_SEC || 0.001),
-  musicMixPerJob: Number(process.env.COST_MUSIC_MIX_PER_JOB || 0.002)
+  llmPer1kTokens: clampNumber(process.env.COST_LLM_PER_1K_TOKENS, 0, 100, 0.002),
+  ttsPer1kChars: clampNumber(process.env.COST_TTS_PER_1K_CHARS, 0, 100, 0.015),
+  imagePerUnit: clampNumber(process.env.COST_IMAGE_PER_UNIT, 0, 100, 0.02),
+  videoClipPerSecond: clampNumber(process.env.COST_VIDEO_CLIP_PER_SEC, 0, 100, 0.08),
+  renderPerSecond: clampNumber(process.env.COST_RENDER_PER_SEC, 0, 100, 0.001),
+  musicMixPerJob: clampNumber(process.env.COST_MUSIC_MIX_PER_JOB, 0, 100, 0.002)
 };
 
 function roundCost(value) {
-  return Number((Number(value) || 0).toFixed(6));
+  return clampNumber(value, 0, 1000000, 6);
 }
 
 function initJobUsage(jobId, meta = {}) {
+  const normalizedPlan = normalizeKey(
+    meta.userPlan,
+    {},
+    GLOBALS.PLAN_POLICIES,
+    'free_trial'
+  );
+  const normalizedProduct = normalizeKey(
+    meta.product,
+    {},
+    GLOBALS.PRODUCTS,
+    'studio_lite'
+  );
+
   const record = {
     jobId,
     userId: meta.userId || null,
-    userPlan: meta.userPlan || 'free_trial',
+    userPlan: normalizedPlan,
+    product: normalizedProduct,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     steps: {},
@@ -102,6 +119,23 @@ function recordStepUsage(jobId, stepName, rawUsage = {}, meta = {}) {
       ? rawUsage.reportedCostUsd
       : null;
 
+  const finalEstimatedCostUsd = roundCost(
+    typeof rawUsage.estimatedCostUsd === 'number'
+      ? rawUsage.estimatedCostUsd
+      : calculatedEstimate
+  );
+
+  const usageTelemetry = buildUsageRecord({
+    provider: rawUsage.provider || null,
+    model: rawUsage.model || null,
+    operation: stepName,
+    latencyMs: rawUsage.latencyMs || 0,
+    inputUnits: rawUsage.inputUnits || llmTokens || ttsCharacters || 0,
+    outputUnits: rawUsage.outputUnits || imagesGenerated || videoClipsGenerated || 0,
+    estimatedCostUsd: finalEstimatedCostUsd,
+    requestId: rawUsage.requestId || null
+  });
+
   record.steps[stepName] = {
     provider: rawUsage.provider || null,
     model: rawUsage.model || null,
@@ -114,13 +148,10 @@ function recordStepUsage(jobId, stepName, rawUsage = {}, meta = {}) {
       renderDurationSeconds,
       audioSeconds
     },
-    estimatedCostUsd: roundCost(
-      typeof rawUsage.estimatedCostUsd === 'number'
-        ? rawUsage.estimatedCostUsd
-        : calculatedEstimate
-    ),
+    estimatedCostUsd: finalEstimatedCostUsd,
     reportedCostUsd: reportedCost !== null ? roundCost(reportedCost) : null,
-    recordedAt: new Date().toISOString()
+    telemetry: usageTelemetry,
+    recordedAt: usageTelemetry.timestamp
   };
 
   recalculateTotals(record);

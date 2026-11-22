@@ -3,6 +3,8 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { GoogleGenAI } = require('@google/genai');
+const { GLOBALS } = require('../config/globals');
+const { normalizeKey, retryWithBackoff } = require('../utils/sharedHelpers');
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const IMAGE_OUTPUT_DIR = path.join(__dirname, '..', 'public', 'images');
@@ -14,13 +16,12 @@ if (!fs.existsSync(IMAGE_OUTPUT_DIR)) {
 const PRESETS_ALLOWING_IMAGE_TEXT = new Set(['mr_beast']);
 
 function normalizePresetForVisual(rawPreset) {
-  if (!rawPreset || typeof rawPreset !== 'string') return 'default';
-  const cleaned = rawPreset.trim().toLowerCase().replace(/[\s-]+/g, '_');
-  if (cleaned === 'mrbeast' || cleaned === 'mr_beast') return 'mr_beast';
-  if (cleaned === 'tiktok' || cleaned === 'tiktok_viral' || cleaned === 'viral') {
-    return 'tiktok_viral';
-  }
-  return cleaned;
+  return normalizeKey(
+    rawPreset,
+    GLOBALS.PRESET_ALIASES,
+    GLOBALS.BASE_PRESET_MODIFIERS,
+    'default'
+  );
 }
 
 function resolveJobId(masterPayload, scenes) {
@@ -65,10 +66,6 @@ function buildSceneImagePrompt(scene, structuredScript, styleModifier, presetKey
   return parts.filter(Boolean).join('. ');
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 async function generateSceneImage({
   prompt,
   aspectRatio = '9:16',
@@ -77,18 +74,16 @@ async function generateSceneImage({
   maxRetries = 3,
   retryDelayMs = 1500
 }) {
-  let lastError = null;
+  const { result } = await retryWithBackoff(
+    async ({ attempt }) => {
+      if (attempt === 1) {
+        console.log(`   🎨 [Gemini Image] Generando escena ${sceneNumber} (${aspectRatio})...`);
+      } else {
+        console.log(
+          `   🔁 [Gemini Image] Reintento ${attempt}/${maxRetries} para escena ${sceneNumber} (${aspectRatio})...`
+        );
+      }
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    if (attempt === 1) {
-      console.log(`   🎨 [Gemini Image] Generando escena ${sceneNumber} (${aspectRatio})...`);
-    } else {
-      console.log(
-        `   🔁 [Gemini Image] Reintento ${attempt}/${maxRetries} para escena ${sceneNumber} (${aspectRatio})...`
-      );
-    }
-
-    try {
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: prompt,
@@ -120,15 +115,16 @@ async function generateSceneImage({
         aspectRatio,
         promptUsed: prompt
       };
-    } catch (err) {
-      lastError = err;
-      if (attempt < maxRetries) {
-        await sleep(retryDelayMs * attempt);
-      }
+    },
+    {
+      maxRetries,
+      baseDelayMs: retryDelayMs,
+      timeoutMs: 30000,
+      label: `gemini_image_scene_${sceneNumber}`
     }
-  }
+  );
 
-  throw lastError;
+  return result;
 }
 
 async function generateAllScenesVisuals(rawPayload) {
