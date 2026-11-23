@@ -1,9 +1,11 @@
 require('dotenv').config();
 const {
   GLOBALS,
+  resolveAiModelId,
   resolveVoiceModelId,
   modelSupportsAudioTags
 } = require('../config/globals');
+
 const { clampNumber, normalizeKey } = require('../utils/sharedHelpers');
 
 let aiClient = null;
@@ -262,13 +264,19 @@ function attachVisualConsistency(structuredScript, visualStyle = null) {
 }
 
 async function generateStructuredScript(rawPayload) {
-  const { aiClient, Type } = await getGeminiClient();
-
-  const masterPayload = rawPayload?.payload || rawPayload?.data || rawPayload;
+  const masterPayload = rawPayload?.payload || rawPayload?.data || rawPayload || {};
   const { meta = {}, userInputs = {}, orchestration = {} } = masterPayload;
-
   const rawPlan = meta.userPlan || 'free_trial';
   const userPlan = normalizeKey(rawPlan, {}, GLOBALS.PLAN_POLICIES, 'free_trial');
+  const rawPreset = meta.preset || userInputs.preset || 'default';
+  const presetKey = normalizePresetKey(rawPreset);
+  const scriptModelId = resolveAiModelId('llm', {
+    explicitModelId: meta.scriptModelId || meta.llmModelId || userInputs.scriptModelId,
+    preset: presetKey,
+    userPlan
+  });
+
+  const { aiClient, Type } = await getGeminiClient();
 
   const planConfig = getPlanConfig(userPlan, meta.targetDurationSeconds);
   const effectiveMode =
@@ -290,8 +298,6 @@ async function generateStructuredScript(rawPayload) {
         )
       : GLOBALS.SAFETY_LIMITS.endingBufferSeconds.defaultValue;
   const pacing = orchestration.pacing || 'balanced';
-  const rawPreset = meta.preset || userInputs.preset || 'default';
-  const presetKey = normalizePresetKey(rawPreset);
   const visualStyle = resolveVisualStyle(meta, userInputs);
   const resolvedVoiceModelId = resolveVoiceModelId({
     explicitModelId: meta.voiceModelId || userInputs.voiceModelId,

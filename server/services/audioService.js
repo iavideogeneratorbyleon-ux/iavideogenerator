@@ -5,6 +5,7 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const {
   GLOBALS,
+  resolveAiModelId,
   resolveVoiceModelId,
   modelSupportsAudioTags
 } = require('../config/globals');
@@ -299,12 +300,13 @@ function buildSrtFromSegments(segments = []) {
     .join('\n\n');
 }
 
-async function transcribeAudioWithScribeV3({ filePath, apiKey, language = '', signal }) {
+async function transcribeAudioWithScribeV3({ filePath, apiKey, language = '', modelId = null, signal }) {
+  const resolvedSttModelId = resolveAiModelId('stt', { explicitModelId: modelId }) || 'scribe_v3';
   const audioBytes = fs.readFileSync(filePath);
   const formData = new FormData();
   const blob = new Blob([audioBytes], { type: 'audio/mpeg' });
   formData.append('file', blob, path.basename(filePath));
-  formData.append('model_id', 'scribe_v3');
+  formData.append('model_id', resolvedSttModelId);
   formData.append('timestamps_granularity', 'word');
 
   const scribeLang = mapLanguageToScribeCode(language);
@@ -388,10 +390,18 @@ async function transcribeMergedJobAudio(payload = {}) {
     masterPayload?.llmDirective?.language ||
     '';
 
+  const sttModelId = resolveAiModelId('stt', {
+    explicitModelId:
+      masterPayload?.subtitles?.modelId ||
+      masterPayload?.voiceConfig?.sttModelId ||
+      masterPayload?.meta?.sttModelId
+  });
+
   const scribeResult = await transcribeAudioWithScribeV3({
     filePath: mergedFilePath,
     apiKey,
-    language
+    language,
+    modelId: sttModelId
   });
 
   let cursor = 0;
@@ -492,34 +502,40 @@ function applyVoiceDirectionToScene({
   const isAtmosphericCta =
     sceneRole === 'cta' &&
     ['dark_mystery', 'cinematic', 'documentary'].includes(normalizedPreset);
+  const isBoundaryScene = sceneRole === 'hook' || sceneRole === 'cta';
 
-  if (pauseBeforeMs >= 300 && !spokenText.startsWith('...')) {
+  if (pauseBeforeMs >= 500 && !spokenText.startsWith('...')) {
     spokenText = `... ${spokenText}`;
   }
-  if (pauseAfterMs >= 300 && !/[.!?…\]\s]$/.test(spokenText)) {
+  if (pauseAfterMs >= 500 && !/[.!?…\]\s]$/.test(spokenText)) {
     spokenText = `${spokenText}...`;
   }
 
   if (voiceDirection.energyShift === 'slight_up') {
     if (!isAtmosphericCta && typeof nextSettings.speed === 'number') {
       nextSettings.speed = clampNumber(
-        nextSettings.speed + 0.02,
+        nextSettings.speed + 0.01,
         GLOBALS.SAFETY_LIMITS.voiceSpeed.min,
-        GLOBALS.SAFETY_LIMITS.voiceSpeed.max,
+        1.02,
         2
       );
     }
     if (typeof nextSettings.style === 'number') {
-      nextSettings.style = clampNumber(
-        nextSettings.style + (isAtmosphericCta ? 0.02 : 0.04),
-        GLOBALS.SAFETY_LIMITS.voiceStyle.min,
-        GLOBALS.SAFETY_LIMITS.voiceStyle.max,
-        2
-      );
+      nextSettings.style = isBoundaryScene
+        ? 0
+        : clampNumber(
+            nextSettings.style,
+            GLOBALS.SAFETY_LIMITS.voiceStyle.min,
+            0.05,
+            2
+          );
     }
     if (typeof nextSettings.stability === 'number') {
+      const targetStability = isBoundaryScene
+        ? Math.max(nextSettings.stability, 0.72)
+        : nextSettings.stability;
       nextSettings.stability = clampNumber(
-        nextSettings.stability - (isAtmosphericCta ? 0.03 : 0.02),
+        targetStability,
         GLOBALS.SAFETY_LIMITS.voiceStability.min,
         GLOBALS.SAFETY_LIMITS.voiceStability.max,
         2
@@ -535,16 +551,19 @@ function applyVoiceDirectionToScene({
       );
     }
     if (typeof nextSettings.style === 'number') {
-      nextSettings.style = clampNumber(
-        nextSettings.style + 0.03,
-        GLOBALS.SAFETY_LIMITS.voiceStyle.min,
-        GLOBALS.SAFETY_LIMITS.voiceStyle.max,
-        2
-      );
+      nextSettings.style = isBoundaryScene
+        ? 0
+        : clampNumber(
+            nextSettings.style,
+            GLOBALS.SAFETY_LIMITS.voiceStyle.min,
+            0.05,
+            2
+          );
     }
     if (typeof nextSettings.stability === 'number') {
+      const bumpedStability = nextSettings.stability + 0.02;
       nextSettings.stability = clampNumber(
-        nextSettings.stability + 0.02,
+        isBoundaryScene ? Math.max(bumpedStability, 0.72) : bumpedStability,
         GLOBALS.SAFETY_LIMITS.voiceStability.min,
         GLOBALS.SAFETY_LIMITS.voiceStability.max,
         2
@@ -552,8 +571,39 @@ function applyVoiceDirectionToScene({
     }
   }
 
+  if (isBoundaryScene) {
+    if (typeof nextSettings.stability === 'number') {
+      nextSettings.stability = clampNumber(
+        Math.max(nextSettings.stability, 0.72),
+        GLOBALS.SAFETY_LIMITS.voiceStability.min,
+        GLOBALS.SAFETY_LIMITS.voiceStability.max,
+        2
+      );
+    }
+    nextSettings.style = 0;
+  }
+
+  if (sceneRole === 'cta') {
+    if (typeof nextSettings.stability === 'number') {
+      nextSettings.stability = clampNumber(
+        Math.max(nextSettings.stability, 0.78),
+        GLOBALS.SAFETY_LIMITS.voiceStability.min,
+        GLOBALS.SAFETY_LIMITS.voiceStability.max,
+        2
+      );
+    }
+    nextSettings.style = 0;
+
+    spokenText = spokenText
+      .replace(/^\s*\[emphasis\]\s*/i, '')
+      .replace(/^(\[[^\]]+\]\s*)+(\S+)\s+\[emphasis\]/i, '$1$2')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
+
   return { spokenText, voiceSettings: nextSettings };
 }
+
 
 function resolveVoiceId({ requestedVoiceId, userPlan = 'free_trial' }) {
   const defaultFreeId = process.env.ELEVENLABS_DEFAULT_VOICE_ID || 'xfcOcwRJ5AZQ8qZsQMw2';
@@ -619,44 +669,44 @@ function getVoiceTuningByTone(tone = 'engaging', preset = 'default', voiceKey = 
 
   const tonePresets = {
     dramatic: {
-      stability: 0.42,
-      similarity_boost: 0.80,
-      style: 0.28,
+      stability: 0.62,
+      similarity_boost: 0.78,
+      style: 0.04,
       use_speaker_boost: true,
-      speed: 0.95
+      speed: 0.96
     },
     storytelling: {
-      stability: 0.48,
+      stability: 0.65,
       similarity_boost: 0.78,
-      style: 0.22,
+      style: 0.0,
       use_speaker_boost: true,
-      speed: 0.97
+      speed: 0.98
     },
     engaging: {
-      stability: 0.44,
+      stability: 0.65,
       similarity_boost: 0.78,
-      style: 0.26,
+      style: 0.0,
       use_speaker_boost: true,
       speed: 0.99
     },
     dynamic: {
-      stability: 0.50,
+      stability: 0.65,
       similarity_boost: 0.78,
-      style: 0.18,
+      style: 0.0,
       use_speaker_boost: true,
-      speed: 0.98
+      speed: 0.99
     },
     calm: {
-      stability: 0.68,
+      stability: 0.72,
       similarity_boost: 0.75,
-      style: 0.1,
+      style: 0.0,
       use_speaker_boost: true,
-      speed: 0.94
+      speed: 0.95
     },
     direct: {
-      stability: 0.58,
+      stability: 0.68,
       similarity_boost: 0.78,
-      style: 0.15,
+      style: 0.0,
       use_speaker_boost: true,
       speed: 1.0
     }
@@ -744,7 +794,7 @@ function computeSceneSpeed({ text, durationSeconds, baseSpeed, overrideSpeed }) 
     return clampNumber(
       overrideSpeed,
       GLOBALS.SAFETY_LIMITS.voiceSpeed.min,
-      GLOBALS.SAFETY_LIMITS.voiceSpeed.max,
+      1.02,
       2
     );
   }
@@ -754,7 +804,7 @@ function computeSceneSpeed({ text, durationSeconds, baseSpeed, overrideSpeed }) 
     return clampNumber(
       safeBase,
       GLOBALS.SAFETY_LIMITS.voiceSpeed.min,
-      GLOBALS.SAFETY_LIMITS.voiceSpeed.max,
+      1.02,
       2
     );
   }
@@ -763,8 +813,8 @@ function computeSceneSpeed({ text, durationSeconds, baseSpeed, overrideSpeed }) 
   const estimatedNaturalSec = words / 2.3;
   const ratio = estimatedNaturalSec / durationSeconds;
 
-  const adjusted = safeBase * Math.max(0.88, Math.min(ratio, 1.1));
-  return Number(Math.max(0.85, Math.min(adjusted, 1.08)).toFixed(2));
+  const adjusted = safeBase * Math.max(0.88, Math.min(ratio, 1.03));
+  return Number(Math.max(0.85, Math.min(adjusted, 1.02)).toFixed(2));
 }
 
 async function generateSceneAudio({
@@ -774,6 +824,7 @@ async function generateSceneAudio({
   jobId,
   sceneNumber,
   modelId,
+  sttModelId = null,
   preset = 'default',
   sceneRole = 'body',
   voiceSettings = { stability: 0.5, similarity_boost: 0.75 },
@@ -898,6 +949,7 @@ async function generateSceneAudio({
       await transcribeAudioWithScribeV3({
         filePath,
         apiKey,
+        modelId: sttModelId
       });
   }
   catch (err) {
@@ -1044,6 +1096,13 @@ async function generateAllScenesAudio(rawPayload) {
     userPlan
   });
 
+  const sttModelId = resolveAiModelId('stt', {
+    explicitModelId:
+      masterPayload?.subtitles?.modelId ||
+      masterPayload?.voiceConfig?.sttModelId ||
+      masterPayload?.meta?.sttModelId
+  });
+
   const resolvedVoice = resolveVoiceId({ requestedVoiceId, userPlan });
   const resolvedVoiceName =
     resolvedVoice.voiceName ||
@@ -1134,6 +1193,7 @@ async function generateAllScenesAudio(rawPayload) {
       cleanSubtitleText,
       voiceId: resolvedVoice.voiceId,
       modelId,
+      sttModelId,
       preset,
       sceneRole: scene.role || 'body',
       voiceSettings: sceneVoiceSettings,

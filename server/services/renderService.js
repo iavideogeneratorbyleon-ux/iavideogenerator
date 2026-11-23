@@ -6,7 +6,7 @@ const zlib = require('zlib');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 const ffprobePath = require('ffprobe-static').path;
-const { GLOBALS } = require('../config/globals');
+const { GLOBALS, getPresetSubtitleStyle } = require('../config/globals');
 const { clampNumber, normalizeKey, resolvePlanPolicy } = require('../utils/sharedHelpers');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -26,158 +26,273 @@ const PRESET_CONFIGS = {
     label: 'Netflix',
     motion: 'slow_zoom_in',
     eqFilter: 'eq=contrast=1.06:brightness=-0.02:saturation=0.95',
-    paidSubtitles: {
-      style: 'cinematic_clean',
-      rgba: [255, 255, 255, 255],
-      outlineRgba: [0, 0, 0, 230],
-      boxRgba: [0, 0, 0, 140],
-      fontScale: 1.0
-    }
+    paidSubtitles: getPresetSubtitleStyle('netflix')
   },
   mr_beast: {
     key: 'mr_beast',
     label: 'Mr Beast',
     motion: 'punch_zoom_in',
     eqFilter: 'eq=contrast=1.12:brightness=0.02:saturation=1.22',
-    paidSubtitles: {
-      style: 'high_impact',
-      rgba: [255, 255, 0, 255],
-      outlineRgba: [0, 0, 0, 255],
-      boxRgba: [0, 0, 0, 165],
-      fontScale: 1.18
-    }
+    paidSubtitles: getPresetSubtitleStyle('mr_beast')
   },
   tiktok_viral: {
     key: 'tiktok_viral',
     label: 'TikTok Viral',
     motion: 'dynamic_pan',
     eqFilter: 'eq=contrast=1.08:brightness=0.01:saturation=1.15',
-    paidSubtitles: {
-      style: 'creator_pop',
-      rgba: [255, 255, 255, 255],
-      outlineRgba: [0, 0, 0, 245],
-      boxRgba: [0, 0, 0, 145],
-      fontScale: 1.12
-    }
+    paidSubtitles: getPresetSubtitleStyle('tiktok_viral')
   },
   luxury: {
     key: 'luxury',
     label: 'Luxury',
     motion: 'smooth_drift',
     eqFilter: 'eq=contrast=1.05:brightness=-0.01:saturation=0.92',
-    paidSubtitles: {
-      style: 'editorial_gold',
-      rgba: [255, 232, 163, 255],
-      outlineRgba: [15, 15, 15, 230],
-      boxRgba: [0, 0, 0, 120],
-      fontScale: 0.98
-    }
+    paidSubtitles: getPresetSubtitleStyle('luxury_brand')
   },
   luxury_brand: {
     key: 'luxury_brand',
     label: 'Luxury Brand',
     motion: 'smooth_drift',
     eqFilter: 'eq=contrast=1.05:brightness=-0.01:saturation=0.92',
-    paidSubtitles: {
-      style: 'editorial_gold',
-      rgba: [255, 232, 163, 255],
-      outlineRgba: [15, 15, 15, 230],
-      boxRgba: [0, 0, 0, 120],
-      fontScale: 0.98
-    }
+    paidSubtitles: getPresetSubtitleStyle('luxury_brand')
   },
   tech: {
     key: 'tech',
     label: 'Tech',
     motion: 'clean_zoom_out',
     eqFilter: 'eq=contrast=1.09:brightness=0.0:saturation=1.05',
-    paidSubtitles: {
-      style: 'modern_sharp',
-      rgba: [179, 240, 255, 255],
-      outlineRgba: [10, 10, 10, 240],
-      boxRgba: [0, 0, 0, 140],
-      fontScale: 1.02
-    }
+    paidSubtitles: getPresetSubtitleStyle('tech_modern')
   },
   tech_modern: {
     key: 'tech_modern',
     label: 'Tech Modern',
     motion: 'clean_zoom_out',
     eqFilter: 'eq=contrast=1.09:brightness=0.0:saturation=1.05',
-    paidSubtitles: {
-      style: 'modern_sharp',
-      rgba: [179, 240, 255, 255],
-      outlineRgba: [10, 10, 10, 240],
-      boxRgba: [0, 0, 0, 140],
-      fontScale: 1.02
-    }
+    paidSubtitles: getPresetSubtitleStyle('tech_modern')
   },
   dark_mystery: {
     key: 'dark_mystery',
     label: 'Dark Mystery',
     motion: 'slow_zoom_in',
     eqFilter: 'eq=contrast=1.08:brightness=-0.03:saturation=0.9',
-    paidSubtitles: {
-      style: 'cinematic_clean',
-      rgba: [245, 230, 211, 255],
-      outlineRgba: [5, 5, 5, 245],
-      boxRgba: [0, 0, 0, 155],
-      fontScale: 1.0
-    }
+    paidSubtitles: getPresetSubtitleStyle('dark_mystery')
   },
   documentary: {
     key: 'documentary',
     label: 'Documentary',
     motion: 'slow_zoom_in',
     eqFilter: 'eq=contrast=1.05:brightness=-0.01:saturation=0.95',
-    paidSubtitles: {
-      style: 'cinematic_clean',
-      rgba: [255, 255, 255, 255],
-      outlineRgba: [0, 0, 0, 235],
-      boxRgba: [0, 0, 0, 140],
-      fontScale: 1.0
-    }
+    paidSubtitles: getPresetSubtitleStyle('documentary')
   },
   cinematic: {
     key: 'cinematic',
     label: 'Cinematic',
     motion: 'smooth_drift',
     eqFilter: 'eq=contrast=1.08:brightness=-0.02:saturation=0.96',
-    paidSubtitles: {
-      style: 'editorial_gold',
-      rgba: [255, 232, 163, 255],
-      outlineRgba: [15, 15, 15, 235],
-      boxRgba: [0, 0, 0, 130],
-      fontScale: 1.0
-    }
+    paidSubtitles: getPresetSubtitleStyle('cinematic')
   },
   educational: {
     key: 'educational',
     label: 'Educational',
     motion: 'clean_zoom_out',
     eqFilter: 'eq=contrast=1.05:brightness=0.01:saturation=1.04',
-    paidSubtitles: {
-      style: 'modern_sharp',
-      rgba: [255, 255, 255, 255],
-      outlineRgba: [10, 10, 10, 235],
-      boxRgba: [0, 0, 0, 145],
-      fontScale: 1.04
-    }
+    paidSubtitles: getPresetSubtitleStyle('educational')
   },
   default: {
     key: 'default',
     label: 'Default',
     motion: 'slow_zoom_in',
     eqFilter: 'eq=contrast=1.03:brightness=0.0:saturation=1.04',
-    paidSubtitles: {
-      style: 'standard_enhanced',
-      rgba: [255, 255, 255, 255],
-      outlineRgba: [0, 0, 0, 235],
-      boxRgba: [0, 0, 0, 145],
-      fontScale: 1.0
-    }
+    paidSubtitles: getPresetSubtitleStyle('default')
   }
 };
+
+function resolveOptionalCanvasModule() {
+  for (const modName of ['@napi-rs/canvas', 'canvas']) {
+    try {
+      const mod = require(modName);
+      if (mod && typeof mod.createCanvas === 'function') {
+        return { modName, mod };
+      }
+    } catch (_) {
+      // Fallback a BITMAP_5X7 si no está instalada la librería
+    }
+  }
+  return null;
+}
+
+const OPTIONAL_CANVAS = resolveOptionalCanvasModule();
+const REGISTERED_FONT_FILES = new Set();
+
+function resolveFontFilePath(fontFile) {
+  if (!fontFile || typeof fontFile !== 'string') return null;
+  const trimmed = fontFile.trim();
+  if (!trimmed) return null;
+  if (path.isAbsolute(trimmed) && fs.existsSync(trimmed)) return trimmed;
+  const fromRoot = path.resolve(process.cwd(), trimmed);
+  if (fs.existsSync(fromRoot)) return fromRoot;
+  const fromService = path.resolve(__dirname, trimmed);
+  if (fs.existsSync(fromService)) return fromService;
+  return null;
+}
+
+function ensurePresetFontLoaded(paidStyle = {}) {
+  const fontFile = resolveFontFilePath(paidStyle.fontFile);
+  const fontFamily = String(paidStyle.fontFamily || '').trim();
+
+  if (
+    OPTIONAL_CANVAS?.mod &&
+    typeof OPTIONAL_CANVAS.mod.GlobalFonts?.registerFromPath === 'function' &&
+    fontFile &&
+    !REGISTERED_FONT_FILES.has(fontFile)
+  ) {
+    try {
+      OPTIONAL_CANVAS.mod.GlobalFonts.registerFromPath(fontFile, fontFamily || undefined);
+      REGISTERED_FONT_FILES.add(fontFile);
+    } catch (_) {
+      // Continuar con el nombre de familia si ya existe en el sistema
+    }
+  }
+
+  return fontFamily || 'Inter';
+}
+
+function rgbaArrayToCss([r = 255, g = 255, b = 255, a = 255] = []) {
+  const alpha = clampNumber(Number(a) / 255, 0, 1, 1);
+  return `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${alpha})`;
+}
+
+function wrapCanvasLines(ctx, text, maxWidthPx) {
+  const words = sanitizeSubtitleRenderText(text).split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+
+  const lines = [];
+  let current = '';
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (ctx.measureText(candidate).width <= maxWidthPx) {
+      current = candidate;
+    } else {
+      if (current) lines.push(current);
+      if (ctx.measureText(word).width > maxWidthPx) {
+        let chunk = '';
+        for (const ch of Array.from(word)) {
+          const nextChunk = `${chunk}${ch}`;
+          if (ctx.measureText(nextChunk).width <= maxWidthPx) {
+            chunk = nextChunk;
+          } else {
+            if (chunk) lines.push(chunk);
+            chunk = ch;
+          }
+        }
+        current = chunk;
+      } else {
+        current = word;
+      }
+    }
+  }
+
+  if (current) lines.push(current);
+  return lines.slice(0, 3);
+}
+
+function renderSubtitleWithCanvas({
+  cleanText,
+  pngPath,
+  width,
+  height,
+  aspectRatio,
+  subtitleMode,
+  presetConfig
+}) {
+  if (!OPTIONAL_CANVAS?.mod) return null;
+
+  try {
+    const { createCanvas } = OPTIONAL_CANVAS.mod;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, width, height);
+
+    const isPaidStyled = subtitleMode === 'preset_styled';
+    const paidStyle = presetConfig?.paidSubtitles || getPresetSubtitleStyle('default');
+
+    const baseFontSize =
+      aspectRatio === '9:16'
+        ? Math.max(36, Math.round(width * 0.052))
+        : Math.max(34, Math.round(height * 0.045));
+    const fontSize = isPaidStyled
+      ? Math.max(28, Math.round(baseFontSize * (paidStyle.fontScale || 1)))
+      : baseFontSize;
+
+    const fontFamily = isPaidStyled ? ensurePresetFontLoaded(paidStyle) : 'Inter';
+    const fontWeight = isPaidStyled ? String(paidStyle.fontWeight || '700') : '700';
+
+    ctx.font = `${fontWeight} ${fontSize}px "${fontFamily}", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+
+    const textColor = isPaidStyled ? paidStyle.rgba : [255, 255, 255, 255];
+    const outlineColor = isPaidStyled ? paidStyle.outlineRgba : [0, 0, 0, 225];
+    const boxColor = isPaidStyled ? paidStyle.boxRgba : [0, 0, 0, 0];
+    const shouldDrawBox = isPaidStyled
+      ? paidStyle.showBox === true && Array.isArray(boxColor) && Number(boxColor[3]) > 0
+      : Array.isArray(boxColor) && Number(boxColor[3]) > 0;
+
+    const widthRatio = isPaidStyled ? (paidStyle.maxLineWidthRatio || 0.84) : 0.84;
+    const maxLineWidthPx = Math.round(width * widthRatio);
+    const lines = wrapCanvasLines(ctx, cleanText, maxLineWidthPx);
+    if (!lines.length) return null;
+
+    const gapScale = isPaidStyled ? (paidStyle.lineGapScale || 1.4) : 1.4;
+    const lineHeightPx = Math.round(fontSize * 1.15);
+    const lineGapPx = Math.max(6, Math.round(fontSize * 0.25 * (gapScale / 1.4)));
+    const totalTextHeight = lines.length * lineHeightPx + (lines.length - 1) * lineGapPx;
+
+    const bottomRatio = isPaidStyled
+      ? (aspectRatio === '9:16' ? paidStyle.bottomRatio9x16 : paidStyle.bottomRatioDefault) ||
+        (aspectRatio === '9:16' ? 0.84 : 0.88)
+      : aspectRatio === '9:16'
+        ? 0.84
+        : 0.88;
+
+    const centerX = Math.round(width / 2);
+    const bottomAnchorY = Math.round(height * bottomRatio);
+    const blockTopY = Math.max(20, bottomAnchorY - totalTextHeight);
+
+    if (shouldDrawBox) {
+      const longestLineW = Math.max(...lines.map((l) => ctx.measureText(l).width));
+      const padX = Math.round(fontSize * 0.45);
+      const padY = Math.round(fontSize * 0.25);
+      const boxW = Math.min(width - 24, Math.round(longestLineW + padX * 2));
+      const boxH = Math.round(totalTextHeight + padY * 2);
+      const boxX = Math.max(12, Math.round(centerX - boxW / 2));
+      const boxY = Math.max(12, Math.round(blockTopY - padY));
+
+      ctx.fillStyle = rgbaArrayToCss(boxColor);
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+    }
+
+    lines.forEach((line, idx) => {
+      const y = blockTopY + idx * (lineHeightPx + lineGapPx);
+      if (Array.isArray(outlineColor) && Number(outlineColor[3]) > 0) {
+        ctx.lineJoin = 'round';
+        ctx.miterLimit = 2;
+        ctx.lineWidth = Math.max(2, Math.round(fontSize * 0.12));
+        ctx.strokeStyle = rgbaArrayToCss(outlineColor);
+        ctx.strokeText(line, centerX, y);
+      }
+      ctx.fillStyle = rgbaArrayToCss(textColor);
+      ctx.fillText(line, centerX, y);
+    });
+
+    const buf = canvas.toBuffer('image/png');
+    fs.writeFileSync(pngPath, buf);
+    return pngPath;
+  } catch (_) {
+    return null;
+  }
+}
 
 // Mapa de glifos 5x7 para codificar texto limpio en PNG transparente sin dependencias externas
 const BITMAP_5X7 = {
@@ -408,8 +523,19 @@ function renderSubtitleSegmentPng({
   const cleanText = sanitizeSubtitleRenderText(text);
   if (!cleanText) return null;
 
+  const canvasRendered = renderSubtitleWithCanvas({
+    cleanText,
+    pngPath,
+    width,
+    height,
+    aspectRatio,
+    subtitleMode,
+    presetConfig
+  });
+  if (canvasRendered) return canvasRendered;
+
   const isPaidStyled = subtitleMode === 'preset_styled';
-  const paidStyle = presetConfig?.paidSubtitles || PRESET_CONFIGS.default.paidSubtitles;
+  const paidStyle = presetConfig?.paidSubtitles || getPresetSubtitleStyle('default');
 
   const baseScale = aspectRatio === '9:16' ? Math.max(3, Math.round(width / 160)) : Math.max(3, Math.round(height / 180));
   const scale = isPaidStyled
@@ -418,33 +544,44 @@ function renderSubtitleSegmentPng({
 
   const textColor = isPaidStyled ? paidStyle.rgba : [255, 255, 255, 255];
   const outlineColor = isPaidStyled ? paidStyle.outlineRgba : [0, 0, 0, 225];
-  const boxColor = isPaidStyled ? paidStyle.boxRgba : [0, 0, 0, 135];
+  const boxColor = isPaidStyled ? paidStyle.boxRgba : [0, 0, 0, 0];
+  const shouldDrawBox = isPaidStyled
+    ? paidStyle.showBox === true && Array.isArray(boxColor) && Number(boxColor[3]) > 0
+    : Array.isArray(boxColor) && Number(boxColor[3]) > 0;
 
-  const maxLineWidthPx = Math.round(width * 0.84);
+  const widthRatio = isPaidStyled ? (paidStyle.maxLineWidthRatio || 0.84) : 0.84;
+  const maxLineWidthPx = Math.round(width * widthRatio);
   const charAdvance = 6 * scale;
   const maxCharsPerLine = Math.max(10, Math.floor(maxLineWidthPx / charAdvance));
   const lines = wrapBitmapLines(cleanText, maxCharsPerLine);
   if (!lines.length) return null;
 
+  const gapScale = isPaidStyled ? (paidStyle.lineGapScale || 1.4) : 1.4;
   const lineHeightPx = 7 * scale;
-  const lineGapPx = Math.max(4, Math.round(scale * 1.4));
+  const lineGapPx = Math.max(4, Math.round(scale * gapScale));
   const totalTextHeight = lines.length * lineHeightPx + (lines.length - 1) * lineGapPx;
 
   const longestLineLen = Math.max(...lines.map((l) => Array.from(l).length));
   const boxWidth = longestLineLen * charAdvance + Math.round(scale * 3.5);
   const boxHeight = totalTextHeight + Math.round(scale * 2.5);
 
+  const bottomRatio = isPaidStyled
+    ? (aspectRatio === '9:16' ? paidStyle.bottomRatio9x16 : paidStyle.bottomRatioDefault) ||
+      (aspectRatio === '9:16' ? 0.84 : 0.88)
+    : aspectRatio === '9:16'
+      ? 0.84
+      : 0.88;
+
   const centerX = Math.round(width / 2);
-  const bottomAnchorY =
-    aspectRatio === '9:16'
-      ? Math.round(height * 0.84)
-      : Math.round(height * 0.88);
+  const bottomAnchorY = Math.round(height * bottomRatio);
   const blockTopY = Math.max(20, bottomAnchorY - totalTextHeight);
   const boxLeftX = Math.max(12, Math.round(centerX - boxWidth / 2));
   const boxTopY = Math.max(12, Math.round(blockTopY - scale * 1.25));
 
   const rgba = Buffer.alloc(width * height * 4, 0);
-  fillRectBlend(rgba, width, height, boxLeftX, boxTopY, boxWidth, boxHeight, boxColor);
+  if (shouldDrawBox) {
+    fillRectBlend(rgba, width, height, boxLeftX, boxTopY, boxWidth, boxHeight, boxColor);
+  }
 
   lines.forEach((line, idx) => {
     const y = blockTopY + idx * (lineHeightPx + lineGapPx);

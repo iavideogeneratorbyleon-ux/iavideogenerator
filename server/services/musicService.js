@@ -101,10 +101,14 @@ function resolveMusicConfig(masterPayload = {}) {
     masterPayload?.video?.preset ||
     masterPayload?.videoConfig?.preset ||
     'default';
+  const knownPresetsCatalog =
+    GLOBALS.PRESET_SUBTITLE_STYLES ||
+    GLOBALS.BASE_PRESET_MODIFIERS ||
+    PRESET_TO_MUSIC_KEY;
   const preset = normalizeKey(
     rawPreset,
     GLOBALS.PRESET_ALIASES,
-    PRESET_TO_MUSIC_KEY,
+    knownPresetsCatalog,
     'default'
   );
 

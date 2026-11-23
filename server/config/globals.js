@@ -64,27 +64,228 @@ const PLAN_POLICIES = {
   }
 };
 
-// Configuración global dinámica para el modelo de voz de ElevenLabs.
-// Cambia `defaultModelId` aquí para afectar todo el pipeline sin tocar los servicios.
-const VOICE_MODEL_CONFIG = {
-  defaultModelId: 'eleven_v4',
-  fallbackModelId: 'eleven_v4',
-  tagSupportedModels: ['eleven_v4', 'eleven_v4_turbo', 'eleven-v4', 'eleven-v4-turbo'],
-  // Overrides opcionales por preset o plan si necesitas un modelo específico en algún caso
-  byPreset: {
-    dark_mystery: 'eleven_v4',
-    cinematic: 'eleven_v4',
-    netflix: 'eleven_v4',
-    documentary: 'eleven_v4',
-    educational: 'eleven_v4',
-    minimalist: 'eleven_v4',
-    luxury_brand: 'eleven_v4',
-    tech_modern: 'eleven_v4',
-    tiktok_viral: 'eleven_v4',
-    mr_beast: 'eleven_v4',
-    default: 'eleven_v4'
+// Configuración global centralizada para todos los modelos de IA del pipeline.
+const AI_MODELS = {
+  llm: {
+    provider: 'google-gemini',
+    defaultModelId: process.env.GEMINI_SCRIPT_MODEL || 'gemini-3.8-flash',
+    fallbackModelId: process.env.GEMINI_SCRIPT_FALLBACK_MODEL || 'gemini-3.8-flash',
+    byPreset: {}
   },
-  byPlan: {}
+  tts: {
+    provider: 'elevenlabs',
+    defaultModelId: process.env.ELEVENLABS_TTS_MODEL || 'eleven_v4',
+    fallbackModelId: process.env.ELEVENLABS_TTS_FALLBACK_MODEL || 'eleven_v4',
+    tagSupportedModels: ['eleven_v4', 'eleven_v4_turbo', 'eleven-v4', 'eleven-v4-turbo'],
+    byPreset: {
+      dark_mystery: 'eleven_v4',
+      cinematic: 'eleven_v4',
+      netflix: 'eleven_v4',
+      documentary: 'eleven_v4',
+      educational: 'eleven_v4',
+      minimalist: 'eleven_v4',
+      luxury_brand: 'eleven_v4',
+      tech_modern: 'eleven_v4',
+      tiktok_viral: 'eleven_v4',
+      mr_beast: 'eleven_v4',
+      default: 'eleven_v4'
+    },
+    byPlan: {}
+  },
+  stt: {
+    provider: 'elevenlabs',
+    defaultModelId: process.env.ELEVENLABS_STT_MODEL || 'scribe_v3',
+    fallbackModelId: process.env.ELEVENLABS_STT_FALLBACK_MODEL || 'scribe_v3'
+  },
+  image: {
+    provider: process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image',
+    defaultModelId: process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image',
+    fallbackModelId: process.env.GEMINI_IMAGE_FALLBACK_MODEL || 'gemini-2.5-flash-image',
+    byPreset: {}
+  }
+};
+
+// Compatibilidad con código previo que lea VOICE_MODEL_CONFIG directamente
+const VOICE_MODEL_CONFIG = AI_MODELS.tts;
+
+// Estilos visuales de subtítulos por preset (base inspirada en dark_mystery con identidad propia por preset)
+const PRESET_SUBTITLE_STYLES = {
+  dark_mystery: {
+    effectStyle: 'mystery_cinema',
+    style: 'mystery_cinema',
+    fontFamily: 'Cinzel',
+    fontWeight: '600',
+    fontFile: null,
+    rgba: [242, 231, 214, 255],
+    outlineRgba: [6, 6, 8, 250],
+    boxRgba: [8, 8, 12, 0],
+    showBox: false,
+    fontScale: 1.0,
+    bottomRatio9x16: 0.84,
+    bottomRatioDefault: 0.88,
+    maxLineWidthRatio: 0.82,
+    lineGapScale: 1.45
+  },
+  cinematic: {
+    effectStyle: 'cinematic_film',
+    style: 'cinematic_film',
+    fontFamily: 'Cormorant Garamond',
+    fontWeight: '600',
+    fontFile: null,
+    rgba: [248, 236, 210, 255],
+    outlineRgba: [10, 10, 12, 245],
+    boxRgba: [12, 10, 8, 0],
+    showBox: false,
+    fontScale: 1.02,
+    bottomRatio9x16: 0.84,
+    bottomRatioDefault: 0.88,
+    maxLineWidthRatio: 0.84,
+    lineGapScale: 1.4
+  },
+  netflix: {
+    effectStyle: 'netflix_series',
+    style: 'netflix_series',
+    fontFamily: 'Bebas Neue',
+    fontWeight: '700',
+    fontFile: null,
+    rgba: [255, 250, 242, 255],
+    outlineRgba: [0, 0, 0, 245],
+    boxRgba: [0, 0, 0, 0],
+    showBox: false,
+    fontScale: 1.03,
+    bottomRatio9x16: 0.84,
+    bottomRatioDefault: 0.88,
+    maxLineWidthRatio: 0.84,
+    lineGapScale: 1.35
+  },
+  documentary: {
+    effectStyle: 'documentary_clean',
+    style: 'documentary_clean',
+    fontFamily: 'Source Sans 3',
+    fontWeight: '600',
+    fontFile: null,
+    rgba: [244, 246, 248, 255],
+    outlineRgba: [12, 14, 18, 240],
+    boxRgba: [10, 12, 16, 0],
+    showBox: false,
+    fontScale: 0.99,
+    bottomRatio9x16: 0.85,
+    bottomRatioDefault: 0.89,
+    maxLineWidthRatio: 0.85,
+    lineGapScale: 1.4
+  },
+  educational: {
+    effectStyle: 'educational_clarity',
+    style: 'educational_clarity',
+    fontFamily: 'Plus Jakarta Sans',
+    fontWeight: '700',
+    fontFile: null,
+    rgba: [255, 255, 255, 255],
+    outlineRgba: [15, 23, 42, 245],
+    boxRgba: [15, 23, 42, 0],
+    showBox: false,
+    fontScale: 1.05,
+    bottomRatio9x16: 0.83,
+    bottomRatioDefault: 0.87,
+    maxLineWidthRatio: 0.85,
+    lineGapScale: 1.4
+  },
+  minimalist: {
+    effectStyle: 'minimalist_editorial',
+    style: 'minimalist_editorial',
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontFile: null,
+    rgba: [245, 245, 245, 255],
+    outlineRgba: [20, 20, 20, 225],
+    boxRgba: [18, 18, 18, 0],
+    showBox: false,
+    fontScale: 0.97,
+    bottomRatio9x16: 0.85,
+    bottomRatioDefault: 0.89,
+    maxLineWidthRatio: 0.8,
+    lineGapScale: 1.5
+  },
+  luxury_brand: {
+    effectStyle: 'luxury_champagne',
+    style: 'luxury_champagne',
+    fontFamily: 'Playfair Display',
+    fontWeight: '600',
+    fontFile: null,
+    rgba: [246, 224, 168, 255],
+    outlineRgba: [18, 15, 10, 240],
+    boxRgba: [16, 14, 10, 0],
+    showBox: false,
+    fontScale: 1.0,
+    bottomRatio9x16: 0.84,
+    bottomRatioDefault: 0.88,
+    maxLineWidthRatio: 0.82,
+    lineGapScale: 1.45
+  },
+  tech_modern: {
+    effectStyle: 'tech_cyan_sharp',
+    style: 'tech_cyan_sharp',
+    fontFamily: 'Space Grotesk',
+    fontWeight: '700',
+    fontFile: null,
+    rgba: [186, 242, 255, 255],
+    outlineRgba: [8, 14, 24, 245],
+    boxRgba: [8, 16, 28, 0],
+    showBox: false,
+    fontScale: 1.04,
+    bottomRatio9x16: 0.83,
+    bottomRatioDefault: 0.87,
+    maxLineWidthRatio: 0.85,
+    lineGapScale: 1.35
+  },
+  tiktok_viral: {
+    effectStyle: 'viral_punch',
+    style: 'viral_punch',
+    fontFamily: 'Montserrat',
+    fontWeight: '800',
+    fontFile: null,
+    rgba: [255, 255, 255, 255],
+    outlineRgba: [0, 0, 0, 255],
+    boxRgba: [20, 10, 35, 0],
+    showBox: false,
+    fontScale: 1.14,
+    bottomRatio9x16: 0.82,
+    bottomRatioDefault: 0.86,
+    maxLineWidthRatio: 0.86,
+    lineGapScale: 1.3
+  },
+  mr_beast: {
+    effectStyle: 'mr_beast_bold',
+    style: 'mr_beast_bold',
+    fontFamily: 'Anton',
+    fontWeight: '900',
+    fontFile: null,
+    rgba: [255, 238, 45, 255],
+    outlineRgba: [0, 0, 0, 255],
+    boxRgba: [0, 0, 0, 0],
+    showBox: false,
+    fontScale: 1.18,
+    bottomRatio9x16: 0.82,
+    bottomRatioDefault: 0.86,
+    maxLineWidthRatio: 0.86,
+    lineGapScale: 1.3
+  },
+  default: {
+    effectStyle: 'standard_enhanced',
+    style: 'standard_enhanced',
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontFile: null,
+    rgba: [248, 246, 242, 255],
+    outlineRgba: [10, 10, 12, 240],
+    boxRgba: [10, 10, 12, 0],
+    showBox: false,
+    fontScale: 1.0,
+    bottomRatio9x16: 0.84,
+    bottomRatioDefault: 0.88,
+    maxLineWidthRatio: 0.84,
+    lineGapScale: 1.4
+  }
 };
 
 
@@ -479,7 +680,6 @@ const VISUAL_STYLES = {
   }
 };
 
-
 // Ajustes finos opcionales por voz cuando una voz específica necesita matizarse en algún preset
 // Overrides de respaldo por voz (es_voice_1..6 y en_voice_1..6) en presets clave
 const VOICE_PRESET_OVERRIDES = {
@@ -544,30 +744,61 @@ const SAFETY_LIMITS = {
   endingBufferSeconds: { min: 1, max: 4, defaultValue: 1.5 }
 };
 
-function resolveVoiceModelId({ explicitModelId, preset, userPlan } = {}) {
+function resolveAiModelId(category = 'llm', { explicitModelId, preset, userPlan } = {}) {
+  const cfg = AI_MODELS[category] || {};
   if (explicitModelId && String(explicitModelId).trim()) {
     return String(explicitModelId).trim();
   }
-  if (preset && VOICE_MODEL_CONFIG.byPreset?.[preset]) {
-    return VOICE_MODEL_CONFIG.byPreset[preset];
+  if (preset && cfg.byPreset?.[preset]) {
+    return cfg.byPreset[preset];
   }
-  if (userPlan && VOICE_MODEL_CONFIG.byPlan?.[userPlan]) {
-    return VOICE_MODEL_CONFIG.byPlan[userPlan];
+  if (userPlan && cfg.byPlan?.[userPlan]) {
+    return cfg.byPlan[userPlan];
   }
-  return VOICE_MODEL_CONFIG.defaultModelId || VOICE_MODEL_CONFIG.fallbackModelId || 'eleven_v4';
+  return cfg.defaultModelId || cfg.fallbackModelId || null;
+}
+
+function resolveVoiceModelId({ explicitModelId, preset, userPlan } = {}) {
+  return (
+    resolveAiModelId('tts', { explicitModelId, preset, userPlan }) ||
+    VOICE_MODEL_CONFIG.defaultModelId ||
+    VOICE_MODEL_CONFIG.fallbackModelId ||
+    'eleven_v4'
+  );
 }
 
 function modelSupportsAudioTags(modelId) {
   const normalized = String(modelId || '').trim().toLowerCase();
   if (!normalized) return false;
-  return VOICE_MODEL_CONFIG.tagSupportedModels.some((m) => m.toLowerCase() === normalized);
+  const supported =
+    AI_MODELS.tts?.tagSupportedModels || VOICE_MODEL_CONFIG.tagSupportedModels || [];
+  return supported.some((m) => m.toLowerCase() === normalized);
+}
+
+function getPresetSubtitleStyle(rawPreset = 'default') {
+  const cleaned = String(rawPreset || 'default')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+  const aliased =
+    PRESET_ALIASES[cleaned] ||
+    PRESET_ALIASES[cleaned.replace(/_/g, '-')] ||
+    PRESET_ALIASES[cleaned.replace(/-/g, '_')] ||
+    cleaned;
+
+  if (Object.prototype.hasOwnProperty.call(PRESET_SUBTITLE_STYLES, aliased)) {
+    return PRESET_SUBTITLE_STYLES[aliased];
+  }
+  return PRESET_SUBTITLE_STYLES.default;
 }
 
 const GLOBALS = {
   ALL_PRODUCTS,
   PRODUCTS,
   PLAN_POLICIES,
+  AI_MODELS,
   VOICE_MODEL_CONFIG,
+  PRESET_SUBTITLE_STYLES,
   VOICE_CATALOG,
   STUDIO_LITE_VOICES_BY_LANG,
   VOICE_MAP,
@@ -585,7 +816,9 @@ module.exports = {
   ALL_PRODUCTS,
   PRODUCTS,
   PLAN_POLICIES,
+  AI_MODELS,
   VOICE_MODEL_CONFIG,
+  PRESET_SUBTITLE_STYLES,
   VOICE_CATALOG,
   STUDIO_LITE_VOICES_BY_LANG,
   VOICE_MAP,
@@ -597,6 +830,8 @@ module.exports = {
   VOICE_PRESET_OVERRIDES,
   SAFETY_LIMITS,
   getStudioLiteVoices,
+  resolveAiModelId,
   resolveVoiceModelId,
-  modelSupportsAudioTags
+  modelSupportsAudioTags,
+  getPresetSubtitleStyle
 };

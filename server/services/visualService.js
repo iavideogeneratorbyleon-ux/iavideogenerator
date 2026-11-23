@@ -3,7 +3,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { GoogleGenAI } = require('@google/genai');
-const { GLOBALS } = require('../config/globals');
+const { GLOBALS, resolveAiModelId } = require('../config/globals');
 const { normalizeKey, retryWithBackoff } = require('../utils/sharedHelpers');
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -71,21 +71,25 @@ async function generateSceneImage({
   aspectRatio = '9:16',
   jobId,
   sceneNumber,
+  modelId = null,
   maxRetries = 3,
   retryDelayMs = 1500
 }) {
+  const resolvedImageModel =
+    resolveAiModelId('image', { explicitModelId: modelId }) || 'gemini-2.5-flash-image';
+
   const { result } = await retryWithBackoff(
     async ({ attempt }) => {
       if (attempt === 1) {
-        console.log(`   🎨 [Gemini Image] Generando escena ${sceneNumber} (${aspectRatio})...`);
+        console.log(`   🎨 [${resolvedImageModel}] Generando escena ${sceneNumber} (${aspectRatio})...`);
       } else {
         console.log(
-          `   🔁 [Gemini Image] Reintento ${attempt}/${maxRetries} para escena ${sceneNumber} (${aspectRatio})...`
+          `   🔁 [${resolvedImageModel}] Reintento ${attempt}/${maxRetries} para escena ${sceneNumber} (${aspectRatio})...`
         );
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
+        model: resolvedImageModel,
         contents: prompt,
         config: {
           responseModalities: ['IMAGE'],
@@ -111,7 +115,7 @@ async function generateSceneImage({
       return {
         fileName,
         imageUrl: `/images/${fileName}`,
-        provider: 'gemini-2.5-flash-image',
+        provider: resolvedImageModel,
         aspectRatio,
         promptUsed: prompt
       };
@@ -159,8 +163,17 @@ async function generateAllScenesVisuals(rawPayload) {
     masterPayload?.video?.preset ||
     'default';
 
+  const normalizedPreset = normalizePresetForVisual(presetKey);
+  const resolvedImageModel = resolveAiModelId('image', {
+    explicitModelId:
+      masterPayload?.visualConfig?.modelId ||
+      masterPayload?.visual?.modelId ||
+      masterPayload?.userInputs?.imageModelId,
+    preset: normalizedPreset
+  }) || 'gemini-2.5-flash-image';
+
   console.log(
-    `🚀 [Visuals] Generando ${structuredScript.scenes.length} imágenes con Gemini (Aspect Ratio: ${aspectRatio}) para Job: ${jobId}...`
+    `🚀 [Visuals] Generando ${structuredScript.scenes.length} imágenes con ${resolvedImageModel} (Aspect Ratio: ${aspectRatio}) para Job: ${jobId}...`
   );
 
   const updatedScenes = [];
@@ -181,7 +194,8 @@ async function generateAllScenesVisuals(rawPayload) {
       prompt: enhancedPrompt,
       aspectRatio,
       jobId,
-      sceneNumber: scene.sceneNumber
+      sceneNumber: scene.sceneNumber,
+      modelId: resolvedImageModel
     });
 
     updatedScenes.push({
@@ -202,7 +216,7 @@ async function generateAllScenesVisuals(rawPayload) {
     },
     visual: {
       ...(masterPayload.visual || {}),
-      provider: 'gemini-2.5-flash-image',
+      provider: resolvedImageModel,
       jobId,
       aspectRatio,
       styleModifier: styleModifier || null,
