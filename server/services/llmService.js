@@ -1,4 +1,3 @@
-// server/services/llmService.js
 require('dotenv').config();
 const {
   GLOBALS,
@@ -239,9 +238,7 @@ function attachVisualConsistency(structuredScript, visualStyle = null) {
 
   const styleGuide = {
     styleAnchor: visualAnchor,
-    visualStyle: visualStyle?.key || null,
-    avoidStyles:
-      'anime, cartoon, comic book, neon cyberpunk, inconsistent character appearance or outfit changes'
+    visualStyle: visualStyle?.key || null
   };
 
   const scenes = Array.isArray(structuredScript.scenes)

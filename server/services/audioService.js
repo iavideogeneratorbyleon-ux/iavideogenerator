@@ -1,4 +1,3 @@
-// server/services/audioService.js
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
@@ -15,6 +14,7 @@ const {
   sanitizePlainText,
   resolvePlanPolicy
 } = require('../utils/sharedHelpers');
+const { getAudioDuration } = require('../utils/audioUtils');
 
 let ffmpegStaticPath = null;
 try {
@@ -36,22 +36,42 @@ const VOICE_CATALOG = GLOBALS.VOICE_CATALOG;
 const VOICE_MAP = GLOBALS.VOICE_MAP;
 const TONE_ALIASES = GLOBALS.TONE_ALIASES;
 const PRESET_ALIASES = GLOBALS.PRESET_ALIASES;
-const PRESET_VOICE_MODIFIERS = GLOBALS.BASE_PRESET_MODIFIERS;
-const VOICE_PRESET_OVERRIDES = GLOBALS.VOICE_PRESET_OVERRIDES;
+const PRESET_VOICE_MODIFIERS = GLOBALS.BASE_PRESET_MODIFIERS || {};
+const PRESET_VOICE_SETTINGS = GLOBALS.PRESET_VOICE_SETTINGS || {};
+const VOICE_PRESET_OVERRIDES = GLOBALS.VOICE_PRESET_OVERRIDES || {};
 
 function normalizePresetForAudio(rawPreset) {
-  return normalizeKey(rawPreset, PRESET_ALIASES, PRESET_VOICE_MODIFIERS, 'default');
+  return normalizeKey(
+    rawPreset,
+    PRESET_ALIASES,
+    Object.keys(PRESET_VOICE_SETTINGS).length ? PRESET_VOICE_SETTINGS : PRESET_VOICE_MODIFIERS,
+    'default'
+  );
 }
 
 function getPresetVoiceModifiers(preset = 'default', voiceKey = 'default') {
   const normalizedPreset = normalizePresetForAudio(preset);
-  const base = PRESET_VOICE_MODIFIERS[normalizedPreset] || PRESET_VOICE_MODIFIERS.default;
+  const base = PRESET_VOICE_MODIFIERS[normalizedPreset] ||
+    PRESET_VOICE_MODIFIERS.default || {
+      speedDelta: 0,
+      stabilityDelta: 0,
+      styleDelta: 0
+    };
   const voiceOverride = VOICE_PRESET_OVERRIDES[voiceKey]?.[normalizedPreset];
 
   return {
-    speedDelta: voiceOverride?.speedDelta ?? base.speedDelta,
-    stabilityDelta: voiceOverride?.stabilityDelta ?? base.stabilityDelta,
-    styleDelta: voiceOverride?.styleDelta ?? base.styleDelta
+    speedDelta:
+      typeof voiceOverride?.speedDelta === 'number'
+        ? voiceOverride.speedDelta
+        : base.speedDelta ?? 0,
+    stabilityDelta:
+      typeof voiceOverride?.stabilityDelta === 'number'
+        ? voiceOverride.stabilityDelta
+        : base.stabilityDelta ?? 0,
+    styleDelta:
+      typeof voiceOverride?.styleDelta === 'number'
+        ? voiceOverride.styleDelta
+        : base.styleDelta ?? 0
   };
 }
 
@@ -339,116 +359,116 @@ async function probeMp3DurationSeconds(filePath) {
   return 0;
 }
 
-// async function transcribeMergedJobAudio(payload = {}) {
-//   const apiKey = process.env.ELEVENLABS_API_KEY;
-//   const masterPayload = payload?.payload || payload?.data || payload || {};
-//   const structuredScript =
-//     masterPayload?.llmDirective?.structuredScript ||
-//     masterPayload?.structuredScript ||
-//     (Array.isArray(masterPayload?.scenes) ? masterPayload : null);
-//   const scenes = Array.isArray(structuredScript?.scenes) ? structuredScript.scenes : [];
+async function transcribeMergedJobAudio(payload = {}) {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  const masterPayload = payload?.payload || payload?.data || payload || {};
+  const structuredScript =
+    masterPayload?.llmDirective?.structuredScript ||
+    masterPayload?.structuredScript ||
+    (Array.isArray(masterPayload?.scenes) ? masterPayload : null);
+  const scenes = Array.isArray(structuredScript?.scenes) ? structuredScript.scenes : [];
 
-//   const mergedFileName =
-//     masterPayload?.voice?.mergedAudio?.fileName ||
-//     masterPayload?.mergedAudio?.fileName ||
-//     null;
+  const mergedFileName =
+    masterPayload?.voice?.mergedAudio?.fileName ||
+    masterPayload?.mergedAudio?.fileName ||
+    null;
 
-//   if (!apiKey || !mergedFileName || !scenes.length) {
-//     return masterPayload;
-//   }
+  if (!apiKey || !mergedFileName || !scenes.length) {
+    return masterPayload;
+  }
 
-//   const mergedFilePath = path.join(AUDIO_OUTPUT_DIR, mergedFileName);
-//   if (!fs.existsSync(mergedFilePath)) {
-//     return masterPayload;
-//   }
+  const mergedFilePath = path.join(AUDIO_OUTPUT_DIR, mergedFileName);
+  if (!fs.existsSync(mergedFilePath)) {
+    return masterPayload;
+  }
 
-//   const language =
-//     masterPayload?.meta?.language ||
-//     masterPayload?.userInputs?.language ||
-//     masterPayload?.llmDirective?.language ||
-//     '';
+  const language =
+    masterPayload?.meta?.language ||
+    masterPayload?.userInputs?.language ||
+    masterPayload?.llmDirective?.language ||
+    '';
 
-//   const scribeResult = await transcribeAudioWithScribeV3({
-//     filePath: mergedFilePath,
-//     apiKey,
-//     language
-//   });
+  const scribeResult = await transcribeAudioWithScribeV3({
+    filePath: mergedFilePath,
+    apiKey,
+    language
+  });
 
-//   let cursor = 0;
-//   const sceneWindows = [];
+  let cursor = 0;
+  const sceneWindows = [];
 
-//   for (const sc of scenes) {
-//     const sceneFile = sc?.audio?.fileName;
-//     const sceneFilePath = sceneFile ? path.join(AUDIO_OUTPUT_DIR, sceneFile) : null;
-//     const measuredDur =
-//       sceneFilePath && fs.existsSync(sceneFilePath)
-//         ? await probeMp3DurationSeconds(sceneFilePath)
-//         : 0;
-//     const dur = measuredDur > 0 ? measuredDur : Number(sc?.durationSeconds) || 4;
-//     const startSec = cursor;
-//     const endSec = cursor + dur;
-//     sceneWindows.push({ startSec, endSec, dur });
-//     cursor = endSec;
-//   }
+  for (const sc of scenes) {
+    const sceneFile = sc?.audio?.fileName;
+    const sceneFilePath = sceneFile ? path.join(AUDIO_OUTPUT_DIR, sceneFile) : null;
+    const measuredDur =
+      sceneFilePath && fs.existsSync(sceneFilePath)
+        ? await getAudioDuration(sceneFilePath)
+        : 0;
+    const dur = measuredDur > 0 ? measuredDur : Number(sc?.durationSeconds) || 4;
+    const startSec = cursor;
+    const endSec = cursor + dur;
+    sceneWindows.push({ startSec, endSec, dur });
+    cursor = endSec;
+  }
 
-//   const updatedScenes = scenes.map((sc, idx) => {
-//     const win = sceneWindows[idx] || { startSec: 0, endSec: 5, dur: 5 };
+  const updatedScenes = scenes.map((sc, idx) => {
+    const win = sceneWindows[idx] || { startSec: 0, endSec: 5, dur: 5 };
 
-//     const sceneWords = scribeResult.words
-//       .filter((w) => {
-//         const wMid = (w.start + w.end) / 2;
-//         return idx === scenes.length - 1
-//           ? wMid >= win.startSec
-//           : wMid >= win.startSec && wMid < win.endSec;
-//       })
-//       .map((w) => ({
-//         text: w.text,
-//         start: Number(Math.max(0, w.start - win.startSec).toFixed(2)),
-//         end: Number(Math.max(0.15, Math.min(win.dur, w.end - win.startSec)).toFixed(2))
-//       }));
+    const sceneWords = scribeResult.words
+      .filter((w) => {
+        const wMid = (w.start + w.end) / 2;
+        return idx === scenes.length - 1
+          ? wMid >= win.startSec
+          : wMid >= win.startSec && wMid < win.endSec;
+      })
+      .map((w) => ({
+        text: w.text,
+        start: Number(Math.max(0, w.start - win.startSec).toFixed(2)),
+        end: Number(Math.max(0.15, Math.min(win.dur, w.end - win.startSec)).toFixed(2))
+      }));
 
-//     const sceneSegments = buildSubtitleSegmentsFromScribeWords(sceneWords, {
-//       maxWords: 6,
-//       minWordsForBreak: 3,
-//       minWordsForComma: 4
-//     });
+    const sceneSegments = buildSubtitleSegmentsFromScribeWords(sceneWords, {
+      maxWords: 6,
+      minWordsForBreak: 3,
+      minWordsForComma: 4
+    });
 
-//     return {
-//       ...sc,
-//       audio: {
-//         ...(sc.audio || {}),
-//         subtitleSegments:
-//           sceneSegments.length > 0 ? sceneSegments : sc?.audio?.subtitleSegments || [],
-//         words: sceneWords,
-//         subtitleSource: 'scribe_v3_merged'
-//       }
-//     };
-//   });
+    return {
+      ...sc,
+      audio: {
+        ...(sc.audio || {}),
+        subtitleSegments:
+          sceneSegments.length > 0 ? sceneSegments : sc?.audio?.subtitleSegments || [],
+        words: sceneWords,
+        subtitleSource: 'scribe_v3_merged'
+      }
+    };
+  });
 
-//   return {
-//     ...masterPayload,
-//     subtitles: {
-//       ...(masterPayload.subtitles || {}),
-//       provider: 'elevenlabs_scribe_v3',
-//       text: scribeResult.text,
-//       words: scribeResult.words,
-//       segments: scribeResult.segments,
-//       srt: scribeResult.srt
-//     },
-//     llmDirective: {
-//       ...(masterPayload.llmDirective || {}),
-//       structuredScript: {
-//         ...structuredScript,
-//         scenes: updatedScenes
-//       }
-//     },
-//     structuredScript: {
-//       ...structuredScript,
-//       scenes: updatedScenes
-//     },
-//     scenes: updatedScenes
-//   };
-// }
+  return {
+    ...masterPayload,
+    subtitles: {
+      ...(masterPayload.subtitles || {}),
+      provider: 'elevenlabs_scribe_v3',
+      text: scribeResult.text,
+      words: scribeResult.words,
+      segments: scribeResult.segments,
+      srt: scribeResult.srt
+    },
+    llmDirective: {
+      ...(masterPayload.llmDirective || {}),
+      structuredScript: {
+        ...structuredScript,
+        scenes: updatedScenes
+      }
+    },
+    structuredScript: {
+      ...structuredScript,
+      scenes: updatedScenes
+    },
+    scenes: updatedScenes
+  };
+}
 
 function applyVoiceDirectionToScene({
   text,
@@ -595,8 +615,9 @@ function resolveVoiceId({ requestedVoiceId, userPlan = 'free_trial' }) {
 
 function getVoiceTuningByTone(tone = 'engaging', preset = 'default', voiceKey = 'default') {
   const normalizedTone = normalizeKey(tone, TONE_ALIASES, {}, 'engaging');
+  const normalizedPreset = normalizePresetForAudio(preset);
 
-  const presets = {
+  const tonePresets = {
     dramatic: {
       stability: 0.42,
       similarity_boost: 0.80,
@@ -641,25 +662,73 @@ function getVoiceTuningByTone(tone = 'engaging', preset = 'default', voiceKey = 
     }
   };
 
-  const base = presets[normalizedTone] || presets.engaging;
-  const presetMod = getPresetVoiceModifiers(preset, voiceKey);
+  const presetBase =
+    (normalizedPreset !== 'default' && PRESET_VOICE_SETTINGS[normalizedPreset]) ||
+    null;
+  const toneBase = tonePresets[normalizedTone] || tonePresets.engaging;
+  const presetMod = getPresetVoiceModifiers(normalizedPreset, voiceKey);
+  const voiceOverride = VOICE_PRESET_OVERRIDES[voiceKey]?.[normalizedPreset] || {};
+
+  const rawStability = presetBase
+    ? typeof voiceOverride.stability === 'number'
+      ? voiceOverride.stability
+      : presetBase.stability + (typeof voiceOverride.stabilityDelta === 'number' ? voiceOverride.stabilityDelta : 0)
+    : typeof voiceOverride.stability === 'number'
+      ? voiceOverride.stability
+      : toneBase.stability + presetMod.stabilityDelta;
+
+  const rawStyle = presetBase
+    ? typeof voiceOverride.style === 'number'
+      ? voiceOverride.style
+      : presetBase.style + (typeof voiceOverride.styleDelta === 'number' ? voiceOverride.styleDelta : 0)
+    : typeof voiceOverride.style === 'number'
+      ? voiceOverride.style
+      : toneBase.style + presetMod.styleDelta;
+
+  const rawSpeed = presetBase
+    ? typeof voiceOverride.speed === 'number'
+      ? voiceOverride.speed
+      : presetBase.speed + (typeof voiceOverride.speedDelta === 'number' ? voiceOverride.speedDelta : 0)
+    : typeof voiceOverride.speed === 'number'
+      ? voiceOverride.speed
+      : toneBase.speed + presetMod.speedDelta;
+
+  const rawSimilarity =
+    typeof voiceOverride.similarity_boost === 'number'
+      ? voiceOverride.similarity_boost
+      : typeof presetBase?.similarity_boost === 'number'
+        ? presetBase.similarity_boost
+        : toneBase.similarity_boost;
+
+  const rawSpeakerBoost =
+    typeof voiceOverride.use_speaker_boost === 'boolean'
+      ? voiceOverride.use_speaker_boost
+      : typeof presetBase?.use_speaker_boost === 'boolean'
+        ? presetBase.use_speaker_boost
+        : toneBase.use_speaker_boost;
 
   return {
-    ...base,
     stability: clampNumber(
-      base.stability + presetMod.stabilityDelta,
+      rawStability,
       GLOBALS.SAFETY_LIMITS.voiceStability.min,
       GLOBALS.SAFETY_LIMITS.voiceStability.max,
       2
     ),
+    similarity_boost: clampNumber(
+      rawSimilarity,
+      GLOBALS.SAFETY_LIMITS.voiceSimilarity.min,
+      GLOBALS.SAFETY_LIMITS.voiceSimilarity.max,
+      2
+    ),
     style: clampNumber(
-      base.style + presetMod.styleDelta,
+      rawStyle,
       GLOBALS.SAFETY_LIMITS.voiceStyle.min,
       GLOBALS.SAFETY_LIMITS.voiceStyle.max,
       2
     ),
+    use_speaker_boost: Boolean(rawSpeakerBoost),
     speed: clampNumber(
-      base.speed + presetMod.speedDelta,
+      rawSpeed,
       GLOBALS.SAFETY_LIMITS.voiceSpeed.min,
       GLOBALS.SAFETY_LIMITS.voiceSpeed.max,
       2
@@ -843,15 +912,15 @@ async function generateSceneAudio({
     voiceIdUsed: selectedVoiceId,
     modelIdUsed: resolvedModelId,
     voiceSettingsUsed: safeVoiceSettings,
-  
+
     subtitleSegments:
-        scribeData.segments,
-  
+      scribeData.segments,
+
     words:
-        scribeData.words,
-  
+      scribeData.words,
+
     subtitleSource:
-        "scribe_v3"
+      "scribe_v3"
   };
 }
 
@@ -1191,5 +1260,5 @@ module.exports = {
   generateSceneAudio,
   generateAllScenesAudio,
   generateDialogueAudio,
-  // transcribeMergedJobAudio
+  transcribeMergedJobAudio
 };
