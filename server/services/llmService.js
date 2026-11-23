@@ -150,6 +150,38 @@ function stripAudioTags(text = '') {
     .trim();
 }
 
+function normalizeWordTokens(text = '') {
+  return stripAudioTags(text)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s']/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function alignSpokenToVoiceover(voiceoverText = '', spokenText = '') {
+  const baseText = stripAudioTags(voiceoverText);
+  const cleanSpoken = stripAudioTags(spokenText);
+
+  if (!baseText) return cleanSpoken;
+  if (!cleanSpoken) return baseText;
+
+  const baseTokens = normalizeWordTokens(baseText);
+  const spokenTokens = normalizeWordTokens(cleanSpoken);
+
+  const exactMatch =
+    baseTokens.length === spokenTokens.length &&
+    baseTokens.every((word, idx) => word === spokenTokens[idx]);
+
+  if (exactMatch) {
+    return String(spokenText).replace(/\s+/g, ' ').trim();
+  }
+
+  const leadingMatch = String(spokenText || '').match(/^(?:\s*\[[^\]]*\]\s*)+/);
+  const leadingTags = leadingMatch ? leadingMatch[0].match(/\[[^\]]*\]/g) || [] : [];
+
+  return leadingTags.length ? `${leadingTags.join(' ')} ${baseText}` : baseText;
+}
+
 function buildFallbackSpokenText({
   cleanText,
   role = 'body',
@@ -322,6 +354,11 @@ MANDATORY RULES:
        ? `Include concise bracketed Eleven v4 delivery tags (e.g. [whisper], [slowly], [pause], [measured, steady], [low, eerie], [emphasis]) inline right before the phrases/shifts that need tone, pace, volume, or emphasis changes, guided by preset "${presetKey}" (suggested tags -> hook: ${presetTagGuide.hook || '[steady]'}, body: ${presetTagGuide.body || '[steady]'}, cta: ${presetTagGuide.cta || '[steady]'}). Keep tags natural and concise so they never sound robotic or get read as raw words.`
        : 'Keep "spokenText" clean without bracketed tags.'
    }
+   - CRITICAL NARRATION & SUBTITLE SYNCHRONIZATION RULES (STRICT):
+     * "spokenText" MUST contain the EXACT SAME WORDS in the EXACT SAME ORDER as "voiceoverText".
+     * NEVER paraphrase, summarize, shorten, expand, replace synonyms, change numbers/units, or alter wording between "voiceoverText" and "spokenText".
+     * Only insert bracketed vocal delivery tags ([...]) around or between the exact words of "voiceoverText".
+     * If all [...] tags are stripped from "spokenText", the remaining words must match "voiceoverText" word-for-word.
 6. VOICE DIRECTION METADATA:
    - For each scene, include a "voiceDirection" object:
      * "intent": short delivery intent (e.g. "hook_attention", "explain_point", "emphasize_contrast", "call_to_action").
@@ -479,14 +516,15 @@ Generate the structured video script using these inputs:
       const normalizedDirection = normalizeVoiceDirection(scene.voiceDirection, resolvedRole);
       const rawSpokenCandidate = String(scene.spokenText || '').trim();
       const finalSpokenText = supportsTags
-        ? rawSpokenCandidate ||
-          buildFallbackSpokenText({
-            cleanText: cleanVoiceoverText,
-            role: resolvedRole,
-            presetKey,
-            voiceDirection: normalizedDirection,
-            supportsTags: true
-          })
+        ? rawSpokenCandidate
+          ? alignSpokenToVoiceover(cleanVoiceoverText, rawSpokenCandidate)
+          : buildFallbackSpokenText({
+              cleanText: cleanVoiceoverText,
+              role: resolvedRole,
+              presetKey,
+              voiceDirection: normalizedDirection,
+              supportsTags: true
+            })
         : stripAudioTags(rawSpokenCandidate || cleanVoiceoverText);
 
       validatedScenes.push({

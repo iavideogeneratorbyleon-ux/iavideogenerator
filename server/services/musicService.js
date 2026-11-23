@@ -61,6 +61,7 @@ const MUSIC_CATALOG = {
 
 const PRESET_TO_MUSIC_KEY = {
   netflix: 'cinematic_tension',
+  dark_mystery: 'cinematic_tension',
   mr_beast: 'upbeat_hype',
   tiktok_viral: 'viral_beat',
   luxury: 'luxury_ambient',
@@ -95,6 +96,8 @@ function resolveMusicConfig(masterPayload = {}) {
     typeof musicConfig.enabled === 'boolean' ? musicConfig.enabled : true;
 
   const rawPreset =
+    masterPayload?.meta?.preset ||
+    masterPayload?.userInputs?.preset ||
     masterPayload?.video?.preset ||
     masterPayload?.videoConfig?.preset ||
     'default';
@@ -193,7 +196,7 @@ function mixBackgroundMusicWithVideo({
   return new Promise((resolve, reject) => {
     const fadeStart = Math.max(0, Number((duration - fadeOutSeconds).toFixed(2)));
 
-    // [0:a] es la narración/voz del video renderizado en Paso 4
+    // [0:a] es la narración/voz del video renderizado
     // [1:a] es la música en loop infinito recortada a la duración exacta del video
     const musicPrep = `[1:a]atrim=0:${duration},asetpts=PTS-STARTPTS,volume=${baseVolume},afade=t=in:st=0:d=0.8,afade=t=out:st=${fadeStart}:d=${fadeOutSeconds}[bg]`;
 
@@ -233,18 +236,11 @@ function mixBackgroundMusicWithVideo({
 
 async function applyBackgroundMusic(rawPayload) {
   const masterPayload = rawPayload?.payload || rawPayload?.data || rawPayload || {};
-  const inputRelVideo = masterPayload?.video?.videoUrl;
-
-  if (!inputRelVideo) {
-    throw new Error(
-      'Falta video.videoUrl en el payload. Ejecuta primero el Paso 4 (video-generator).'
-    );
-  }
-
-  const inputVideoPath = path.join(PUBLIC_DIR, inputRelVideo.replace(/^\/+/, ''));
-  if (!fs.existsSync(inputVideoPath)) {
-    throw new Error(`No se encontró el video base en disco: ${inputVideoPath}`);
-  }
+  const inputRelVideo =
+    masterPayload?.video?.videoUrl ||
+    masterPayload?.video?.url ||
+    masterPayload?.videoUrl ||
+    null;
 
   const jobId =
     masterPayload.jobId ||
@@ -253,10 +249,11 @@ async function applyBackgroundMusic(rawPayload) {
     `job_${Date.now()}`;
 
   const resolvedConfig = resolveMusicConfig(masterPayload);
+  const resolvedFile = resolveMusicFilePath(resolvedConfig);
 
   if (!resolvedConfig.enabled) {
     return {
-      videoFileName: masterPayload.video.fileName,
+      videoFileName: masterPayload?.video?.fileName || null,
       videoUrl: inputRelVideo,
       musicApplied: false,
       payload: {
@@ -269,7 +266,41 @@ async function applyBackgroundMusic(rawPayload) {
     };
   }
 
-  const resolvedFile = resolveMusicFilePath(resolvedConfig);
+  // Si aún no existe video base (porque el render final corre en el paso siguiente),
+  // dejamos lista la selección de música sin abortar el pipeline.
+  if (!inputRelVideo) {
+    console.log(
+      `🎵 [Música] Job: ${jobId} | Sin video.videoUrl previo aún; preparando pista [${resolvedConfig.trackKey}] para el render final.`
+    );
+    return {
+      videoFileName: null,
+      videoUrl: null,
+      musicApplied: false,
+      trackKey: resolvedConfig.trackKey,
+      duckingEnabled: resolvedConfig.duckingEnabled,
+      payload: {
+        ...masterPayload,
+        music: {
+          enabled: true,
+          applied: false,
+          deferredUntilRender: true,
+          trackKey: resolvedConfig.trackKey,
+          trackLabel: resolvedConfig.trackLabel,
+          filePath: resolvedFile?.path || null,
+          source: resolvedFile?.source || 'none',
+          baseVolume: resolvedConfig.baseVolume,
+          duckingEnabled: resolvedConfig.duckingEnabled,
+          fadeOutSeconds: resolvedConfig.fadeOutSeconds
+        }
+      }
+    };
+  }
+
+  const inputVideoPath = path.join(PUBLIC_DIR, inputRelVideo.replace(/^\/+/, ''));
+  if (!fs.existsSync(inputVideoPath)) {
+    throw new Error(`No se encontró el video base en disco: ${inputVideoPath}`);
+  }
+
   if (!resolvedFile) {
     throw new Error(
       `No hay pistas de música disponibles en ${MUSIC_LIBRARY_DIR}. Coloca al menos un archivo .mp3 (por ejemplo ${resolvedConfig.catalogFileName}).`
@@ -281,7 +312,7 @@ async function applyBackgroundMusic(rawPayload) {
   const finalOutputPath = path.join(VIDEO_OUTPUT_DIR, finalFileName);
 
   console.log(
-    `🎵 [Música Paso 5] Job: ${jobId} | Track: ${resolvedConfig.trackKey} (${resolvedFile.source}) | Volumen: ${resolvedConfig.baseVolume} | Ducking: ${resolvedConfig.duckingEnabled}`
+    `🎵 [Música] Job: ${jobId} | Track: ${resolvedConfig.trackKey} (${resolvedFile.source}) | Volumen: ${resolvedConfig.baseVolume} | Ducking: ${resolvedConfig.duckingEnabled}`
   );
 
   await mixBackgroundMusicWithVideo({
@@ -303,7 +334,7 @@ async function applyBackgroundMusic(rawPayload) {
   }
 
   const finalVideoUrl = `/videos/${finalFileName}`;
-  console.log(`✅ [Música Paso 5] Video final con música listo en: ${finalVideoUrl}`);
+  console.log(`✅ [Música] Video final con música listo en: ${finalVideoUrl}`);
 
   const updatedPayload = {
     ...masterPayload,
@@ -320,7 +351,7 @@ async function applyBackgroundMusic(rawPayload) {
     },
     video: {
       ...(masterPayload.video || {}),
-      step4VideoUrl: inputRelVideo,
+      previousVideoUrl: inputRelVideo,
       fileName: finalFileName,
       videoUrl: finalVideoUrl,
       hasBackgroundMusic: true

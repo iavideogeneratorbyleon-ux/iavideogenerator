@@ -2,6 +2,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 const ffprobePath = require('ffprobe-static').path;
@@ -19,27 +20,6 @@ const TEMP_DIR = path.join(PUBLIC_DIR, 'temp_render');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-function resolveSystemFontFile() {
-  const candidates = [
-    process.env.FFMPEG_FONT_FILE,
-    '/System/Library/Fonts/Supplemental/Arial.ttf',
-    '/System/Library/Fonts/Supplemental/Helvetica.ttf',
-    '/Library/Fonts/Arial.ttf',
-    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-    'C:\\Windows\\Fonts\\arial.ttf'
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-  return null;
-}
-
-const RESOLVED_FONT_FILE = resolveSystemFontFile();
-
 const PRESET_CONFIGS = {
   netflix: {
     key: 'netflix',
@@ -48,13 +28,9 @@ const PRESET_CONFIGS = {
     eqFilter: 'eq=contrast=1.06:brightness=-0.02:saturation=0.95',
     paidSubtitles: {
       style: 'cinematic_clean',
-      primaryColour: '&H00FFFFFF',
-      accentColour: '&H00E5E5E5',
-      outlineColour: '&H00000000',
-      backColour: '&H64000000',
-      borderStyle: 1,
-      outline: 2,
-      shadow: 2,
+      rgba: [255, 255, 255, 255],
+      outlineRgba: [0, 0, 0, 230],
+      boxRgba: [0, 0, 0, 140],
       fontScale: 1.0
     }
   },
@@ -65,13 +41,9 @@ const PRESET_CONFIGS = {
     eqFilter: 'eq=contrast=1.12:brightness=0.02:saturation=1.22',
     paidSubtitles: {
       style: 'high_impact',
-      primaryColour: '&H0000FFFF', // Amarillo vibrante en formato ASS (&HAABBGGRR)
-      accentColour: '&H00FFFFFF',
-      outlineColour: '&H00000000',
-      backColour: '&H80000000',
-      borderStyle: 1,
-      outline: 4,
-      shadow: 3,
+      rgba: [255, 255, 0, 255],
+      outlineRgba: [0, 0, 0, 255],
+      boxRgba: [0, 0, 0, 165],
       fontScale: 1.18
     }
   },
@@ -82,13 +54,9 @@ const PRESET_CONFIGS = {
     eqFilter: 'eq=contrast=1.08:brightness=0.01:saturation=1.15',
     paidSubtitles: {
       style: 'creator_pop',
-      primaryColour: '&H00FFFFFF',
-      accentColour: '&H0000FFFF',
-      outlineColour: '&H00000000',
-      backColour: '&H64000000',
-      borderStyle: 1,
-      outline: 3,
-      shadow: 2,
+      rgba: [255, 255, 255, 255],
+      outlineRgba: [0, 0, 0, 245],
+      boxRgba: [0, 0, 0, 145],
       fontScale: 1.12
     }
   },
@@ -99,13 +67,9 @@ const PRESET_CONFIGS = {
     eqFilter: 'eq=contrast=1.05:brightness=-0.01:saturation=0.92',
     paidSubtitles: {
       style: 'editorial_gold',
-      primaryColour: '&H00D4F2FF', // Tono cálido/champagne suave
-      accentColour: '&H00FFFFFF',
-      outlineColour: '&H00141414',
-      backColour: '&H50000000',
-      borderStyle: 1,
-      outline: 2,
-      shadow: 2,
+      rgba: [255, 232, 163, 255],
+      outlineRgba: [15, 15, 15, 230],
+      boxRgba: [0, 0, 0, 120],
       fontScale: 0.98
     }
   },
@@ -116,13 +80,9 @@ const PRESET_CONFIGS = {
     eqFilter: 'eq=contrast=1.05:brightness=-0.01:saturation=0.92',
     paidSubtitles: {
       style: 'editorial_gold',
-      primaryColour: '&H00D4F2FF',
-      accentColour: '&H00FFFFFF',
-      outlineColour: '&H00141414',
-      backColour: '&H50000000',
-      borderStyle: 1,
-      outline: 2,
-      shadow: 2,
+      rgba: [255, 232, 163, 255],
+      outlineRgba: [15, 15, 15, 230],
+      boxRgba: [0, 0, 0, 120],
       fontScale: 0.98
     }
   },
@@ -133,13 +93,9 @@ const PRESET_CONFIGS = {
     eqFilter: 'eq=contrast=1.09:brightness=0.0:saturation=1.05',
     paidSubtitles: {
       style: 'modern_sharp',
-      primaryColour: '&H00FFF0B3', // Cian/blanco limpio moderno
-      accentColour: '&H00FFFFFF',
-      outlineColour: '&H000A0A0A',
-      backColour: '&H64000000',
-      borderStyle: 1,
-      outline: 2,
-      shadow: 2,
+      rgba: [179, 240, 255, 255],
+      outlineRgba: [10, 10, 10, 240],
+      boxRgba: [0, 0, 0, 140],
       fontScale: 1.02
     }
   },
@@ -150,13 +106,9 @@ const PRESET_CONFIGS = {
     eqFilter: 'eq=contrast=1.09:brightness=0.0:saturation=1.05',
     paidSubtitles: {
       style: 'modern_sharp',
-      primaryColour: '&H00FFF0B3',
-      accentColour: '&H00FFFFFF',
-      outlineColour: '&H000A0A0A',
-      backColour: '&H64000000',
-      borderStyle: 1,
-      outline: 2,
-      shadow: 2,
+      rgba: [179, 240, 255, 255],
+      outlineRgba: [10, 10, 10, 240],
+      boxRgba: [0, 0, 0, 140],
       fontScale: 1.02
     }
   },
@@ -167,13 +119,9 @@ const PRESET_CONFIGS = {
     eqFilter: 'eq=contrast=1.08:brightness=-0.03:saturation=0.9',
     paidSubtitles: {
       style: 'cinematic_clean',
-      primaryColour: '&H00F5E6D3',
-      accentColour: '&H00FFD27D',
-      outlineColour: '&H00050505',
-      backColour: '&H70000000',
-      borderStyle: 1,
-      outline: 2,
-      shadow: 2,
+      rgba: [245, 230, 211, 255],
+      outlineRgba: [5, 5, 5, 245],
+      boxRgba: [0, 0, 0, 155],
       fontScale: 1.0
     }
   },
@@ -184,13 +132,9 @@ const PRESET_CONFIGS = {
     eqFilter: 'eq=contrast=1.05:brightness=-0.01:saturation=0.95',
     paidSubtitles: {
       style: 'cinematic_clean',
-      primaryColour: '&H00FFFFFF',
-      accentColour: '&H00E5E5E5',
-      outlineColour: '&H00000000',
-      backColour: '&H64000000',
-      borderStyle: 1,
-      outline: 2,
-      shadow: 2,
+      rgba: [255, 255, 255, 255],
+      outlineRgba: [0, 0, 0, 235],
+      boxRgba: [0, 0, 0, 140],
       fontScale: 1.0
     }
   },
@@ -201,13 +145,9 @@ const PRESET_CONFIGS = {
     eqFilter: 'eq=contrast=1.08:brightness=-0.02:saturation=0.96',
     paidSubtitles: {
       style: 'editorial_gold',
-      primaryColour: '&H00D4F2FF',
-      accentColour: '&H00FFFFFF',
-      outlineColour: '&H00141414',
-      backColour: '&H60000000',
-      borderStyle: 1,
-      outline: 2,
-      shadow: 2,
+      rgba: [255, 232, 163, 255],
+      outlineRgba: [15, 15, 15, 235],
+      boxRgba: [0, 0, 0, 130],
       fontScale: 1.0
     }
   },
@@ -218,13 +158,9 @@ const PRESET_CONFIGS = {
     eqFilter: 'eq=contrast=1.05:brightness=0.01:saturation=1.04',
     paidSubtitles: {
       style: 'modern_sharp',
-      primaryColour: '&H00FFFFFF',
-      accentColour: '&H00FFF0B3',
-      outlineColour: '&H000A0A0A',
-      backColour: '&H64000000',
-      borderStyle: 1,
-      outline: 2,
-      shadow: 2,
+      rgba: [255, 255, 255, 255],
+      outlineRgba: [10, 10, 10, 235],
+      boxRgba: [0, 0, 0, 145],
       fontScale: 1.04
     }
   },
@@ -235,17 +171,324 @@ const PRESET_CONFIGS = {
     eqFilter: 'eq=contrast=1.03:brightness=0.0:saturation=1.04',
     paidSubtitles: {
       style: 'standard_enhanced',
-      primaryColour: '&H00FFFFFF',
-      accentColour: '&H0000FFFF',
-      outlineColour: '&H00000000',
-      backColour: '&H64000000',
-      borderStyle: 1,
-      outline: 2,
-      shadow: 1,
+      rgba: [255, 255, 255, 255],
+      outlineRgba: [0, 0, 0, 235],
+      boxRgba: [0, 0, 0, 145],
       fontScale: 1.0
     }
   }
 };
+
+// Mapa de glifos 5x7 para codificar texto limpio en PNG transparente sin dependencias externas
+const BITMAP_5X7 = {
+  ' ': ['00000', '00000', '00000', '00000', '00000', '00000', '00000'],
+  A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
+  B: ['11110', '10001', '10001', '11110', '10001', '10001', '11110'],
+  C: ['01110', '10001', '10000', '10000', '10000', '10001', '01110'],
+  D: ['11100', '10010', '10001', '10001', '10001', '10010', '11100'],
+  E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
+  F: ['11111', '10000', '10000', '11110', '10000', '10000', '10000'],
+  G: ['01110', '10001', '10000', '10111', '10001', '10001', '01111'],
+  H: ['10001', '10001', '10001', '11111', '10001', '10001', '10001'],
+  I: ['01110', '00100', '00100', '00100', '00100', '00100', '01110'],
+  J: ['00111', '00010', '00010', '00010', '10010', '10010', '01100'],
+  K: ['10001', '10010', '10100', '11000', '10100', '10010', '10001'],
+  L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
+  M: ['10001', '11011', '10101', '10101', '10001', '10001', '10001'],
+  N: ['10001', '11001', '10101', '10011', '10001', '10001', '10001'],
+  O: ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
+  P: ['11110', '10001', '10001', '11110', '10000', '10000', '10000'],
+  Q: ['01110', '10001', '10001', '10001', '10101', '10010', '01101'],
+  R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
+  S: ['01111', '10000', '10000', '01110', '00001', '00001', '11110'],
+  T: ['11111', '00100', '00100', '00100', '00100', '00100', '00100'],
+  U: ['10001', '10001', '10001', '10001', '10001', '10001', '01110'],
+  V: ['10001', '10001', '10001', '10001', '10001', '01010', '00100'],
+  W: ['10001', '10001', '10001', '10101', '10101', '11011', '10001'],
+  X: ['10001', '10001', '01010', '00100', '01010', '10001', '10001'],
+  Y: ['10001', '10001', '01010', '00100', '00100', '00100', '00100'],
+  Z: ['11111', '00001', '00010', '00100', '01000', '10000', '11111'],
+  0: ['01110', '10011', '10101', '10101', '11001', '10001', '01110'],
+  1: ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
+  2: ['01110', '10001', '00001', '00110', '01000', '10000', '11111'],
+  3: ['11110', '00001', '00001', '01110', '00001', '00001', '11110'],
+  4: ['00010', '00110', '01010', '10010', '11111', '00010', '00010'],
+  5: ['11111', '10000', '11110', '00001', '00001', '10001', '01110'],
+  6: ['01110', '10000', '11110', '10001', '10001', '10001', '01110'],
+  7: ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
+  8: ['01110', '10001', '10001', '01110', '10001', '10001', '01110'],
+  9: ['01110', '10001', '10001', '01111', '00001', '00001', '01110'],
+  '.': ['00000', '00000', '00000', '00000', '00000', '00110', '00110'],
+  ',': ['00000', '00000', '00000', '00000', '00110', '00110', '01100'],
+  ':': ['00000', '00110', '00110', '00000', '00110', '00110', '00000'],
+  ';': ['00000', '00110', '00110', '00000', '00110', '00110', '01100'],
+  '!': ['00100', '00100', '00100', '00100', '00100', '00000', '00100'],
+  '?': ['01110', '10001', '00001', '00110', '00100', '00000', '00100'],
+  '-': ['00000', '00000', '00000', '11111', '00000', '00000', '00000'],
+  "'": ['00110', '00110', '00100', '00000', '00000', '00000', '00000'],
+  '"': ['01010', '01010', '01010', '00000', '00000', '00000', '00000'],
+  '/': ['00001', '00010', '00100', '00100', '01000', '10000', '00000'],
+  '(': ['00010', '00100', '01000', '01000', '01000', '00100', '00010'],
+  ')': ['01000', '00100', '00010', '00010', '00010', '00100', '01000'],
+  '%': ['11001', '11010', '00100', '01000', '01011', '10011', '00000'],
+  '+': ['00000', '00100', '00100', '11111', '00100', '00100', '00000'],
+  '=': ['00000', '00000', '11111', '00000', '11111', '00000', '00000']
+};
+
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(buf) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) {
+    crc = CRC_TABLE[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function makePngChunk(type, data) {
+  const typeBuf = Buffer.from(type, 'ascii');
+  const lenBuf = Buffer.alloc(4);
+  lenBuf.writeUInt32BE(data.length, 0);
+  const crcBuf = Buffer.alloc(4);
+  const combined = Buffer.concat([typeBuf, data]);
+  crcBuf.writeUInt32BE(crc32(combined), 0);
+  return Buffer.concat([lenBuf, combined, crcBuf]);
+}
+
+function encodeRgbaToPngBuffer(width, height, rgba) {
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 6; // RGBA
+  ihdr[10] = 0;
+  ihdr[11] = 0;
+  ihdr[12] = 0;
+
+  const stride = width * 4;
+  const raw = Buffer.alloc((stride + 1) * height);
+  for (let y = 0; y < height; y++) {
+    const rowStart = y * (stride + 1);
+    raw[rowStart] = 0; // filter type 0
+    rgba.copy(raw, rowStart + 1, y * stride, (y + 1) * stride);
+  }
+
+  const compressed = zlib.deflateSync(raw, { level: 6 });
+  return Buffer.concat([
+    signature,
+    makePngChunk('IHDR', ihdr),
+    makePngChunk('IDAT', compressed),
+    makePngChunk('IEND', Buffer.alloc(0))
+  ]);
+}
+
+function sanitizeSubtitleRenderText(text = '') {
+  return String(text || '')
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function normalizeGlyphChar(ch) {
+  const folded = String(ch || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+  return BITMAP_5X7[folded] ? folded : '?';
+}
+
+function wrapBitmapLines(text, maxCharsPerLine) {
+  const words = sanitizeSubtitleRenderText(text).split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+
+  const lines = [];
+  let current = '';
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxCharsPerLine) {
+      current = candidate;
+    } else {
+      if (current) lines.push(current);
+      if (word.length > maxCharsPerLine) {
+        for (let i = 0; i < word.length; i += maxCharsPerLine) {
+          lines.push(word.slice(i, i + maxCharsPerLine));
+        }
+        current = '';
+      } else {
+        current = word;
+      }
+    }
+  }
+
+  if (current) lines.push(current);
+  return lines.slice(0, 3);
+}
+
+function blendPixel(rgba, width, height, x, y, [r, g, b, a]) {
+  const px = Math.round(x);
+  const py = Math.round(y);
+  if (px < 0 || py < 0 || px >= width || py >= height || a <= 0) return;
+
+  const idx = (py * width + px) * 4;
+  const alpha = Math.min(1, a / 255);
+  const invAlpha = 1 - alpha;
+
+  rgba[idx] = Math.round(r * alpha + rgba[idx] * invAlpha);
+  rgba[idx + 1] = Math.round(g * alpha + rgba[idx + 1] * invAlpha);
+  rgba[idx + 2] = Math.round(b * alpha + rgba[idx + 2] * invAlpha);
+  const nextAlpha = Math.max(rgba[idx + 3], Math.round(alpha * 255));
+  rgba[idx + 3] = nextAlpha;
+}
+
+function fillRectBlend(rgba, width, height, x0, y0, w, h, color) {
+  const startX = Math.max(0, Math.floor(x0));
+  const startY = Math.max(0, Math.floor(y0));
+  const endX = Math.min(width, Math.ceil(x0 + w));
+  const endY = Math.min(height, Math.ceil(y0 + h));
+
+  for (let y = startY; y < endY; y++) {
+    for (let x = startX; x < endX; x++) {
+      blendPixel(rgba, width, height, x, y, color);
+    }
+  }
+}
+
+function drawBitmapTextLine(rgba, width, height, line, centerX, topY, scale, color, outlineColor) {
+  const chars = Array.from(line);
+  const charAdvance = 6 * scale;
+  const lineWidth = chars.length * charAdvance - scale;
+  const startX = Math.round(centerX - lineWidth / 2);
+  const outlinePx = Math.max(1, Math.round(scale * 0.45));
+
+  chars.forEach((rawCh, cIdx) => {
+    const glyph = BITMAP_5X7[normalizeGlyphChar(rawCh)];
+    const gx = startX + cIdx * charAdvance;
+
+    for (let row = 0; row < 7; row++) {
+      const bits = glyph[row];
+      for (let col = 0; col < 5; col++) {
+        if (bits[col] !== '1') continue;
+        const px = gx + col * scale;
+        const py = topY + row * scale;
+
+        if (outlineColor && outlineColor[3] > 0) {
+          fillRectBlend(rgba, width, height, px - outlinePx, py, scale, scale, outlineColor);
+          fillRectBlend(rgba, width, height, px + outlinePx, py, scale, scale, outlineColor);
+          fillRectBlend(rgba, width, height, px, py - outlinePx, scale, scale, outlineColor);
+          fillRectBlend(rgba, width, height, px, py + outlinePx, scale, scale, outlineColor);
+        }
+
+        fillRectBlend(rgba, width, height, px, py, scale, scale, color);
+      }
+    }
+  });
+}
+
+function renderSubtitleSegmentPng({
+  text,
+  pngPath,
+  width,
+  height,
+  aspectRatio,
+  subtitleMode,
+  presetConfig
+}) {
+  const cleanText = sanitizeSubtitleRenderText(text);
+  if (!cleanText) return null;
+
+  const isPaidStyled = subtitleMode === 'preset_styled';
+  const paidStyle = presetConfig?.paidSubtitles || PRESET_CONFIGS.default.paidSubtitles;
+
+  const baseScale = aspectRatio === '9:16' ? Math.max(3, Math.round(width / 160)) : Math.max(3, Math.round(height / 180));
+  const scale = isPaidStyled
+    ? Math.max(3, Math.round(baseScale * (paidStyle.fontScale || 1)))
+    : baseScale;
+
+  const textColor = isPaidStyled ? paidStyle.rgba : [255, 255, 255, 255];
+  const outlineColor = isPaidStyled ? paidStyle.outlineRgba : [0, 0, 0, 225];
+  const boxColor = isPaidStyled ? paidStyle.boxRgba : [0, 0, 0, 135];
+
+  const maxLineWidthPx = Math.round(width * 0.84);
+  const charAdvance = 6 * scale;
+  const maxCharsPerLine = Math.max(10, Math.floor(maxLineWidthPx / charAdvance));
+  const lines = wrapBitmapLines(cleanText, maxCharsPerLine);
+  if (!lines.length) return null;
+
+  const lineHeightPx = 7 * scale;
+  const lineGapPx = Math.max(4, Math.round(scale * 1.4));
+  const totalTextHeight = lines.length * lineHeightPx + (lines.length - 1) * lineGapPx;
+
+  const longestLineLen = Math.max(...lines.map((l) => Array.from(l).length));
+  const boxWidth = longestLineLen * charAdvance + Math.round(scale * 3.5);
+  const boxHeight = totalTextHeight + Math.round(scale * 2.5);
+
+  const centerX = Math.round(width / 2);
+  const bottomAnchorY =
+    aspectRatio === '9:16'
+      ? Math.round(height * 0.84)
+      : Math.round(height * 0.88);
+  const blockTopY = Math.max(20, bottomAnchorY - totalTextHeight);
+  const boxLeftX = Math.max(12, Math.round(centerX - boxWidth / 2));
+  const boxTopY = Math.max(12, Math.round(blockTopY - scale * 1.25));
+
+  const rgba = Buffer.alloc(width * height * 4, 0);
+  fillRectBlend(rgba, width, height, boxLeftX, boxTopY, boxWidth, boxHeight, boxColor);
+
+  lines.forEach((line, idx) => {
+    const y = blockTopY + idx * (lineHeightPx + lineGapPx);
+    drawBitmapTextLine(rgba, width, height, line, centerX, y, scale, textColor, outlineColor);
+  });
+
+  const pngBuffer = encodeRgbaToPngBuffer(width, height, rgba);
+  fs.writeFileSync(pngPath, pngBuffer);
+  return pngPath;
+}
+
+function renderWatermarkPng({ pngPath, width, height, is720 }) {
+  const scale = is720 ? 2 : 3;
+  const label = 'STUDIO FREE PREVIEW';
+  const charAdvance = 6 * scale;
+  const textW = label.length * charAdvance;
+  const textH = 7 * scale;
+  const padX = is720 ? 16 : 24;
+  const padY = is720 ? 16 : 24;
+  const boxPad = Math.round(scale * 1.5);
+
+  const boxW = textW + boxPad * 2;
+  const boxH = textH + boxPad * 2;
+  const boxX = Math.max(10, width - boxW - padX);
+  const boxY = Math.max(10, padY);
+
+  const rgba = Buffer.alloc(width * height * 4, 0);
+  fillRectBlend(rgba, width, height, boxX, boxY, boxW, boxH, [0, 0, 0, 110]);
+  drawBitmapTextLine(
+    rgba,
+    width,
+    height,
+    label,
+    boxX + boxW / 2,
+    boxY + boxPad,
+    scale,
+    [255, 255, 255, 195],
+    [0, 0, 0, 140]
+  );
+
+  const pngBuffer = encodeRgbaToPngBuffer(width, height, rgba);
+  fs.writeFileSync(pngPath, pngBuffer);
+  return pngPath;
+}
 
 function normalizePresetKey(rawPreset) {
   return normalizeKey(rawPreset, GLOBALS.PRESET_ALIASES, PRESET_CONFIGS, 'default');
@@ -310,8 +553,8 @@ function resolveRenderConfig(masterPayload = {}) {
             ? masterPayload.userInputs.subtitles
             : true;
 
-  // free_trial siempre usa subtítulos estáticos; planes de pago usan efectos/estilos por preset
-  const subtitleMode = isFreePlan ? 'static' : 'styled_effects';
+  // free_trial usa subtítulos sencillos; planes de pago usan estilo coherente con el preset elegido
+  const subtitleMode = isFreePlan ? 'static' : 'preset_styled';
 
   const watermark =
     typeof masterPayload?.videoConfig?.watermark === 'boolean'
@@ -371,7 +614,7 @@ function getTargetDimensions(aspectRatio = '9:16', resolution = '1080p') {
 }
 
 function splitSubtitleChunks(text = '', maxWords = 6) {
-  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+  const words = sanitizeSubtitleRenderText(text).split(/\s+/).filter(Boolean);
   if (!words.length) return [];
 
   const chunks = [];
@@ -379,28 +622,6 @@ function splitSubtitleChunks(text = '', maxWords = 6) {
     chunks.push(words.slice(i, i + maxWords).join(' '));
   }
   return chunks;
-}
-
-function formatSrtTime(seconds = 0) {
-  const safeSec = Math.max(0, Number(seconds) || 0);
-  const hours = Math.floor(safeSec / 3600);
-  const minutes = Math.floor((safeSec % 3600) / 60);
-  const secs = Math.floor(safeSec % 60);
-  const millis = Math.round((safeSec - Math.floor(safeSec)) * 1000);
-
-  const pad = (n, len = 2) => String(n).padStart(len, '0');
-  return `${pad(hours)}:${pad(minutes)}:${pad(secs)},${pad(millis, 3)}`;
-}
-
-function formatAssTime(seconds = 0) {
-  const safeSec = Math.max(0, Number(seconds) || 0);
-  const hours = Math.floor(safeSec / 3600);
-  const minutes = Math.floor((safeSec % 3600) / 60);
-  const secs = Math.floor(safeSec % 60);
-  const centis = Math.round((safeSec - Math.floor(safeSec)) * 100);
-
-  const pad = (n, len = 2) => String(n).padStart(len, '0');
-  return `${hours}:${pad(minutes)}:${pad(secs)}.${pad(centis)}`;
 }
 
 function buildTimedChunks({ text, duration, maxWords = 6 }) {
@@ -433,73 +654,126 @@ function buildTimedChunks({ text, duration, maxWords = 6 }) {
   });
 }
 
-function buildSceneSubtitleSrt({ text, duration, srtPath }) {
-  const timedChunks = buildTimedChunks({ text, duration, maxWords: 6 });
-  if (!timedChunks.length) return null;
+function buildSyncedWordBlocks(words = [], duration = 5, { maxWords = 4, maxPauseSec = 0.35 } = {}) {
+  if (!Array.isArray(words) || !words.length) return [];
 
-  const srtBlocks = timedChunks.map(
-    (item) =>
-      `${item.index}\n${formatSrtTime(item.start)} --> ${formatSrtTime(item.end)}\n${item.text}\n`
-  );
+  const normalizedWords = words
+    .map((w) => {
+      const cleaned = sanitizeSubtitleRenderText(w?.text ?? w?.word ?? '');
+      const rawStart = Number(w?.start ?? w?.start_time ?? w?.startTime);
+      const rawEnd = Number(w?.end ?? w?.end_time ?? w?.endTime);
+      const start = Number.isFinite(rawStart) ? Math.max(0, Math.min(duration, rawStart)) : 0;
+      const end = Number.isFinite(rawEnd)
+        ? Math.max(start + 0.12, Math.min(duration, rawEnd))
+        : Math.min(duration, start + 0.25);
+      return { text: cleaned, start, end };
+    })
+    .filter((w) => Boolean(w.text));
 
-  fs.writeFileSync(srtPath, srtBlocks.join('\n'), 'utf8');
-  return srtPath;
+  if (!normalizedWords.length) return [];
+
+  const blocks = [];
+  let bucket = [];
+
+  const flushBucket = (nextWordStart = null) => {
+    if (!bucket.length) return;
+    const first = bucket[0];
+    const last = bucket[bucket.length - 1];
+    const text = bucket.map((item) => item.text).join(' ').replace(/\s{2,}/g, ' ').trim();
+
+    let endTime = last.end;
+    if (typeof nextWordStart === 'number' && Number.isFinite(nextWordStart)) {
+      endTime = Math.min(endTime, Math.max(first.start + 0.25, nextWordStart - 0.03));
+    }
+    endTime = Math.min(duration, Math.max(first.start + 0.3, endTime));
+
+    if (text && endTime > first.start) {
+      blocks.push({
+        index: blocks.length + 1,
+        text,
+        start: Number(first.start.toFixed(2)),
+        end: Number(endTime.toFixed(2))
+      });
+    }
+    bucket = [];
+  };
+
+  for (let i = 0; i < normalizedWords.length; i++) {
+    const word = normalizedWords[i];
+    const prevWord = bucket.length ? bucket[bucket.length - 1] : null;
+
+    if (prevWord) {
+      const gap = word.start - prevWord.end;
+      const endsSentence = /[.!?:;…]+["')\]]*$/.test(prevWord.text);
+      const endsComma = /,["')\]]*$/.test(prevWord.text);
+
+      if (
+        bucket.length >= maxWords ||
+        gap >= maxPauseSec ||
+        (endsSentence && bucket.length >= 2) ||
+        (endsComma && bucket.length >= 3)
+      ) {
+        flushBucket(word.start);
+      }
+    }
+
+    bucket.push(word);
+  }
+
+  flushBucket(null);
+  return blocks;
 }
 
-function buildSceneSubtitleAss({
+
+function resolveSceneSubtitleSegments({
+  subtitleSegments,
+  words = [],
   text,
-  duration,
-  assPath,
-  width,
-  height,
-  aspectRatio,
-  presetConfig
+  duration
 }) {
-  const timedChunks = buildTimedChunks({ text, duration, maxWords: 5 });
-  if (!timedChunks.length) return null;
 
-  const subStyle = presetConfig?.paidSubtitles || PRESET_CONFIGS.default.paidSubtitles;
-  const baseFontSize =
-    aspectRatio === '9:16'
-      ? Math.round(width * 0.036)
-      : Math.round(height * 0.04);
-  const fontSize = Math.round(baseFontSize * (subStyle.fontScale || 1));
+  // PRIORIDAD ABSOLUTA:
+  // palabras provenientes de Scribe
 
-  const marginV =
-    aspectRatio === '9:16'
-      ? Math.round(height * 0.12)
-      : Math.round(height * 0.06);
+  if (
+    Array.isArray(words) &&
+    words.length > 0
+  ) {
+    return buildSyncedWordBlocks(
+      words,
+      duration,
+      {
+        maxWords: 4,
+        maxPauseSec: 0.35
+      }
+    );
+  }
 
-  const header = `[Script Info]
-ScriptType: v4.00+
-PlayResX: ${width}
-PlayResY: ${height}
-ScaledBorderAndShadow: yes
+  // FALLBACK:
+  // alignment de Eleven
 
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: PaidStyle,Arial,${fontSize},${subStyle.primaryColour},${subStyle.accentColour},${subStyle.outlineColour},${subStyle.backColour},-1,0,0,0,100,100,0,0,${subStyle.borderStyle},${subStyle.outline},${subStyle.shadow},2,40,40,${marginV},1
+  if (
+    Array.isArray(subtitleSegments) &&
+    subtitleSegments.length > 0
+  ) {
+    return subtitleSegments;
+  }
 
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-`;
+  // ÚLTIMA OPCIÓN
 
-  const events = timedChunks
-    .map((item) => {
-      const safeText = item.text.replace(/\r?\n/g, ' ').replace(/\{|\}/g, '');
-      // Fade sutil de entrada/salida (80ms) para planes de pago
-      const dialogueText = `{\\fad(80,80)}${safeText}`;
-      return `Dialogue: 0,${formatAssTime(item.start)},${formatAssTime(item.end)},PaidStyle,,0,0,0,,${dialogueText}`;
-    })
-    .join('\n');
+  console.warn(
+    `⚠️ [Subtitles] No words ni subtitleSegments disponibles. Usando timing estimado.`
+  );
 
-  fs.writeFileSync(assPath, `${header}${events}\n`, 'utf8');
-  return assPath;
+  return buildTimedChunks({
+    text,
+    duration,
+    maxWords: 6
+  });
 }
 
 function buildMotionFilter({ width, height, duration, fps, motionType, sceneIndex = 0 }) {
   const totalFrames = Math.max(1, Math.round(duration * fps));
-  // Pre-escalamos con margen para evitar bordes negros durante zoom/paneo
   const preScaleW = Math.round(width * 1.25);
   const preScaleH = Math.round(height * 1.25);
 
@@ -551,29 +825,8 @@ function buildMotionFilter({ width, height, duration, fps, motionType, sceneInde
   return `scale=${preScaleW}:${preScaleH}:force_original_aspect_ratio=increase,crop=${preScaleW}:${preScaleH},zoompan=z=${zoomExpr}:x=${xExpr}:y=${yExpr}:d=${totalFrames}:s=${width}x${height}:fps=${fps}`;
 }
 
-function escapeFilterPath(filePath) {
-  return filePath
-    .replace(/\\/g, '/')
-    .replace(/:/g, '\\:')
-    .replace(/'/g, "\\'");
-}
-
-function buildVideoFilterChain({
-  width,
-  height,
-  duration,
-  fps,
-  aspectRatio,
-  presetConfig,
-  subtitlesEnabled,
-  subtitleMode,
-  subtitleFilePath,
-  subtitleKind,
-  watermark,
-  is720,
-  sceneIndex
-}) {
-  const filters = [
+function buildBaseVideoFilter({ width, height, duration, fps, presetConfig, sceneIndex }) {
+  const parts = [
     buildMotionFilter({
       width,
       height,
@@ -583,44 +836,10 @@ function buildVideoFilterChain({
       sceneIndex
     })
   ];
-
   if (presetConfig?.eqFilter) {
-    filters.push(presetConfig.eqFilter);
+    parts.push(presetConfig.eqFilter);
   }
-
-  if (watermark && RESOLVED_FONT_FILE) {
-    const fontSize = is720 ? 18 : 24;
-    const padX = is720 ? 18 : 28;
-    const padY = is720 ? 18 : 28;
-    const escapedFont = escapeFilterPath(RESOLVED_FONT_FILE);
-    filters.push(
-      `drawtext=fontfile='${escapedFont}':text='STUDIO FREE PREVIEW':fontcolor=white@0.65:fontsize=${fontSize}:x=w-tw-${padX}:y=${padY}:box=1:boxcolor=black@0.35:boxborderw=6`
-    );
-  }
-
-  if (subtitlesEnabled && subtitleFilePath && fs.existsSync(subtitleFilePath)) {
-    const escapedPath = escapeFilterPath(subtitleFilePath);
-
-    if (subtitleKind === 'ass' && subtitleMode === 'styled_effects') {
-      filters.push(`ass='${escapedPath}'`);
-    } else {
-      const marginV =
-        aspectRatio === '9:16'
-          ? Math.round(height * 0.12)
-          : Math.round(height * 0.06);
-
-      const fontSize =
-        aspectRatio === '9:16'
-          ? Math.round(width * 0.035)
-          : Math.round(height * 0.038);
-
-      filters.push(
-        `subtitles='${escapedPath}':force_style='PlayResX=${width},PlayResY=${height},FontSize=${fontSize},PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H64000000,BorderStyle=1,Outline=2,Shadow=1,MarginV=${marginV},Alignment=2'`
-      );
-    }
-  }
-
-  return filters.join(',');
+  return parts.join(',');
 }
 
 function runFfmpegClip({
@@ -629,29 +848,59 @@ function runFfmpegClip({
   duration,
   outputClipPath,
   fps,
-  videoFilter,
+  baseVideoFilter,
+  overlayAssets = [],
   padAudioSeconds = 0
 }) {
   return new Promise((resolve, reject) => {
     const cmd = ffmpeg()
       .input(imagePath)
-      .loop(duration)
+      .inputOptions(['-loop', '1'])
       .input(audioPath);
+
+    overlayAssets.forEach((asset) => {
+      cmd.input(asset.pngPath).inputOptions(['-loop', '1']);
+    });
 
     if (padAudioSeconds > 0) {
       cmd.audioFilters(`apad=pad_dur=${padAudioSeconds}`);
     }
 
+    const outputOptions = [
+      '-c:v libx264',
+      '-c:a aac',
+      '-b:a 192k',
+      '-pix_fmt yuv420p',
+      `-r ${fps}`,
+      `-t ${duration}`
+    ];
+
+    if (overlayAssets.length > 0) {
+      const complexParts = [`[0:v]${baseVideoFilter}[v0]`];
+      let currentLabel = 'v0';
+
+      overlayAssets.forEach((asset, idx) => {
+        const inputIdx = idx + 2; // 0: image, 1: audio, 2+: PNG overlays
+        const nextLabel = idx === overlayAssets.length - 1 ? 'vout' : `v${idx + 1}`;
+        const enableClause =
+          typeof asset.start === 'number' && typeof asset.end === 'number'
+            ? `:enable='between(t,${asset.start.toFixed(2)},${asset.end.toFixed(2)})'`
+            : '';
+        complexParts.push(
+          `[${currentLabel}][${inputIdx}:v]overlay=0:0${enableClause}[${nextLabel}]`
+        );
+        currentLabel = nextLabel;
+      });
+
+      cmd.complexFilter(complexParts.join(';'));
+      outputOptions.push('-map', '[vout]', '-map', '1:a');
+    } else {
+      cmd.videoFilters(baseVideoFilter);
+      outputOptions.push('-map', '0:v', '-map', '1:a');
+    }
+
     cmd
-      .outputOptions([
-        '-c:v libx264',
-        '-c:a aac',
-        '-b:a 192k',
-        '-pix_fmt yuv420p',
-        `-r ${fps}`,
-        `-t ${duration}`
-      ])
-      .videoFilters(videoFilter)
+      .outputOptions(outputOptions)
       .save(outputClipPath)
       .on('end', () => resolve(outputClipPath))
       .on('error', (err) => reject(err));
@@ -665,9 +914,11 @@ async function renderSceneClip({
   outputClipPath,
   renderConfig,
   subtitleText,
-  srtPath,
-  assPath,
+  subtitleSegments = [],
+  subtitleWords = [],
   sceneIndex,
+  jobId,
+  sceneNumber,
   padAudioSeconds = 0
 }) {
   const { width, height } = getTargetDimensions(
@@ -676,45 +927,51 @@ async function renderSceneClip({
   );
   const is720 = renderConfig.resolution === '720p';
 
-  let activeSubFile = null;
-  let activeSubKind = null;
-
-  if (renderConfig.subtitles.enabled && subtitleText) {
-    if (renderConfig.subtitles.mode === 'styled_effects' && assPath) {
-      activeSubFile = buildSceneSubtitleAss({
-        text: subtitleText,
-        duration,
-        assPath,
-        width,
-        height,
-        aspectRatio: renderConfig.aspectRatio,
-        presetConfig: renderConfig.presetConfig
-      });
-      activeSubKind = activeSubFile ? 'ass' : null;
-    } else if (srtPath) {
-      activeSubFile = buildSceneSubtitleSrt({
-        text: subtitleText,
-        duration,
-        srtPath
-      });
-      activeSubKind = activeSubFile ? 'srt' : null;
-    }
-  }
-
-  const primaryFilter = buildVideoFilterChain({
+  const baseVideoFilter = buildBaseVideoFilter({
     width,
     height,
     duration,
     fps: renderConfig.fps,
-    aspectRatio: renderConfig.aspectRatio,
     presetConfig: renderConfig.presetConfig,
-    subtitlesEnabled: Boolean(activeSubFile),
-    subtitleMode: renderConfig.subtitles.mode,
-    subtitleFilePath: activeSubFile,
-    subtitleKind: activeSubKind,
-    watermark: renderConfig.watermark,
-    is720,
     sceneIndex
+  });
+
+  const overlayAssets = [];
+
+  if (renderConfig.watermark) {
+    const wmPath = path.join(TEMP_DIR, `${jobId}_s${sceneNumber}_wm.png`);
+    renderWatermarkPng({ pngPath: wmPath, width, height, is720 });
+    overlayAssets.push({ pngPath: wmPath });
+  }
+
+  const activeSegments =
+    renderConfig.subtitles.enabled && subtitleText
+      ? resolveSceneSubtitleSegments({
+          subtitleSegments,
+          words: subtitleWords,
+          text: subtitleText,
+          duration
+        })
+      : [];
+
+  activeSegments.forEach((seg, idx) => {
+    const subPngPath = path.join(TEMP_DIR, `${jobId}_s${sceneNumber}_sub_${idx}.png`);
+    const builtPath = renderSubtitleSegmentPng({
+      text: seg.text,
+      pngPath: subPngPath,
+      width,
+      height,
+      aspectRatio: renderConfig.aspectRatio,
+      subtitleMode: renderConfig.subtitles.mode,
+      presetConfig: renderConfig.presetConfig
+    });
+    if (builtPath) {
+      overlayAssets.push({
+        pngPath: builtPath,
+        start: seg.start,
+        end: seg.end
+      });
+    }
   });
 
   try {
@@ -724,92 +981,30 @@ async function renderSceneClip({
       duration,
       outputClipPath,
       fps: renderConfig.fps,
-      videoFilter: primaryFilter,
+      baseVideoFilter,
+      overlayAssets,
       padAudioSeconds
     });
   } catch (err) {
     console.warn(
-      `⚠️ [Render] Falló filtro principal de subtítulos/video en escena ${sceneIndex + 1}:`,
+      `⚠️ [Render] Falló overlay en escena ${sceneIndex + 1}, reintentando clip base sin overlays:`,
       err?.message || err
     );
 
-    let fallbackSubFile = activeSubFile;
-    let fallbackSubKind = activeSubKind;
-
-    if (activeSubFile && activeSubKind === 'ass' && srtPath) {
-      fallbackSubFile = buildSceneSubtitleSrt({
-        text: subtitleText,
-        duration,
-        srtPath
-      });
-      fallbackSubKind = fallbackSubFile ? 'srt' : null;
-    }
-
-    const fallbackFilter = buildVideoFilterChain({
-      width,
-      height,
+    await runFfmpegClip({
+      imagePath,
+      audioPath,
       duration,
+      outputClipPath,
       fps: renderConfig.fps,
-      aspectRatio: renderConfig.aspectRatio,
-      presetConfig: renderConfig.presetConfig,
-      subtitlesEnabled: Boolean(fallbackSubFile),
-      subtitleMode: 'static',
-      subtitleFilePath: fallbackSubFile,
-      subtitleKind: fallbackSubKind,
-      watermark: renderConfig.watermark,
-      is720,
-      sceneIndex
+      baseVideoFilter,
+      overlayAssets: [],
+      padAudioSeconds
     });
-
-    try {
-      await runFfmpegClip({
-        imagePath,
-        audioPath,
-        duration,
-        outputClipPath,
-        fps: renderConfig.fps,
-        videoFilter: fallbackFilter,
-        padAudioSeconds
-      });
-    } catch (_secondErr) {
-      console.warn(
-        `⚠️ [Render] Falló fallback de subtítulos en escena ${sceneIndex + 1}, renderizando sin subtítulos:`,
-        _secondErr?.message || _secondErr
-      );
-
-      const cleanFilter = buildVideoFilterChain({
-        width,
-        height,
-        duration,
-        fps: renderConfig.fps,
-        aspectRatio: renderConfig.aspectRatio,
-        presetConfig: renderConfig.presetConfig,
-        subtitlesEnabled: false,
-        subtitleMode: 'static',
-        subtitleFilePath: null,
-        subtitleKind: null,
-        watermark: false,
-        is720,
-        sceneIndex
-      });
-      await runFfmpegClip({
-        imagePath,
-        audioPath,
-        duration,
-        outputClipPath,
-        fps: renderConfig.fps,
-        videoFilter: cleanFilter,
-        padAudioSeconds
-      });
-    } finally {
-      if (fallbackSubFile && fs.existsSync(fallbackSubFile)) {
-        fs.unlinkSync(fallbackSubFile);
-      }
-    }
   } finally {
-    [activeSubFile, srtPath, assPath].forEach((f) => {
-      if (f && fs.existsSync(f)) {
-        fs.unlinkSync(f);
+    overlayAssets.forEach((asset) => {
+      if (asset?.pngPath && fs.existsSync(asset.pngPath)) {
+        fs.unlinkSync(asset.pngPath);
       }
     });
   }
@@ -902,8 +1097,6 @@ async function renderFinalVideo(rawPayload) {
       : Number(audioDuration.toFixed(2));
 
     const clipPath = path.join(TEMP_DIR, `${jobId}_clip_${scene.sceneNumber}.mp4`);
-    const srtPath = path.join(TEMP_DIR, `${jobId}_scene_${scene.sceneNumber}.srt`);
-    const assPath = path.join(TEMP_DIR, `${jobId}_scene_${scene.sceneNumber}.ass`);
 
     await renderSceneClip({
       imagePath,
@@ -912,9 +1105,11 @@ async function renderFinalVideo(rawPayload) {
       outputClipPath: clipPath,
       renderConfig,
       subtitleText: scene.voiceoverText,
-      srtPath,
-      assPath,
+      subtitleSegments: scene?.audio?.subtitleSegments || scene?.subtitleSegments || [],
+      subtitleWords: scene?.audio?.words || scene?.words || [],
       sceneIndex: i,
+      jobId,
+      sceneNumber: scene.sceneNumber,
       padAudioSeconds: isLastScene ? renderConfig.endingBufferSeconds : 0
     });
 
