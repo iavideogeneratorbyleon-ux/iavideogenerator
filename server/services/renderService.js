@@ -1,4 +1,3 @@
-// server/services/renderService.js
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
@@ -8,6 +7,8 @@ const ffmpegPath = require('ffmpeg-static');
 const ffprobePath = require('ffprobe-static').path;
 const { GLOBALS, getPresetSubtitleStyle } = require('../config/globals');
 const { clampNumber, normalizeKey, resolvePlanPolicy } = require('../utils/sharedHelpers');
+const { buildBaseVideoFilter } = require('../utils/cameraMotion');
+const { renderWatermarkPng } = require('../utils/watermark');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 ffmpeg.setFfprobePath(ffprobePath);
@@ -593,40 +594,6 @@ function renderSubtitleSegmentPng({
   return pngPath;
 }
 
-function renderWatermarkPng({ pngPath, width, height, is720 }) {
-  const scale = is720 ? 2 : 3;
-  const label = 'STUDIO FREE PREVIEW';
-  const charAdvance = 6 * scale;
-  const textW = label.length * charAdvance;
-  const textH = 7 * scale;
-  const padX = is720 ? 16 : 24;
-  const padY = is720 ? 16 : 24;
-  const boxPad = Math.round(scale * 1.5);
-
-  const boxW = textW + boxPad * 2;
-  const boxH = textH + boxPad * 2;
-  const boxX = Math.max(10, width - boxW - padX);
-  const boxY = Math.max(10, padY);
-
-  const rgba = Buffer.alloc(width * height * 4, 0);
-  fillRectBlend(rgba, width, height, boxX, boxY, boxW, boxH, [0, 0, 0, 110]);
-  drawBitmapTextLine(
-    rgba,
-    width,
-    height,
-    label,
-    boxX + boxW / 2,
-    boxY + boxPad,
-    scale,
-    [255, 255, 255, 195],
-    [0, 0, 0, 140]
-  );
-
-  const pngBuffer = encodeRgbaToPngBuffer(width, height, rgba);
-  fs.writeFileSync(pngPath, pngBuffer);
-  return pngPath;
-}
-
 function normalizePresetKey(rawPreset) {
   return normalizeKey(rawPreset, GLOBALS.PRESET_ALIASES, PRESET_CONFIGS, 'default');
 }
@@ -907,76 +874,6 @@ function resolveSceneSubtitleSegments({
   });
 }
 
-function buildMotionFilter({ width, height, duration, fps, motionType, sceneIndex = 0 }) {
-  const totalFrames = Math.max(1, Math.round(duration * fps));
-  const preScaleW = Math.round(width * 1.25);
-  const preScaleH = Math.round(height * 1.25);
-
-  const cycleMotion =
-    motionType === 'dynamic_pan'
-      ? sceneIndex % 2 === 0
-        ? 'pan_left'
-        : 'pan_right'
-      : motionType;
-
-  let zoomExpr = `'1.04'`;
-  let xExpr = `'(iw-ow)/2'`;
-  let yExpr = `'(ih-oh)/2'`;
-
-  switch (cycleMotion) {
-    case 'punch_zoom_in':
-      zoomExpr = `'1.02 + 0.14*(on/${totalFrames})'`;
-      xExpr = `'(iw-ow)/2'`;
-      yExpr = `'(ih-oh)*0.35'`;
-      break;
-    case 'clean_zoom_out':
-      zoomExpr = `'1.14 - 0.12*(on/${totalFrames})'`;
-      xExpr = `'(iw-ow)/2'`;
-      yExpr = `'(ih-oh)/2'`;
-      break;
-    case 'pan_left':
-      zoomExpr = `'1.08'`;
-      xExpr = `'(iw-ow)*(1 - on/${totalFrames})'`;
-      yExpr = `'(ih-oh)/2'`;
-      break;
-    case 'pan_right':
-      zoomExpr = `'1.08'`;
-      xExpr = `'(iw-ow)*(on/${totalFrames})'`;
-      yExpr = `'(ih-oh)/2'`;
-      break;
-    case 'smooth_drift':
-      zoomExpr = `'1.03 + 0.07*(on/${totalFrames})'`;
-      xExpr = `'(iw-ow)*(0.5 + 0.15*sin(2*PI*on/${totalFrames}))'`;
-      yExpr = `'(ih-oh)/2'`;
-      break;
-    case 'slow_zoom_in':
-    default:
-      zoomExpr = `'1.01 + 0.09*(on/${totalFrames})'`;
-      xExpr = `'(iw-ow)/2'`;
-      yExpr = `'(ih-oh)/2'`;
-      break;
-  }
-
-  return `scale=${preScaleW}:${preScaleH}:force_original_aspect_ratio=increase,crop=${preScaleW}:${preScaleH},zoompan=z=${zoomExpr}:x=${xExpr}:y=${yExpr}:d=${totalFrames}:s=${width}x${height}:fps=${fps}`;
-}
-
-function buildBaseVideoFilter({ width, height, duration, fps, presetConfig, sceneIndex }) {
-  const parts = [
-    buildMotionFilter({
-      width,
-      height,
-      duration,
-      fps,
-      motionType: presetConfig?.motion || 'slow_zoom_in',
-      sceneIndex
-    })
-  ];
-  if (presetConfig?.eqFilter) {
-    parts.push(presetConfig.eqFilter);
-  }
-  return parts.join(',');
-}
-
 function runFfmpegClip({
   imagePath,
   audioPath,
@@ -1054,7 +951,10 @@ async function renderSceneClip({
   sceneIndex,
   jobId,
   sceneNumber,
-  padAudioSeconds = 0
+  padAudioSeconds = 0,
+  globalStartSec = 0,
+  globalEndSec = null,
+  totalVideoDuration = null
 }) {
   const { width, height } = getTargetDimensions(
     renderConfig.aspectRatio,
@@ -1068,14 +968,26 @@ async function renderSceneClip({
     duration,
     fps: renderConfig.fps,
     presetConfig: renderConfig.presetConfig,
-    sceneIndex
+    globalStartSec,
+    globalEndSec,
+    totalVideoDuration
   });
 
   const overlayAssets = [];
 
   if (renderConfig.watermark) {
     const wmPath = path.join(TEMP_DIR, `${jobId}_s${sceneNumber}_wm.png`);
-    renderWatermarkPng({ pngPath: wmPath, width, height, is720 });
+    await renderWatermarkPng({
+      fs,
+      optionalCanvas: OPTIONAL_CANVAS,
+      blendPixel,
+      drawBitmapTextLine,
+      encodeRgbaToPngBuffer,
+      pngPath: wmPath,
+      width,
+      height,
+      is720
+    });
     overlayAssets.push({ pngPath: wmPath });
   }
 
@@ -1203,7 +1115,8 @@ async function renderFinalVideo(rawPayload) {
     `🎬 [Render Paso 4] Job: ${jobId} | Plan: ${renderConfig.userPlan} | Preset: ${renderConfig.presetLabel} | Formato: ${renderConfig.aspectRatio} | Resolución: ${renderConfig.resolution} (${width}x${height}) | Subtítulos: ${renderConfig.subtitles.enabled} (${renderConfig.subtitles.mode}) | Buffer final: ${renderConfig.endingBufferSeconds}s`
   );
 
-  const clipPaths = [];
+  const preparedScenes = [];
+  let cursorSec = 0;
 
   for (let i = 0; i < scenes.length; i++) {
     const scene = scenes[i];
@@ -1231,21 +1144,44 @@ async function renderFinalVideo(rawPayload) {
       ? Number((audioDuration + renderConfig.endingBufferSeconds).toFixed(2))
       : Number(audioDuration.toFixed(2));
 
-    const clipPath = path.join(TEMP_DIR, `${jobId}_clip_${scene.sceneNumber}.mp4`);
+    const globalStartSec = Number(cursorSec.toFixed(2));
+    const globalEndSec = Number((globalStartSec + sceneDuration).toFixed(2));
+    cursorSec = globalEndSec;
 
-    await renderSceneClip({
+    preparedScenes.push({
+      scene,
+      isLastScene,
       imagePath,
       audioPath,
-      duration: sceneDuration,
+      sceneDuration,
+      globalStartSec,
+      globalEndSec
+    });
+  }
+
+  const totalVideoDuration = Math.max(0.1, cursorSec);
+  const clipPaths = [];
+
+  for (let i = 0; i < preparedScenes.length; i++) {
+    const item = preparedScenes[i];
+    const clipPath = path.join(TEMP_DIR, `${jobId}_clip_${item.scene.sceneNumber}.mp4`);
+
+    await renderSceneClip({
+      imagePath: item.imagePath,
+      audioPath: item.audioPath,
+      duration: item.sceneDuration,
       outputClipPath: clipPath,
       renderConfig,
-      subtitleText: scene.voiceoverText,
-      subtitleSegments: scene?.audio?.subtitleSegments || scene?.subtitleSegments || [],
-      subtitleWords: scene?.audio?.words || scene?.words || [],
+      subtitleText: item.scene.voiceoverText,
+      subtitleSegments: item.scene?.audio?.subtitleSegments || item.scene?.subtitleSegments || [],
+      subtitleWords: item.scene?.audio?.words || item.scene?.words || [],
       sceneIndex: i,
       jobId,
-      sceneNumber: scene.sceneNumber,
-      padAudioSeconds: isLastScene ? renderConfig.endingBufferSeconds : 0
+      sceneNumber: item.scene.sceneNumber,
+      padAudioSeconds: item.isLastScene ? renderConfig.endingBufferSeconds : 0,
+      globalStartSec: item.globalStartSec,
+      globalEndSec: item.globalEndSec,
+      totalVideoDuration
     });
 
     clipPaths.push(clipPath);
