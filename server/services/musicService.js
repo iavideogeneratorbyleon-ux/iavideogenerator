@@ -1,4 +1,3 @@
-// server/services/musicService.js
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
@@ -6,6 +5,12 @@ const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 const ffprobePath = require('ffprobe-static').path;
 const { GLOBALS } = require('../config/globals');
+const {
+  MUSIC_CATALOG,
+  PRESET_MUSIC_POOLS,
+  selectTrackForUserAndPreset,
+  getFallbackTrack
+} = require('../utils/musicCatalog');
 const { clampNumber, normalizeKey, resolvePlanPolicy } = require('../utils/sharedHelpers');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -19,57 +24,39 @@ const VIDEO_OUTPUT_DIR = path.join(PUBLIC_DIR, 'videos');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// Catálogo sugerido de pistas locales en server/public/music/
-const MUSIC_CATALOG = {
-  cinematic_tension: {
-    key: 'cinematic_tension',
-    label: 'Cinematic Tension / Documentary',
-    fileName: 'cinematic_tension.mp3',
-    defaultVolume: 0.22
-  },
-  upbeat_hype: {
-    key: 'upbeat_hype',
-    label: 'Upbeat High Energy',
-    fileName: 'upbeat_hype.mp3',
-    defaultVolume: 0.24
-  },
-  viral_beat: {
-    key: 'viral_beat',
-    label: 'Modern Lo-Fi / Viral Beat',
-    fileName: 'viral_beat.mp3',
-    defaultVolume: 0.22
-  },
-  luxury_ambient: {
-    key: 'luxury_ambient',
-    label: 'Luxury Deep Ambient',
-    fileName: 'luxury_ambient.mp3',
-    defaultVolume: 0.20
-  },
-  tech_pulse: {
-    key: 'tech_pulse',
-    label: 'Clean Tech Electronic',
-    fileName: 'tech_pulse.mp3',
-    defaultVolume: 0.21
-  },
-  warm_storytelling: {
-    key: 'warm_storytelling',
-    label: 'Warm Acoustic / Storytelling',
-    fileName: 'warm_storytelling.mp3',
-    defaultVolume: 0.22
-  }
-};
+const SUPPORTED_PRESETS = [
+  'cinematic',
+  'documentary',
+  'educational',
+  'luxury_brand',
+  'minimalistic',
+  'mr_beast',
+  'netflix',
+  'tech_modern',
+  'tiktok_viral',
+  'default'
+];
 
-const PRESET_TO_MUSIC_KEY = {
-  netflix: 'cinematic_tension',
-  dark_mystery: 'cinematic_tension',
-  mr_beast: 'upbeat_hype',
-  tiktok_viral: 'viral_beat',
-  luxury: 'luxury_ambient',
-  luxury_brand: 'luxury_ambient',
-  tech: 'tech_pulse',
-  tech_modern: 'tech_pulse',
-  default: 'warm_storytelling'
-};
+function findFirstMp3Recursively(dirPath) {
+  if (!fs.existsSync(dirPath)) return null;
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = path.join(dirPath, entry.name);
+    if (entry.isFile() && entry.name.toLowerCase().endsWith('.mp3')) {
+      return fullPath;
+    }
+  }
+
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      const nested = findFirstMp3Recursively(path.join(dirPath, entry.name));
+      if (nested) return nested;
+    }
+  }
+
+  return null;
+}
 
 function getMediaDuration(filePath) {
   return new Promise((resolve, reject) => {
@@ -90,6 +77,12 @@ function resolveMusicConfig(masterPayload = {}) {
   const isFreePlan = userPlan === 'free_trial';
   const allowsCustomMusic = Boolean(planPolicy.allowCustomOverrides);
 
+  const userId =
+    masterPayload?.userId ||
+    masterPayload?.meta?.userId ||
+    masterPayload?.user?.id ||
+    'anonymous';
+
   const musicConfig = masterPayload?.musicConfig || masterPayload?.music || {};
 
   const enabled =
@@ -101,29 +94,50 @@ function resolveMusicConfig(masterPayload = {}) {
     masterPayload?.video?.preset ||
     masterPayload?.videoConfig?.preset ||
     'default';
-  const knownPresetsCatalog =
-    GLOBALS.PRESET_SUBTITLE_STYLES ||
-    GLOBALS.BASE_PRESET_MODIFIERS ||
-    PRESET_TO_MUSIC_KEY;
-  const preset = normalizeKey(
+
+  const presetMap = SUPPORTED_PRESETS.reduce((acc, key) => {
+    acc[key] = true;
+    return acc;
+  }, {});
+
+  const normalizedPreset = normalizeKey(
     rawPreset,
     GLOBALS.PRESET_ALIASES,
-    knownPresetsCatalog,
+    {
+      ...presetMap,
+      ...(GLOBALS.PRESET_SUBTITLE_STYLES || {}),
+      ...(GLOBALS.BASE_PRESET_MODIFIERS || {}),
+      ...(PRESET_MUSIC_POOLS || {})
+    },
     'default'
   );
 
-  const tone = masterPayload?.userInputs?.tone || '';
+  const preset = SUPPORTED_PRESETS.includes(normalizedPreset)
+    ? normalizedPreset
+    : 'default';
 
-  // Selección de pista por track explícito, preset o tono
-  const selectedKey =
-    musicConfig.track && MUSIC_CATALOG[musicConfig.track]
-      ? musicConfig.track
-      : PRESET_TO_MUSIC_KEY[preset] ||
-        (tone === 'storytelling' ? 'warm_storytelling' : 'warm_storytelling');
+  const tone = String(masterPayload?.userInputs?.tone || '');
+  const mood = String(
+    musicConfig.mood ||
+      masterPayload?.musicDirection?.mood ||
+      masterPayload?.script?.musicDirection?.mood ||
+      ''
+  );
+  const explicitTrack =
+    musicConfig.track ||
+    masterPayload?.musicDirection?.recommendedTrackKey ||
+    null;
 
-  const catalogItem = MUSIC_CATALOG[selectedKey] || MUSIC_CATALOG.warm_storytelling;
+  const selection = selectTrackForUserAndPreset({
+    userId,
+    preset,
+    explicitTrack,
+    mood,
+    tone
+  });
 
-  // Custom musicUrl solo permitido en planes de pago
+  const catalogItem = selection.item || getFallbackTrack();
+
   const customMusicUrl =
     !isFreePlan && allowsCustomMusic && typeof musicConfig.customMusicUrl === 'string'
       ? musicConfig.customMusicUrl.trim()
@@ -139,16 +153,20 @@ function resolveMusicConfig(masterPayload = {}) {
 
   const fadeOutSeconds =
     typeof musicConfig.fadeOutSeconds === 'number'
-      ? clampNumber(musicConfig.fadeOutSeconds, 0.5, 5, 2)
+      ? clampNumber(musicConfig.fadeOutSeconds, 0.6, 5, 2)
       : 2.0;
 
   return {
+    userId,
+    preset,
     userPlan,
     isFreePlan,
     enabled,
     trackKey: catalogItem.key,
     trackLabel: catalogItem.label,
     catalogFileName: catalogItem.fileName,
+    selectionMode: selection.selectionMode,
+    cycleReset: selection.cycleReset,
     customMusicUrl,
     baseVolume,
     duckingEnabled,
@@ -163,26 +181,61 @@ function resolveMusicFilePath(resolvedConfig) {
       resolvedConfig.customMusicUrl.replace(/^\/+/, '')
     );
     if (fs.existsSync(customPath)) {
-      return { path: customPath, source: 'custom_upload' };
-    }
-  }
-
-  const catalogPath = path.join(MUSIC_LIBRARY_DIR, resolvedConfig.catalogFileName);
-  if (fs.existsSync(catalogPath)) {
-    return { path: catalogPath, source: 'catalog' };
-  }
-
-  // Buscar cualquier .mp3 disponible en /public/music como fallback
-  if (fs.existsSync(MUSIC_LIBRARY_DIR)) {
-    const availableMp3 = fs
-      .readdirSync(MUSIC_LIBRARY_DIR)
-      .find((f) => f.toLowerCase().endsWith('.mp3'));
-    if (availableMp3) {
       return {
-        path: path.join(MUSIC_LIBRARY_DIR, availableMp3),
-        source: 'catalog_fallback'
+        path: customPath,
+        fileName: path.basename(customPath),
+        source: 'custom_upload'
       };
     }
+  }
+
+  const relFileName = String(resolvedConfig.catalogFileName || '').replace(/^\/+/, '');
+  const catalogPath = path.join(MUSIC_LIBRARY_DIR, relFileName);
+  if (fs.existsSync(catalogPath)) {
+    return {
+      path: catalogPath,
+      fileName: relFileName,
+      source: 'catalog'
+    };
+  }
+
+  // Respaldo dentro de la carpeta del preset resuelto (o default)
+  const presetFolder = path.join(MUSIC_LIBRARY_DIR, resolvedConfig.preset);
+  const presetMp3 = findFirstMp3Recursively(presetFolder);
+  if (presetMp3) {
+    return {
+      path: presetMp3,
+      fileName: path.relative(MUSIC_LIBRARY_DIR, presetMp3),
+      source: 'preset_folder_fallback'
+    };
+  }
+
+  const defaultFolder = path.join(MUSIC_LIBRARY_DIR, 'default');
+  const defaultMp3 = findFirstMp3Recursively(defaultFolder);
+  if (defaultMp3) {
+    return {
+      path: defaultMp3,
+      fileName: path.relative(MUSIC_LIBRARY_DIR, defaultMp3),
+      source: 'default_folder_fallback'
+    };
+  }
+
+  const flatLegacyPath = path.join(MUSIC_LIBRARY_DIR, path.basename(relFileName));
+  if (flatLegacyPath !== catalogPath && fs.existsSync(flatLegacyPath)) {
+    return {
+      path: flatLegacyPath,
+      fileName: path.basename(flatLegacyPath),
+      source: 'catalog_legacy'
+    };
+  }
+
+  const anyMp3 = findFirstMp3Recursively(MUSIC_LIBRARY_DIR);
+  if (anyMp3) {
+    return {
+      path: anyMp3,
+      fileName: path.relative(MUSIC_LIBRARY_DIR, anyMp3),
+      source: 'catalog_fallback'
+    };
   }
 
   return null;
@@ -198,18 +251,29 @@ function mixBackgroundMusicWithVideo({
   fadeOutSeconds
 }) {
   return new Promise((resolve, reject) => {
-    const fadeStart = Math.max(0, Number((duration - fadeOutSeconds).toFixed(2)));
+    const safeDuration = Math.max(1, Number(duration) || 10);
+    const safeFadeOut = Number(
+      clampNumber(Math.min(fadeOutSeconds, safeDuration * 0.28), 0.5, 4.0, 2)
+    );
+    const fadeStart = Math.max(0, Number((safeDuration - safeFadeOut).toFixed(2)));
+    const fadeInDuration = Number(
+      clampNumber(Math.min(1.0, safeDuration * 0.1), 0.3, 1.2, 2)
+    );
 
-    // [0:a] es la narración/voz del video renderizado
-    // [1:a] es la música en loop infinito recortada a la duración exacta del video
-    const musicPrep = `[1:a]atrim=0:${duration},asetpts=PTS-STARTPTS,volume=${baseVolume},afade=t=in:st=0:d=0.8,afade=t=out:st=${fadeStart}:d=${fadeOutSeconds}[bg]`;
+    const musicPrep = [
+      `[1:a]atrim=0:${safeDuration}`,
+      `asetpts=PTS-STARTPTS`,
+      `volume=${baseVolume}`,
+      `afade=t=in:st=0:d=${fadeInDuration}`,
+      `afade=t=out:st=${fadeStart}:d=${safeFadeOut}[bg]`
+    ].join(',');
 
     let filterComplex;
     if (duckingEnabled) {
       filterComplex = [
         musicPrep,
         `[0:a]asplit=2[voice_main][voice_sc]`,
-        `[bg][voice_sc]sidechaincompress=threshold=0.025:ratio=6:attack=40:release=350[bg_ducked]`,
+        `[bg][voice_sc]sidechaincompress=threshold=0.02:ratio=5:attack=45:release=450[bg_ducked]`,
         `[voice_main][bg_ducked]amix=inputs=2:duration=first:dropout_transition=2:normalize=0[aout]`
       ].join(';');
     } else {
@@ -270,11 +334,9 @@ async function applyBackgroundMusic(rawPayload) {
     };
   }
 
-  // Si aún no existe video base (porque el render final corre en el paso siguiente),
-  // dejamos lista la selección de música sin abortar el pipeline.
   if (!inputRelVideo) {
     console.log(
-      `🎵 [Música] Job: ${jobId} | Sin video.videoUrl previo aún; preparando pista [${resolvedConfig.trackKey}] para el render final.`
+      `🎵 [Música] Job: ${jobId} | User: ${resolvedConfig.userId} | Sin video.videoUrl previo aún; preparando pista [${resolvedConfig.trackKey}] (reset=${resolvedConfig.cycleReset}) para el render final.`
     );
     return {
       videoFileName: null,
@@ -288,8 +350,13 @@ async function applyBackgroundMusic(rawPayload) {
           enabled: true,
           applied: false,
           deferredUntilRender: true,
+          userId: resolvedConfig.userId,
+          preset: resolvedConfig.preset,
           trackKey: resolvedConfig.trackKey,
           trackLabel: resolvedConfig.trackLabel,
+          selectionMode: resolvedConfig.selectionMode,
+          cycleReset: resolvedConfig.cycleReset,
+          fileName: resolvedFile?.fileName || null,
           filePath: resolvedFile?.path || null,
           source: resolvedFile?.source || 'none',
           baseVolume: resolvedConfig.baseVolume,
@@ -316,7 +383,7 @@ async function applyBackgroundMusic(rawPayload) {
   const finalOutputPath = path.join(VIDEO_OUTPUT_DIR, finalFileName);
 
   console.log(
-    `🎵 [Música] Job: ${jobId} | Track: ${resolvedConfig.trackKey} (${resolvedFile.source}) | Volumen: ${resolvedConfig.baseVolume} | Ducking: ${resolvedConfig.duckingEnabled}`
+    `🎵 [Música] Job: ${jobId} | User: ${resolvedConfig.userId} | Track: ${resolvedConfig.trackKey} (${resolvedFile.fileName} / ${resolvedFile.source}) | Reset: ${resolvedConfig.cycleReset} | Volumen: ${resolvedConfig.baseVolume} | Ducking: ${resolvedConfig.duckingEnabled}`
   );
 
   await mixBackgroundMusicWithVideo({
@@ -345,8 +412,13 @@ async function applyBackgroundMusic(rawPayload) {
     music: {
       enabled: true,
       applied: true,
+      userId: resolvedConfig.userId,
+      preset: resolvedConfig.preset,
       trackKey: resolvedConfig.trackKey,
       trackLabel: resolvedConfig.trackLabel,
+      selectionMode: resolvedConfig.selectionMode,
+      cycleReset: resolvedConfig.cycleReset,
+      fileName: resolvedFile.fileName,
       source: resolvedFile.source,
       baseVolume: resolvedConfig.baseVolume,
       duckingEnabled: resolvedConfig.duckingEnabled,

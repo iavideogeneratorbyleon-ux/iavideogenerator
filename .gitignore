@@ -156,6 +156,7 @@ server/public/images/*.jpg
 server/public/audio/bg_music/*.mp3
 server/public/videos/*.mp4
 server/public/temp_render/*
+server/public/*
 .DS_Store
 **/._*
 
