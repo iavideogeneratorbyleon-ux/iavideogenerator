@@ -8,7 +8,7 @@ const { generateAllScenesAudio, transcribeMergedJobAudio } = require('./audioSer
 const { generateAllScenesVisuals } = require('./visualService');
 const musicService = require('./musicService');
 const { renderFinalVideo } = require('./renderService');
-const { initJobUsage, recordStepUsage } = require('./usageCostService');
+const { initJobUsage, recordStepUsage, getJobUsage } = require('./usageCostService');
 const VideoProject = require('../models/VideoProject');
 
 function resolveOptionalVideoService() {
@@ -136,7 +136,7 @@ async function runCompletePipeline(masterPayload = {}) {
     currentPayload?.scenes ||
     [];
   const ttsChars = audioScenes.reduce(
-    (acc, sc) => acc + String(sc?.spokenText || sc?.voiceoverText || '').length,
+    (acc, sc) => acc + String(sc?.voiceoverText || '').length,
     0
   );
   recordStepUsage(jobId, 'audio_synthesis', {
@@ -207,11 +207,23 @@ async function runCompletePipeline(masterPayload = {}) {
   // 5. Paso de FFmpeg: Ensamblaje final de video con movimiento, subtítulos limpios y buffer final
   console.log(`5️⃣ Ejecutando FFmpeg (Renderizado de video final)...`);
   const renderStart = Date.now();
-  const renderResult = await renderFinalVideo(currentPayload);
+  let renderResult = await renderFinalVideo(currentPayload);
+  const scriptDuration = Number(
+    currentPayload?.llmDirective?.structuredScript?.totalDurationSeconds ||
+      currentPayload?.meta?.targetDurationSeconds ||
+      0
+  );
+  const endingBuffer = Number(
+    currentPayload?.orchestration?.endingBufferSeconds ||
+      currentPayload?.llmDirective?.structuredScript?.endingBufferSeconds ||
+      0
+  );
+  const estimatedRenderSeconds = Math.max(0, scriptDuration + endingBuffer);
   recordStepUsage(jobId, 'video_render', {
     provider: 'ffmpeg',
     model: renderResult?.resolution || '1080p',
     videoClipsGenerated: visualScenes.length,
+    renderDurationSeconds: estimatedRenderSeconds,
     latencyMs: Date.now() - renderStart
   });
 
@@ -224,13 +236,55 @@ async function runCompletePipeline(masterPayload = {}) {
     };
   }
   currentPayload = syncVideoUrlIntoPayload(currentPayload, renderResult);
+  if (renderResult?.videoFileName && currentPayload.video) {
+    currentPayload.video.fileName = renderResult.videoFileName;
+  }
+
+  // 5.5 Mezclar música de fondo sobre el video ya renderizado si quedó diferida o pendiente
+  const shouldApplyMusicAfterRender =
+    typeof musicService.applyBackgroundMusic === 'function' &&
+    Boolean(currentPayload?.video?.videoUrl) &&
+    (currentPayload?.music?.deferredUntilRender === true ||
+      (currentPayload?.music?.enabled !== false && !currentPayload?.music?.applied));
+
+  if (shouldApplyMusicAfterRender) {
+    console.log(`🎵 Aplicando mezcla de música de fondo sobre el video renderizado...`);
+    const musicPostStart = Date.now();
+    const musicPostResult = await musicService.applyBackgroundMusic(currentPayload);
+
+    currentPayload = syncVideoUrlIntoPayload(
+      musicPostResult?.payload || musicPostResult || currentPayload,
+      musicPostResult
+    );
+
+    if (musicPostResult?.videoUrl) {
+      renderResult = {
+        ...renderResult,
+        videoUrl: musicPostResult.videoUrl,
+        videoFileName: musicPostResult.videoFileName || renderResult.videoFileName,
+        musicApplied: Boolean(musicPostResult.musicApplied)
+      };
+      currentPayload.renderResult = renderResult;
+    }
+
+    recordStepUsage(jobId, 'background_music_mix', {
+      provider: 'ffmpeg-music',
+      model: currentPayload?.music?.trackKey || 'default',
+      musicMixed: Boolean(
+        currentPayload?.music?.applied ?? musicPostResult?.musicApplied
+      ),
+      latencyMs: Date.now() - musicPostStart
+    });
+  }
 
   // Paso de Persistencia Final: Guardar proyecto completo en MongoDB Atlas
   console.log(`💾 Guardando proyecto finalizado en MongoDB Atlas...`);
+  const jobUsage = getJobUsage(jobId);
   const savedProject = await VideoProject.findOneAndUpdate(
     { jobId },
     {
       ...currentPayload,
+      ...(jobUsage ? { usage: jobUsage } : {}),
       status: 'completed',
       videoUrl: renderResult.videoUrl,
       createdAt: new Date()

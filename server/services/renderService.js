@@ -684,6 +684,9 @@ function buildSyncedWordBlocks(words = [], duration = 5, { maxWords = 4, maxPaus
     let endTime = last.end;
     if (typeof nextWordStart === 'number' && Number.isFinite(nextWordStart)) {
       endTime = Math.min(endTime, Math.max(first.start + 0.25, nextWordStart - 0.03));
+    } else {
+      // Último bloque de la escena: margen extra para que no se corte la última palabra
+      endTime = endTime + 0.18;
     }
     endTime = Math.min(duration, Math.max(first.start + 0.3, endTime));
 
@@ -724,17 +727,14 @@ function buildSyncedWordBlocks(words = [], duration = 5, { maxWords = 4, maxPaus
   return blocks;
 }
 
-
 function resolveSceneSubtitleSegments({
   subtitleSegments,
   words = [],
   text,
   duration
 }) {
-
   // PRIORIDAD ABSOLUTA:
   // palabras provenientes de Scribe
-
   if (
     Array.isArray(words) &&
     words.length > 0
@@ -751,7 +751,6 @@ function resolveSceneSubtitleSegments({
 
   // FALLBACK:
   // alignment de Eleven
-
   if (
     Array.isArray(subtitleSegments) &&
     subtitleSegments.length > 0
@@ -760,7 +759,6 @@ function resolveSceneSubtitleSegments({
   }
 
   // ÚLTIMA OPCIÓN
-
   console.warn(
     `⚠️ [Subtitles] No words ni subtitleSegments disponibles. Usando timing estimado.`
   );
