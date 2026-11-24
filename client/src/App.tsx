@@ -8,7 +8,6 @@ import ProductDetailModal from "./components/product-detail-modal/ProductDetailM
 import Dashboard from "./pages/dashboard/Dashboard";
 import Workspace from "./pages/workspace/Workspace";
 import AppSidebar from "./components/app-sidebar/AppSidebar";
-import RouteErrorPage from "./pages/route-error/RouteErrorPage";
 import UpgrateModal from "./components/upgrate-modal/UpgrateModal";
 import AuthModal from "./components/auth/AuthModal";
 import { getPlanWizardPolicy } from "./components/wizard/wizardPlanConfig";
