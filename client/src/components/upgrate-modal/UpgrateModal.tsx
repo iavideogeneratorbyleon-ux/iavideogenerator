@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from '../../hooks/useTranslations';
+import { normalizePlanTier } from '../wizard/wizardPlanConfig';
 import { type PlanTier } from '../wizard/wizardStorage';
 import styles from './UpgrateModal.module.css';
 
@@ -22,30 +23,30 @@ interface UpgrateModalProps {
 const DEFAULT_PLANS: PlanOptionItem[] = [
   {
     id: 'free_trial',
-    badge: { en: 'Free', es: 'Gratis' },
+    badge: { en: 'Starter', es: 'Inicial' },
     title: { en: 'Free Trial', es: 'Prueba Gratis' },
-    price: { en: '$0', es: '$0' },
+    price: { en: '50 credits', es: '50 créditos' },
     description: {
-      en: 'Create your first video with core presets and formats.',
-      es: 'Crea tu primer video con presets y formatos base.',
+      en: 'Explore Cempa.ai across core presets, visual formats, and 30s clips.',
+      es: 'Explora Cempa.ai con presets base, formatos visuales y clips de 30s.',
     },
     highlight: {
-      en: 'Includes 1 starter video',
-      es: 'Incluye 1 video inicial',
+      en: '50 starter credits (30/video)',
+      es: '50 créditos iniciales (30/video)',
     },
   },
   {
     id: 'pay_per_video',
     badge: { en: 'Flexible', es: 'Flexible' },
     title: { en: 'Pay Per Video', es: 'Pago por Video' },
-    price: { en: 'Per clip', es: 'Por video' },
+    price: { en: 'Per video', es: 'Por video' },
     description: {
-      en: 'Pay only when you render extra videos without monthly lock-in.',
-      es: 'Paga solo por video generado sin suscripción mensual.',
+      en: 'Generate videos on demand with custom scripts, 30s/60s/90s durations, and all styles.',
+      es: 'Genera videos bajo demanda con guion propio, 30s/60s/90s y todos los estilos.',
     },
     highlight: {
-      en: 'Unlocks extra styles',
-      es: 'Desbloquea estilos extra',
+      en: 'Custom script + all styles',
+      es: 'Guion propio + todos los estilos',
     },
   },
   {
@@ -54,12 +55,12 @@ const DEFAULT_PLANS: PlanOptionItem[] = [
     title: { en: 'Pro', es: 'Pro' },
     price: { en: 'Monthly', es: 'Mensual' },
     description: {
-      en: 'Full access to presets, visual formats, and longer durations.',
-      es: 'Acceso completo a presets, formatos visuales y mayor duración.',
+      en: 'Full creative control across presets, visual formats, voices, and durations.',
+      es: 'Control creativo completo en presets, formatos visuales, voces y duraciones.',
     },
     highlight: {
-      en: '60s clips + full formats',
-      es: 'Clips de 60s + formatos',
+      en: 'Full studio access',
+      es: 'Acceso completo al estudio',
     },
   },
   {
@@ -68,12 +69,12 @@ const DEFAULT_PLANS: PlanOptionItem[] = [
     title: { en: 'Unlimited', es: 'Ilimitado' },
     price: { en: 'Unlimited', es: 'Ilimitado' },
     description: {
-      en: 'High-volume creation workflow for continuous publishing.',
-      es: 'Flujo de creación continuo sin límites mensuales.',
+      en: 'Continuous production capacity without credit bottlenecks for active creators.',
+      es: 'Capacidad continua de producción sin límites de créditos para creadores activos.',
     },
     highlight: {
-      en: 'Priority rendering',
-      es: 'Render prioritario',
+      en: 'Unlimited video creation',
+      es: 'Creación de videos ilimitada',
     },
   },
 ];
@@ -87,7 +88,15 @@ function UpgrateModal({
   const { t, language } = useTranslation();
   const lang = language === 'es' ? 'es' : 'en';
   const isSpanish = lang === 'es';
-  const [selectedPlan, setSelectedPlan] = useState<PlanTier>(initialPlan);
+  const [selectedPlan, setSelectedPlan] = useState<PlanTier>(
+    normalizePlanTier(initialPlan)
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedPlan(normalizePlanTier(initialPlan));
+    }
+  }, [initialPlan, isOpen]);
 
   if (!isOpen) return null;
 
@@ -97,22 +106,22 @@ function UpgrateModal({
       role="dialog"
       aria-modal="true"
       aria-label={
-        isSpanish ? 'Elige tu plan para continuar' : 'Choose your plan to continue'
+        isSpanish ? 'Planes y acceso de cuenta' : 'Plans and account access'
       }
     >
       <div className={styles.panel}>
         <div className={styles.topBar}>
           <div>
-            <span className={styles.kicker}>CEMPA.AI · PLANS & SIGN UP</span>
+            <span className={styles.kicker}>CEMPA.AI · PLANS</span>
             <h2 className={styles.heading}>
               {isSpanish
-                ? 'Elige un plan para generar tu video'
-                : 'Choose a plan to generate your video'}
+                ? 'Selecciona un plan en Cempa.ai'
+                : 'Select a plan on Cempa.ai'}
             </h2>
             <p className={styles.lead}>
               {isSpanish
-                ? 'Tu configuración del Wizard ya está guardada. Elige tu plan y continúa con tu registro o acceso por email o Google.'
-                : 'Your Wizard setup is saved. Pick a plan and continue to sign up or sign in with email or Google.'}
+                ? 'Elige el plan que mejor se adapte a tu flujo en la plataforma y continúa con tu cuenta por email o Google.'
+                : 'Choose the plan that fits your workflow across the platform and continue with email or Google.'}
             </p>
           </div>
 
@@ -165,8 +174,8 @@ function UpgrateModal({
             className={styles.confirmAction}
           >
             {isSpanish
-              ? 'Continuar con registro / acceso'
-              : 'Continue to sign up / sign in'}
+              ? 'Continuar con cuenta'
+              : 'Continue with account'}
           </button>
         </div>
       </div>

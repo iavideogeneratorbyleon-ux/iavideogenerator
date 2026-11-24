@@ -1,4 +1,8 @@
 import { useTranslation } from '../../hooks/useTranslations';
+import {
+  getPlanWizardPolicy,
+  type AllowedDurationSec,
+} from './wizardPlanConfig';
 import { type PlanTier, type WizardAspectRatio } from './wizardStorage';
 import styles from './WizardStep4.module.css';
 
@@ -12,6 +16,8 @@ interface WizardStep4Props {
   onDurationChange: (duration: number) => void;
 }
 
+const ALL_DURATIONS: AllowedDurationSec[] = [30, 60, 90];
+
 function WizardStep4({
   aspectRatio,
   voice,
@@ -23,7 +29,8 @@ function WizardStep4({
 }: WizardStep4Props) {
   const { t, language } = useTranslation();
   const isSpanish = language === 'es';
-  const isFreeTrial = planTier === 'free_trial';
+  const policy = getPlanWizardPolicy(planTier);
+  const allowedSet = new Set<number>(policy.allowedDurationsSec);
 
   return (
     <div className={styles.stepSection}>
@@ -105,15 +112,18 @@ function WizardStep4({
             onChange={(e) => onDurationChange(Number(e.target.value))}
             className={styles.selectField}
           >
-            <option value={15}>15s</option>
-            <option value={30}>30s</option>
-            <option value={60} disabled={isFreeTrial}>
-              {isFreeTrial
-                ? isSpanish
-                  ? '60s (Plan+)'
-                  : '60s (Plan+)'
-                : '60s'}
-            </option>
+            {ALL_DURATIONS.map((dur) => {
+              const isAllowed = allowedSet.has(dur);
+              return (
+                <option key={dur} value={dur} disabled={!isAllowed}>
+                  {isAllowed
+                    ? `${dur}s`
+                    : isSpanish
+                    ? `${dur}s (Plan+)`
+                    : `${dur}s (Plan+)`}
+                </option>
+              );
+            })}
           </select>
         </div>
       </div>

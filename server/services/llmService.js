@@ -62,42 +62,38 @@ function resolveVoiceFromCatalog(meta = {}, userInputs = {}) {
 }
 
 function getPlanConfig(userPlan, requestedDuration) {
-  const planRules = {
-    free_trial: {
-      maxDurationSeconds: 30,
-      defaultDurationSeconds: 28,
-      sceneRange: '4 to 5',
-      allowCustomScript: false
-    },
-    pay_per_video: {
-      maxDurationSeconds: 60,
-      defaultDurationSeconds: 45,
-      sceneRange: '6 to 8',
-      allowCustomScript: true
-    },
-    pro: {
-      maxDurationSeconds: 70,
-      defaultDurationSeconds: 50,
-      sceneRange: '8 to 10',
-      allowCustomScript: true
-    },
-    unlimited: {
-      maxDurationSeconds: 90,
-      defaultDurationSeconds: 60,
-      sceneRange: '8 to 12',
-      allowCustomScript: true
-    }
+  const policies = GLOBALS.PLAN_POLICIES || {};
+  const fallbackPolicy = policies.free_trial || {
+    key: 'free_trial',
+    allowedDurationsSec: [30],
+    maxDurationSeconds: 30,
+    defaultDurationSeconds: 30,
+    sceneRange: '4 to 5',
+    allowCustomScript: false
   };
 
-  const normalizedPlanKey = normalizeKey(userPlan, {}, planRules, 'free_trial');
-  const rule = planRules[normalizedPlanKey] || planRules.free_trial;
-  const targetDurationSeconds =
-    typeof requestedDuration === 'number' && requestedDuration > 0
-      ? Math.min(requestedDuration, rule.maxDurationSeconds)
-      : rule.defaultDurationSeconds;
+  const normalizedPlanKey = normalizeKey(userPlan, {}, policies, 'free_trial');
+  const rule = policies[normalizedPlanKey] || fallbackPolicy;
+  const allowedDurations = Array.isArray(rule.allowedDurationsSec) && rule.allowedDurationsSec.length > 0
+    ? rule.allowedDurationsSec
+    : [rule.maxDurationSeconds || 30];
+  const maxAllowedDur = rule.maxDurationSeconds || Math.max(...allowedDurations);
+  const defaultDur = rule.defaultDurationSeconds || allowedDurations[0] || 30;
+
+  let targetDurationSeconds = defaultDur;
+  if (typeof requestedDuration === 'number' && requestedDuration > 0) {
+    if (allowedDurations.includes(requestedDuration)) {
+      targetDurationSeconds = requestedDuration;
+    } else {
+      targetDurationSeconds = Math.min(requestedDuration, maxAllowedDur);
+    }
+  }
 
   return {
     ...rule,
+    allowedDurationsSec: allowedDurations,
+    maxDurationSeconds: maxAllowedDur,
+    defaultDurationSeconds: defaultDur,
     targetDurationSeconds
   };
 }
@@ -404,7 +400,7 @@ Generate the structured video script using these inputs:
     );
 
     const response = await aiClient.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: scriptModelId || 'gemini-3.8-flash',
       contents: userPrompt,
       config: {
         systemInstruction,
@@ -559,7 +555,7 @@ Generate the structured video script using these inputs:
       llmDirective: {
         ...(masterPayload.llmDirective || {}),
         provider: 'google-gemini',
-        model: 'gemini-3.8-flash',
+        model: scriptModelId || 'gemini-3.8-flash',
         language: targetLanguage,
         planApplied: userPlan,
         effectiveMode,

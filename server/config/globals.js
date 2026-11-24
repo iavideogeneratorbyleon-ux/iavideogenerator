@@ -25,42 +25,94 @@ const PRODUCTS = {
   }
 };
 
+const CREDIT_CONFIG = {
+  freeTrialInitialCredits: 50,
+  videoCreditCost: 30,
+  minCreditsToGenerate: 30,
+  byPlan: {
+    free_trial: {
+      initialCredits: 50,
+      videoCreditCost: 30,
+      minCreditsToGenerate: 30,
+      unlimitedCredits: false
+    },
+    pay_per_video: {
+      initialCredits: 0,
+      videoCreditCost: 30,
+      minCreditsToGenerate: 30,
+      unlimitedCredits: false
+    },
+    pro: {
+      initialCredits: 0,
+      videoCreditCost: 30,
+      minCreditsToGenerate: 30,
+      unlimitedCredits: false
+    },
+    unlimited: {
+      initialCredits: 0,
+      videoCreditCost: 0,
+      minCreditsToGenerate: 0,
+      unlimitedCredits: true
+    }
+  }
+};
+
 const PLAN_POLICIES = {
   free_trial: {
     key: 'free_trial',
     allowProVoices: false,
     allowCustomOverrides: false,
     allowCustomScript: false,
+    allowedDurationsSec: [30],
     maxDurationSeconds: 30,
-    defaultDurationSeconds: 28,
-    sceneRange: '4 to 5'
+    defaultDurationSeconds: 30,
+    sceneRange: '4 to 5',
+    allowedPresets: ['default', 'educational', 'minimalist'],
+    allowedVisualStyles: ['realistic', 'minimalist_flat'],
+    allowedResolutions: ['720p'],
+    watermarkRequired: true
   },
   pay_per_video: {
     key: 'pay_per_video',
     allowProVoices: true,
     allowCustomOverrides: false,
     allowCustomScript: true,
-    maxDurationSeconds: 60,
-    defaultDurationSeconds: 45,
-    sceneRange: '6 to 8'
+    allowedDurationsSec: [30, 60, 90],
+    maxDurationSeconds: 90,
+    defaultDurationSeconds: 60,
+    sceneRange: '6 to 8',
+    allowedPresets: 'all',
+    allowedVisualStyles: 'all',
+    allowedResolutions: ['720p', '1080p'],
+    watermarkRequired: false
   },
   pro: {
     key: 'pro',
     allowProVoices: true,
     allowCustomOverrides: true,
     allowCustomScript: true,
-    maxDurationSeconds: 70,
-    defaultDurationSeconds: 50,
-    sceneRange: '8 to 10'
+    allowedDurationsSec: [30, 60, 90],
+    maxDurationSeconds: 90,
+    defaultDurationSeconds: 60,
+    sceneRange: '8 to 10',
+    allowedPresets: 'all',
+    allowedVisualStyles: 'all',
+    allowedResolutions: ['720p', '1080p'],
+    watermarkRequired: false
   },
   unlimited: {
     key: 'unlimited',
     allowProVoices: true,
     allowCustomOverrides: true,
     allowCustomScript: true,
+    allowedDurationsSec: [30, 60, 90],
     maxDurationSeconds: 90,
-    defaultDurationSeconds: 60,
-    sceneRange: '8 to 12'
+    defaultDurationSeconds: 90,
+    sceneRange: '8 to 12',
+    allowedPresets: 'all',
+    allowedVisualStyles: 'all',
+    allowedResolutions: ['720p', '1080p'],
+    watermarkRequired: false
   }
 };
 
@@ -795,6 +847,7 @@ function getPresetSubtitleStyle(rawPreset = 'default') {
 const GLOBALS = {
   ALL_PRODUCTS,
   PRODUCTS,
+  CREDIT_CONFIG,
   PLAN_POLICIES,
   AI_MODELS,
   VOICE_MODEL_CONFIG,
@@ -815,6 +868,7 @@ module.exports = {
   GLOBALS,
   ALL_PRODUCTS,
   PRODUCTS,
+  CREDIT_CONFIG,
   PLAN_POLICIES,
   AI_MODELS,
   VOICE_MODEL_CONFIG,

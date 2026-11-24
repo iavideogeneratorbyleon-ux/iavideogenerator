@@ -1,8 +1,9 @@
 import { type WizardStepNumber } from './WizardContainer';
+import { type AllowedDurationSec, type PlanTier } from './wizardPlanConfig';
 
 export type WizardInputMode = 'idea' | 'script';
 export type WizardAspectRatio = '16:9' | '9:16' | '1:1';
-export type PlanTier = 'free_trial' | 'pay_per_video' | 'pro' | 'unlimited';
+export type { PlanTier, AllowedDurationSec };
 
 export interface StudioLiteDraft {
   currentStep: WizardStepNumber;

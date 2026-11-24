@@ -1,0 +1,268 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background-color: rgba(8, 10, 15, 0.68);
+  backdrop-filter: blur(4px);
+}
+
+.modalPanel {
+  width: 100%;
+  max-width: 40rem;
+  max-height: min(88dvh, 46rem);
+  overflow-y: auto;
+  border-radius: 1rem;
+  border: 1px solid var(--border-accent);
+  background-color: var(--bg-prompt);
+  color: var(--text-primary);
+  padding: 1.45rem 1.55rem;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.36);
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.topBar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.badgeRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.45rem;
+}
+
+.groupBadge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  color: var(--brand-primary);
+  background-color: var(--bg-section-alt);
+  border: 1px solid var(--border-accent);
+}
+
+.routeBadge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background-color: var(--bg-page);
+  border: 1px solid var(--border-subtle);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+
+.closeBtn {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-section-alt);
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.closeBtn:hover {
+  border-color: var(--brand-primary);
+  background-color: var(--bg-page);
+}
+
+.sectionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.sectionLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted, var(--text-secondary));
+}
+
+.descriptionText {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.optionsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.55rem;
+}
+
+.optionCard {
+  padding: 0.65rem 0.78rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-page);
+  font-size: 0.84rem;
+  line-height: 1.42;
+  color: var(--text-primary);
+}
+
+.exampleBox {
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-section-alt);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.exampleTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.exampleScenario {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--brand-primary);
+}
+
+.copyBtn {
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.45rem;
+  border: 1px solid var(--border-accent);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.copyBtn:hover {
+  border-color: var(--brand-primary);
+}
+
+.examplePrompt {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  font-style: italic;
+}
+
+.footerBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
+.footerNote {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.footerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.secondaryBtn {
+  padding: 0.55rem 0.95rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--border-accent);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.secondaryBtn:hover {
+  background-color: var(--bg-section-alt);
+}
+
+.primaryBtn {
+  padding: 0.55rem 1.05rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--brand-primary);
+  background-color: var(--brand-primary);
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.primaryBtn:hover {
+  filter: brightness(1.06);
+}
+
+@media (max-width: 640px) {
+  .backdrop {
+    padding: 0.7rem;
+  }
+
+  .modalPanel {
+    padding: 1.1rem;
+    border-radius: 0.85rem;
+    max-height: 90dvh;
+  }
+
+  .title {
+    font-size: 1.15rem;
+  }
+
+  .optionsList {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .footerBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .footerActions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .secondaryBtn,
+  .primaryBtn {
+    width: 100%;
+  }
+}

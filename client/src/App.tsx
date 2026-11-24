@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useTheme } from './context/ThemeContext';
-import { useTranslation } from './hooks/useTranslations';
 import { useAuth } from './context/AuthContext';
 import LandingPage from './pages/landing-page/LandingPage';
 import Footer from './components/footer/Footer';
-import Dashboard, { type WorkspaceSection } from './components/dashboard/Dashboard';
+import Navbar, { type ProductMenuItem } from './components/navbar/Navbar';
+import ProductDetailModal from './components/product-detail-modal/ProductDetailModal';
+import Dashboard, {
+  type WorkspaceSection,
+} from './pages/dashboard/Dashboard';
 import UpgrateModal from './components/upgrate-modal/UpgrateModal';
 import AuthModal from './components/auth/AuthModal';
+import { getPlanWizardPolicy } from './components/wizard/wizardPlanConfig';
 import {
   loadWizardState,
   saveWizardState,
@@ -24,21 +27,57 @@ function normalizePlanTier(planId: string): PlanTier {
 }
 
 function App() {
-  const { theme, toggleTheme } = useTheme();
-  const { language, toggleLanguage } = useTranslation();
   const {
+    user,
     isAuthenticated,
     planTier,
     selectedPlanForAuth,
     setSelectedPlanForAuth,
+    logout,
   } = useAuth();
 
-  const [activeView, setActiveView] = useState<'landing' | 'workspace'>('landing');
+  const [activeView, setActiveView] = useState<'landing' | 'workspace'>(
+    'landing'
+  );
   const [workspaceSection, setWorkspaceSection] =
     useState<WorkspaceSection>('studio-lite');
   const [initialPrompt, setInitialPrompt] = useState<string>('');
   const [upgradeModalOpen, setUpgradeModalOpen] = useState<boolean>(false);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>(
+    'signup'
+  );
+  const [selectedProduct, setSelectedProduct] = useState<ProductMenuItem | null>(
+    null
+  );
+
+  const initialPolicy = getPlanWizardPolicy(planTier);
+  const [credits, setCredits] = useState<number>(
+    typeof (user as { credits?: number } | null)?.credits === 'number'
+      ? (user as { credits?: number }).credits!
+      : initialPolicy.initialCredits
+  );
+
+  useEffect(() => {
+    const userCredits = (user as { credits?: number } | null)?.credits;
+    if (typeof userCredits === 'number') {
+      setCredits(userCredits);
+    } else if (!isAuthenticated && normalizePlanTier(planTier) === 'free_trial') {
+      setCredits(getPlanWizardPolicy('free_trial').initialCredits);
+    }
+  }, [isAuthenticated, planTier, user]);
+
+  useEffect(() => {
+    const handleCreditsEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<{ credits?: number }>;
+      if (typeof customEvent.detail?.credits === 'number') {
+        setCredits(customEvent.detail.credits);
+      }
+    };
+    window.addEventListener('cempa:credits-updated', handleCreditsEvent);
+    return () =>
+      window.removeEventListener('cempa:credits-updated', handleCreditsEvent);
+  }, []);
 
   // Si el usuario completa el login/registro por email o Google, lo llevamos al Workspace
   useEffect(() => {
@@ -84,6 +123,7 @@ function App() {
   const handleSelectPlanAndContinueToAuth = (plan: PlanTier) => {
     setSelectedPlanForAuth(plan);
     setUpgradeModalOpen(false);
+    setAuthModalMode('signup');
     setAuthModalOpen(true);
   };
 
@@ -91,6 +131,47 @@ function App() {
     setAuthModalOpen(false);
     setActiveView('workspace');
     setWorkspaceSection('studio-lite');
+  };
+
+  const handleNavbarSection = (section: 'products' | 'plans' | 'pricing') => {
+    if (section === 'plans' || section === 'pricing') {
+      setUpgradeModalOpen(true);
+      return;
+    }
+
+    if (activeView !== 'landing') {
+      setActiveView('landing');
+      window.setTimeout(() => {
+        const el =
+          document.getElementById('products') ||
+          document.getElementById('features');
+        el?.scrollIntoView({ behavior: 'smooth' });
+      }, 60);
+      return;
+    }
+
+    const el =
+      document.getElementById('products') || document.getElementById('features');
+    el?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleGoToProductSection = (product: ProductMenuItem) => {
+    setSelectedProduct(null);
+
+    if (product.id === 'studio-lite') {
+      setWorkspaceSection('studio-lite');
+      setActiveView('workspace');
+      return;
+    }
+
+    if (product.id === 'text-to-speech') {
+      setWorkspaceSection('text-to-speech');
+      setActiveView('workspace');
+      return;
+    }
+
+    setWorkspaceSection('studio-lite');
+    setActiveView('workspace');
   };
 
   const handleFooterNavigate = (target: string) => {
@@ -122,90 +203,28 @@ function App() {
 
   return (
     <>
-      <header
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 50,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0.75rem 1.5rem',
-          backgroundColor: 'var(--bg-prompt)',
-          borderBottom: '1px solid var(--border-subtle)',
+      <Navbar
+        activeView={activeView}
+        credits={credits}
+        onSelectBrand={() => setActiveView('landing')}
+        onToggleView={() =>
+          setActiveView((prev) =>
+            prev === 'landing' ? 'workspace' : 'landing'
+          )
+        }
+        onNavigateSection={handleNavbarSection}
+        onSelectProduct={(product) => setSelectedProduct(product)}
+        onOpenLogin={() => {
+          setAuthModalMode('login');
+          setAuthModalOpen(true);
         }}
-      >
-        <button
-          type="button"
-          onClick={() => setActiveView('landing')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
-            fontFamily: 'var(--font-display)',
-            fontWeight: 800,
-            fontSize: '1.05rem',
-            color: 'var(--brand-primary)',
-          }}
-        >
-          Cempai.ai
-        </button>
-
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <button
-            type="button"
-            onClick={() =>
-              setActiveView((prev) =>
-                prev === 'landing' ? 'workspace' : 'landing'
-              )
-            }
-            style={{
-              padding: '0.375rem 0.75rem',
-              borderRadius: '0.5rem',
-              border: '1px solid var(--border-accent)',
-              backgroundColor: 'var(--bg-section-alt)',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              fontSize: '0.8125rem',
-            }}
-          >
-            {activeView === 'landing' ? 'Workspace' : 'Landing'}
-          </button>
-
-          <button
-            type="button"
-            onClick={toggleTheme}
-            style={{
-              padding: '0.375rem 0.75rem',
-              borderRadius: '0.5rem',
-              border: '1px solid var(--border-accent)',
-              backgroundColor: 'var(--bg-section-alt)',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              fontSize: '0.8125rem',
-            }}
-          >
-            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
-          </button>
-
-          <button
-            type="button"
-            onClick={toggleLanguage}
-            style={{
-              padding: '0.375rem 0.75rem',
-              borderRadius: '0.5rem',
-              border: '1px solid var(--border-accent)',
-              backgroundColor: 'var(--bg-section-alt)',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              fontSize: '0.8125rem',
-            }}
-          >
-            {language === 'en' ? 'ES' : 'EN'}
-          </button>
-        </div>
-      </header>
+        onOpenSignup={() => {
+          setAuthModalMode('signup');
+          setAuthModalOpen(true);
+        }}
+        onOpenPlansModal={() => setUpgradeModalOpen(true)}
+        onSignOut={logout}
+      />
 
       {activeView === 'landing' ? (
         <LandingPage
@@ -223,6 +242,12 @@ function App() {
 
       <Footer onNavigate={handleFooterNavigate} />
 
+      <ProductDetailModal
+        product={selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+        onGoToSection={handleGoToProductSection}
+      />
+
       <UpgrateModal
         isOpen={upgradeModalOpen}
         initialPlan={selectedPlanForAuth || planTier}
@@ -232,7 +257,7 @@ function App() {
 
       <AuthModal
         isOpen={authModalOpen}
-        mode="signup"
+        mode={authModalMode}
         selectedPlan={selectedPlanForAuth}
         onClose={() => setAuthModalOpen(false)}
         onLoginSuccess={handleLoginSuccess}

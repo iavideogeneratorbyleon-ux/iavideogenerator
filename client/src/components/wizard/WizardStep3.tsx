@@ -1,4 +1,5 @@
 import { useTranslation } from '../../hooks/useTranslations';
+import { getOptionAccessState, getPlanWizardPolicy } from './wizardPlanConfig';
 import { type PlanTier } from './wizardStorage';
 import styles from './WizardStep3.module.css';
 
@@ -28,7 +29,7 @@ function WizardStep3({
   const { language } = useTranslation();
   const lang = language === 'es' ? 'es' : 'en';
   const isSpanish = lang === 'es';
-  const isFreeTrial = planTier === 'free_trial';
+  const policy = getPlanWizardPolicy(planTier);
 
   return (
     <div className={styles.stepSection}>
@@ -47,7 +48,12 @@ function WizardStep3({
 
       <div className={styles.formatsGrid}>
         {formats.map((format) => {
-          const isLocked = Boolean(format.requiresPaidPlan && isFreeTrial);
+          const access = getOptionAccessState(
+            policy.styleFormats,
+            format.id,
+            format.requiresPaidPlan
+          );
+          const isLocked = access.locked;
           const isSelected = format.id === selectedFormatId;
 
           const handleClick = () => {

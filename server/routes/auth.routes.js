@@ -2,7 +2,36 @@ const express = require('express');
 const router = express.Router();
 const bcryptjs = require('bcryptjs');
 const nodemailer = require('nodemailer');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
+const { CREDIT_CONFIG, PLAN_POLICIES } = require('../config/globals');
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+const INITIAL_FREE_TRIAL_CREDITS =
+  CREDIT_CONFIG?.byPlan?.free_trial?.initialCredits ??
+  CREDIT_CONFIG?.freeTrialInitialCredits ??
+  50;
+
+const DEFAULT_VIDEO_CREDIT_COST =
+  CREDIT_CONFIG?.byPlan?.free_trial?.videoCreditCost ??
+  CREDIT_CONFIG?.videoCreditCost ??
+  30;
+
+function getPlanCreditRule(planKey = 'free_trial') {
+  const byPlan = CREDIT_CONFIG?.byPlan || {};
+  const normalized = Object.prototype.hasOwnProperty.call(PLAN_POLICIES, planKey)
+    ? planKey
+    : 'free_trial';
+  return (
+    byPlan[normalized] || {
+      initialCredits: INITIAL_FREE_TRIAL_CREDITS,
+      videoCreditCost: DEFAULT_VIDEO_CREDIT_COST,
+      minCreditsToGenerate: DEFAULT_VIDEO_CREDIT_COST,
+      unlimitedCredits: false
+    }
+  );
+}
 
 // Almacén temporal en memoria para códigos OTP pendientes (expiran en 10 minutos)
 const pendingVerifications = new Map();
@@ -61,7 +90,7 @@ router.post('/send-verification', async (req, res) => {
         html: `
           <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
             <h2 style="color: #f97316; margin-bottom: 12px;">Bienvenido a cempa.ai</h2>
-            <p style="color: #cbd5e1; font-size: 14px;">Usa el siguiente código de 6 dígitos para verificar tu cuenta y reclamar tus 50 créditos gratuitos:</p>
+            <p style="color: #cbd5e1; font-size: 14px;">Usa el siguiente código de 6 dígitos para verificar tu cuenta y reclamar tus ${INITIAL_FREE_TRIAL_CREDITS} créditos gratuitos:</p>
             <div style="background: #1e293b; padding: 16px; text-align: center; font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #ffffff; border-radius: 8px; margin: 20px 0;">
               ${code}
             </div>
@@ -119,8 +148,8 @@ router.post('/verify-and-register', async (req, res) => {
       name: name.trim(),
       email,
       password: record.hashedPassword,
-      credits: 50,
-      plan: 'lite',
+      credits: INITIAL_FREE_TRIAL_CREDITS,
+      plan: 'free_trial',
     });
 
     await newUser.save();
@@ -179,8 +208,8 @@ router.post('/register', async (req, res) => {
       name: formattedName,
       email,
       password: hashedPassword,
-      credits: 50,
-      plan: 'lite',
+      credits: INITIAL_FREE_TRIAL_CREDITS,
+      plan: 'free_trial',
     });
 
     await newUser.save();
@@ -241,7 +270,7 @@ router.post('/login', async (req, res) => {
 // Ruta para descontar créditos en tu backend (Express)
 router.post('/deduct-credit', async (req, res) => {
   try {
-    const { email, amount = 30 } = req.body;
+    const { email, amount } = req.body;
 
     // Buscas al usuario en tu base de datos de MongoDB Atlas
     const user = await User.findOne({ email });
@@ -250,17 +279,30 @@ router.post('/deduct-credit', async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    if (user.credits < amount) {
-      return res.status(400).json({ error: 'Créditos insuficientes' });
+    const planCreditRule = getPlanCreditRule(user.plan);
+    const debitAmount =
+      typeof amount === 'number' && !Number.isNaN(amount)
+        ? amount
+        : planCreditRule.videoCreditCost ?? DEFAULT_VIDEO_CREDIT_COST;
+
+    if (!planCreditRule.unlimitedCredits && user.credits < debitAmount) {
+      return res.status(400).json({
+        error: 'Créditos insuficientes',
+        remainingCredits: user.credits,
+        requiredCredits: debitAmount,
+        needsUpgrade: true
+      });
     }
 
     // Descontamos el crédito y guardamos
-    user.credits -= amount;
-    await user.save();
+    if (!planCreditRule.unlimitedCredits) {
+      user.credits -= debitAmount;
+      await user.save();
+    }
 
-    return res.status(200).json({ 
-      success: true, 
-      remainingCredits: user.credits 
+    return res.status(200).json({
+      success: true,
+      remainingCredits: user.credits
     });
   } catch (error) {
     console.error('Error al descontar crédito:', error);
@@ -268,21 +310,35 @@ router.post('/deduct-credit', async (req, res) => {
   }
 });
 
-
 // 3. GOOGLE OAUTH
-const { OAuth2Client } = require('google-auth-library');
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
 router.post('/google', async (req, res) => {
   try {
-    const { token } = req.body;
+    const { token, credential } = req.body;
 
-    const googleUserResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const googleProfile = await googleUserResponse.json();
+    let email = null;
+    let name = null;
+    let googleId = null;
 
-    const { email, name, sub: googleId } = googleProfile;
+    if (credential) {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      email = payload?.email || null;
+      name = payload?.name || null;
+      googleId = payload?.sub || null;
+    } else if (token) {
+      const googleUserResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const googleProfile = await googleUserResponse.json();
+      email = googleProfile?.email || null;
+      name = googleProfile?.name || null;
+      googleId = googleProfile?.sub || null;
+    } else {
+      return res.status(400).json({ message: 'Token o credencial de Google requerida' });
+    }
 
     if (!email) {
       return res.status(400).json({ message: 'No se pudo obtener el correo de Google' });
@@ -303,8 +359,8 @@ router.post('/google', async (req, res) => {
         name: formattedName,
         email,
         password: hashedPassword,
-        credits: 50,
-        plan: 'lite',
+        credits: INITIAL_FREE_TRIAL_CREDITS,
+        plan: 'free_trial',
         googleId,
       });
     }

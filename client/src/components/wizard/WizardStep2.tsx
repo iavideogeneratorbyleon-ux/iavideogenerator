@@ -1,4 +1,5 @@
 import { useTranslation } from '../../hooks/useTranslations';
+import { getOptionAccessState, getPlanWizardPolicy } from './wizardPlanConfig';
 import { type PlanTier } from './wizardStorage';
 import styles from './WizardStep2.module.css';
 
@@ -28,7 +29,7 @@ function WizardStep2({
   const { language } = useTranslation();
   const lang = language === 'es' ? 'es' : 'en';
   const isSpanish = lang === 'es';
-  const isFreeTrial = planTier === 'free_trial';
+  const policy = getPlanWizardPolicy(planTier);
 
   return (
     <div className={styles.stepSection}>
@@ -47,7 +48,12 @@ function WizardStep2({
 
       <div className={styles.cardsGrid}>
         {presets.map((preset) => {
-          const isLocked = Boolean(preset.requiresPaidPlan && isFreeTrial);
+          const access = getOptionAccessState(
+            policy.presets,
+            preset.id,
+            preset.requiresPaidPlan
+          );
+          const isLocked = access.locked;
           const isSelected = preset.id === selectedPresetId;
 
           const handleClick = () => {

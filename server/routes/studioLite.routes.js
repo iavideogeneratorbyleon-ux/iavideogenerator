@@ -3,6 +3,7 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 
+const { PLAN_POLICIES } = require('../config/globals');
 const { generateStructuredScript } = require('../services/llmService');
 const { generateAllScenesAudio } = require('../services/audioService');
 const { generateAllScenesVisuals } = require('../services/visualService');
@@ -15,7 +16,9 @@ const {
 } = require('../services/usageCostService');
 
 const PAID_PLANS = new Set(['pay_per_video', 'pro', 'unlimited', 'admin']);
-const ALLOWED_DURATIONS_PAID = new Set([30, 60, 90]);
+const ALLOWED_DURATIONS_PAID = new Set(
+  PLAN_POLICIES?.pro?.allowedDurationsSec || [30, 60, 90]
+);
 const VALID_PRESET_KEYS = new Set(Object.keys(PRESET_CONFIGS));
 
 const PRESET_VISUAL_MODIFIERS = {
@@ -51,30 +54,32 @@ function resolvePipelineConfig(body = {}) {
     'free_trial';
   const userPlan = PAID_PLANS.has(incomingPlan) ? incomingPlan : 'free_trial';
   const isPaidPlan = PAID_PLANS.has(userPlan);
+  const planPolicy = PLAN_POLICIES?.[userPlan] || PLAN_POLICIES?.free_trial || {};
 
   // Duración: free_trial = 30s fijo; planes de pago = 30, 60 o 90s
+  const defaultPaidDuration = planPolicy.defaultDurationSeconds || 60;
   const rawDuration = Number(
     body.meta?.targetDurationSeconds ??
       body.targetDurationSeconds ??
       body.durationSeconds ??
-      (isPaidPlan ? 60 : 30)
+      (isPaidPlan ? defaultPaidDuration : 30)
   );
 
   let appliedDuration = 30;
   let durationAdjustedReason = null;
 
   if (!isPaidPlan) {
-    appliedDuration = 30;
-    if (rawDuration !== 30) {
+    appliedDuration = planPolicy.defaultDurationSeconds || 30;
+    if (rawDuration !== appliedDuration) {
       durationAdjustedReason =
         'El plan free_trial permite únicamente videos de 30 segundos.';
     }
   } else if (ALLOWED_DURATIONS_PAID.has(rawDuration)) {
     appliedDuration = rawDuration;
   } else {
-    appliedDuration = 60;
+    appliedDuration = defaultPaidDuration;
     durationAdjustedReason =
-      'Duración no válida para plan de pago; se aplicó 60s por defecto (permitidos: 30, 60, 90).';
+      'Duración no válida para plan de pago; se aplicó la duración por defecto (permitidos: 30, 60, 90).';
   }
 
   // Medio por escena: 'image' o 'video_clip' (solo planes de pago)
@@ -113,15 +118,23 @@ function resolvePipelineConfig(body = {}) {
     body.aspectRatio ||
     '9:16';
 
+  const allowedResolutions = Array.isArray(planPolicy.allowedResolutions)
+    ? planPolicy.allowedResolutions
+    : isPaidPlan
+    ? ['720p', '1080p']
+    : ['720p'];
   const requestedResolution =
-    body.videoConfig?.resolution || body.video?.resolution || '1080p';
-  const resolution = isPaidPlan
-    ? requestedResolution === '720p'
-      ? '720p'
-      : '1080p'
-    : '720p';
+    body.videoConfig?.resolution ||
+    body.video?.resolution ||
+    (isPaidPlan ? '1080p' : '720p');
+  const resolution = allowedResolutions.includes(requestedResolution)
+    ? requestedResolution
+    : allowedResolutions[0] || '720p';
 
-  const watermark = !isPaidPlan;
+  const watermark =
+    typeof planPolicy.watermarkRequired === 'boolean'
+      ? planPolicy.watermarkRequired
+      : !isPaidPlan;
 
   const subtitlesEnabled =
     typeof body.videoConfig?.subtitles?.enabled === 'boolean'

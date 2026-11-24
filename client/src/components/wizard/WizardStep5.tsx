@@ -1,4 +1,7 @@
 import { useTranslation } from '../../hooks/useTranslations';
+import { type LegalDocType } from '../terms-modal/TermsModal';
+import { TermsAcceptanceBox } from './TermsAcceptanceBox';
+import { getPlanWizardPolicy, type PlanTier } from './wizardPlanConfig';
 import { type WizardStepNumber } from './WizardContainer';
 import { type StudioLiteDraft } from './wizardStorage';
 import styles from './WizardStep5.module.css';
@@ -7,7 +10,12 @@ interface WizardStep5Props {
   draft: StudioLiteDraft;
   presetLabel: string;
   visualFormatLabel: string;
+  planTier?: PlanTier;
   isAuthenticated: boolean;
+  acceptedTerms: boolean;
+  showTermsError?: boolean;
+  onAcceptedTermsChange: (accepted: boolean) => void;
+  onOpenLegalDoc: (docType: LegalDocType) => void;
   onJumpToStep: (step: WizardStepNumber) => void;
 }
 
@@ -15,11 +23,17 @@ function WizardStep5({
   draft,
   presetLabel,
   visualFormatLabel,
+  planTier = 'free_trial',
   isAuthenticated,
+  acceptedTerms,
+  showTermsError = false,
+  onAcceptedTermsChange,
+  onOpenLegalDoc,
   onJumpToStep,
 }: WizardStep5Props) {
   const { t, language } = useTranslation();
   const isSpanish = language === 'es';
+  const policy = getPlanWizardPolicy(planTier);
 
   return (
     <div className={styles.stepSection}>
@@ -119,6 +133,20 @@ function WizardStep5({
           </div>
         </div>
 
+        {policy.videoCreditCost > 0 && (
+          <div className={styles.summaryItem}>
+            <span className={styles.summaryLabel}>
+              {isSpanish ? 'Costo en créditos' : 'Credit Cost'}
+            </span>
+            <div className={styles.summaryRight}>
+              <span className={styles.summaryValue}>
+                {policy.videoCreditCost}{' '}
+                {isSpanish ? 'créditos' : 'credits'}
+              </span>
+            </div>
+          </div>
+        )}
+
         <p className={styles.promptPreview}>
           {draft.prompt.trim() ||
             (isSpanish
@@ -126,6 +154,13 @@ function WizardStep5({
               : 'No prompt entered yet; you can add it in Step 1.')}
         </p>
       </div>
+
+      <TermsAcceptanceBox
+        accepted={acceptedTerms}
+        showError={showTermsError}
+        onChange={onAcceptedTermsChange}
+        onOpenDoc={onOpenLegalDoc}
+      />
 
       {!isAuthenticated && (
         <div className={styles.signupNotice}>

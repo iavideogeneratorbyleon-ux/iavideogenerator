@@ -1,227 +1,601 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslations';
-import { WizardContainer, type WizardStepNumber } from './WizardContainer';
-import { WizardProcessingStep } from './WizardProcessingStep';
-import { WizardStep1 } from './WizardStep1';
-import { WizardStep2, type PresetOption } from './WizardStep2';
-import { WizardStep3, type VisualFormatOption } from './WizardStep3';
-import { WizardStep4 } from './WizardStep4';
-import { WizardStep5 } from './WizardStep5';
+import { TermsModal, type LegalDocType } from '../terms-modal/TermsModal';
+import WizardContainer, { type WizardStepNumber } from './WizardContainer';
+import WizardProcessingStep from './WizardProcessingStep';
+import WizardStep1 from './WizardStep1';
+import WizardStep2 from './WizardStep2';
+import WizardStep3 from './WizardStep3';
+import WizardStep4 from './WizardStep4';
+import WizardStep5 from './WizardStep5';
+import {
+  getOptionAccessState,
+  getPlanWizardPolicy,
+  normalizePlanTier,
+  type AllowedDurationSec,
+  type PlanTier,
+} from './wizardPlanConfig';
 import {
   loadWizardState,
   saveWizardState,
   type PersistedWizardState,
-  type PlanTier,
   type StudioLiteDraft,
+  type WizardAspectRatio,
+  type WizardInputMode,
 } from './wizardStorage';
 import styles from './StudioLiteWorkspaceWizard.module.css';
 
-export interface StudioLiteWorkspaceWizardProps {
+interface StudioLiteWorkspaceWizardProps {
   initialPrompt?: string;
-  isAuthenticated: boolean;
-  planTier: PlanTier;
-  presets?: PresetOption[];
-  formats?: VisualFormatOption[];
-  onRequireAuthAndPlan: (draft: StudioLiteDraft) => void;
-  onLockedOption?: (optionId: string, step: 2 | 3) => void;
-  onGenerationStarted?: (draft: StudioLiteDraft) => void;
-  onGenerationCompleted?: (draft: StudioLiteDraft) => void;
+  onRequireAuth?: (draft: StudioLiteDraft) => void;
+  onGenerationCompleted?: (result: {
+    title: string;
+    prompt: string;
+    presetId: string;
+    styleFormatId: string;
+    aspectRatio: string;
+    resolution: string;
+    durationSec: number;
+    voice: string;
+    creditsRemaining?: number;
+  }) => void;
+  onBackToDashboard?: () => void;
 }
 
-const WORKSPACE_PRESETS: PresetOption[] = [
+export interface PresetOptionItem {
+  id: string;
+  badge: { en: string; es: string };
+  label: { en: string; es: string };
+  description: { en: string; es: string };
+  isPaidOnly?: boolean;
+}
+
+export interface VisualFormatItem {
+  id: string;
+  badge: { en: string; es: string };
+  label: { en: string; es: string };
+  description: { en: string; es: string };
+  isPaidOnly?: boolean;
+}
+
+export const PRESET_OPTIONS: PresetOptionItem[] = [
   {
-    id: 'cinematic',
-    label: { en: 'Cinematic', es: 'Cinematográfico' },
+    id: 'default',
+    badge: { en: 'Core', es: 'Base' },
+    label: { en: 'Standard Creator', es: 'Creador Estándar' },
     description: {
-      en: 'Dramatic pacing, rich lighting, and smooth story beats.',
-      es: 'Ritmo dramático, iluminación envolvente y transiciones limpias.',
+      en: 'Balanced pacing, clear narration, and clean visual transitions.',
+      es: 'Ritmo equilibrado, narración clara y transiciones limpias.',
+    },
+  },
+  {
+    id: 'educational',
+    badge: { en: 'Core', es: 'Base' },
+    label: { en: 'Educational Explainer', es: 'Explicativo Educativo' },
+    description: {
+      en: 'Structured step-by-step explanation designed for learning.',
+      es: 'Explicación estructurada paso a paso pensada para enseñar.',
+    },
+  },
+  {
+    id: 'minimalist',
+    badge: { en: 'Core', es: 'Base' },
+    label: { en: 'Minimalist Focus', es: 'Enfoque Minimalista' },
+    description: {
+      en: 'Calm, uncluttered visual rhythm with direct messaging.',
+      es: 'Ritmo visual sereno, sin saturación y con mensaje directo.',
     },
   },
   {
     id: 'documentary',
-    label: { en: 'Documentary', es: 'Documental' },
+    badge: { en: 'Core', es: 'Base' },
+    label: { en: 'Documentary Narrative', es: 'Narrativa Documental' },
     description: {
-      en: 'Clear narrative flow suited for real stories and explainers.',
-      es: 'Narrativa clara ideal para historias reales y explicaciones.',
+      en: 'Story-driven pacing with grounded, authentic tone.',
+      es: 'Ritmo narrativo de historia con tono auténtico y cercano.',
     },
+  },
+  {
+    id: 'cinematic',
+    badge: { en: 'Pro', es: 'Pro' },
+    label: { en: 'Cinematic Trailer', es: 'Tráiler Cinematográfico' },
+    description: {
+      en: 'Dramatic tension, wider visual beats, and high-impact hooks.',
+      es: 'Tensión dramática, golpes visuales amplios y ganchos intensos.',
+    },
+    isPaidOnly: true,
   },
   {
     id: 'short-hook',
-    label: { en: 'Fast Hook', es: 'Gancho Ágil' },
+    badge: { en: 'Pro', es: 'Pro' },
+    label: { en: 'Fast Hook / Short', es: 'Gancho Rápido / Short' },
     description: {
-      en: 'Punchy opening beats built for short-form retention.',
-      es: 'Arranque directo y ritmo dinámico para clips cortos.',
+      en: 'Punchy opening seconds built for vertical short-form feeds.',
+      es: 'Segundos iniciales directos pensados para formatos cortos verticales.',
     },
-    requiresPaidPlan: true,
+    isPaidOnly: true,
+  },
+  {
+    id: 'tiktok_viral',
+    badge: { en: 'Pro', es: 'Pro' },
+    label: { en: 'Viral Short Pace', es: 'Ritmo Viral Corto' },
+    description: {
+      en: 'High-retention cuts and snappy scene shifts.',
+      es: 'Cortes de alta retención y cambios de escena ágiles.',
+    },
+    isPaidOnly: true,
+  },
+  {
+    id: 'mr_beast',
+    badge: { en: 'Pro', es: 'Pro' },
+    label: { en: 'High-Energy Challenge', es: 'Reto de Alta Energía' },
+    description: {
+      en: 'Fast momentum, curiosity loops, and bold scene progression.',
+      es: 'Impulso rápido, bucles de curiosidad y progresión dinámica.',
+    },
+    isPaidOnly: true,
+  },
+  {
+    id: 'netflix',
+    badge: { en: 'Pro', es: 'Pro' },
+    label: { en: 'Series Docuseries', es: 'Docuserie de Plataforma' },
+    description: {
+      en: 'Atmospheric pacing inspired by modern streaming documentaries.',
+      es: 'Ritmo atmosférico inspirado en documentales de plataforma.',
+    },
+    isPaidOnly: true,
+  },
+  {
+    id: 'luxury_brand',
+    badge: { en: 'Pro', es: 'Pro' },
+    label: { en: 'Luxury Editorial', es: 'Editorial de Lujo' },
+    description: {
+      en: 'Refined, deliberate framing suited for premium brands.',
+      es: 'Encuadre refinado y pausado ideal para marcas premium.',
+    },
+    isPaidOnly: true,
+  },
+  {
+    id: 'tech_modern',
+    badge: { en: 'Pro', es: 'Pro' },
+    label: { en: 'Modern Tech Showcase', es: 'Vitrina Tech Moderna' },
+    description: {
+      en: 'Crisp product and concept storytelling with sleek transitions.',
+      es: 'Narrativa clara de conceptos y productos con transiciones limpias.',
+    },
+    isPaidOnly: true,
+  },
+  {
+    id: 'dark_mystery',
+    badge: { en: 'Pro', es: 'Pro' },
+    label: { en: 'Mystery & Suspense', es: 'Misterio y Suspenso' },
+    description: {
+      en: 'Moody pacing and intrigue built around unfolding clues.',
+      es: 'Ritmo envolvente e intriga construida alrededor de pistas.',
+    },
+    isPaidOnly: true,
   },
 ];
 
-const WORKSPACE_FORMATS: VisualFormatOption[] = [
+export const VISUAL_FORMATS: VisualFormatItem[] = [
   {
     id: 'cempasuchil-editorial',
-    label: { en: 'Cempasúchil Editorial', es: 'Cempasúchil Editorial' },
+    badge: { en: 'Signature', es: 'Distintivo' },
+    label: { en: 'Cempasúchil Editorial', es: 'Editorial Cempasúchil' },
     description: {
-      en: 'Warm marigold accents over balanced dark or sand tones.',
-      es: 'Acentos cempasúchil sobre tonos cálidos carbón o arena.',
+      en: 'Warm marigold tones, crisp contrast, and editorial composition.',
+      es: 'Tonos cálidos cempasúchil, contraste limpio y composición editorial.',
     },
   },
   {
     id: 'comic',
-    label: { en: 'Comic', es: 'Cómic' },
+    badge: { en: 'Core', es: 'Base' },
+    label: { en: 'Graphic Comic', es: 'Cómic Gráfico' },
     description: {
-      en: 'Bold ink contours and graphic panel look.',
-      es: 'Contornos marcados y estética de viñeta gráfica.',
+      en: 'Illustrated panel energy with defined ink contours.',
+      es: 'Energía de viñeta ilustrada con contornos definidos.',
+    },
+  },
+  {
+    id: 'realistic',
+    badge: { en: 'Core', es: 'Base' },
+    label: { en: 'Photorealistic', es: 'Fotorrealista' },
+    description: {
+      en: 'Natural lighting and lifelike photographic textures.',
+      es: 'Iluminación natural y texturas de aspecto fotográfico.',
+    },
+  },
+  {
+    id: 'minimalist_flat',
+    badge: { en: 'Core', es: 'Base' },
+    label: { en: 'Clean Flat Vector', es: 'Vector Plano Limpio' },
+    description: {
+      en: 'Simple geometric shapes and high-legibility visual blocks.',
+      es: 'Formas geométricas simples y bloques visuales de alta lectura.',
     },
   },
   {
     id: '3d-render',
-    label: { en: '3D Render', es: '3D Render' },
+    badge: { en: 'Pro', es: 'Pro' },
+    label: { en: '3D Studio Render', es: 'Render 3D de Estudio' },
     description: {
-      en: 'Volumetric depth and sculpted lighting.',
-      es: 'Profundidad volumétrica e iluminación con volumen.',
+      en: 'Depth, volumetric lighting, and sculpted 3D surfaces.',
+      es: 'Profundidad, iluminación volumétrica y superficies 3D.',
     },
-    requiresPaidPlan: true,
+    isPaidOnly: true,
+  },
+  {
+    id: 'cinematic_film',
+    badge: { en: 'Pro', es: 'Pro' },
+    label: { en: 'Anamorphic Film', es: 'Cine Anamórfico' },
+    description: {
+      en: 'Widescreen film grain, rich shadows, and cinema color grading.',
+      es: 'Grano cinematográfico, sombras ricas y color de cine.',
+    },
+    isPaidOnly: true,
+  },
+  {
+    id: 'anime',
+    badge: { en: 'Pro', es: 'Pro' },
+    label: { en: 'Anime Illustration', es: 'Ilustración Anime' },
+    description: {
+      en: 'Expressive character framing and vibrant anime color palette.',
+      es: 'Encuadre expresivo y paleta cromática estilo anime.',
+    },
+    isPaidOnly: true,
+  },
+  {
+    id: 'retro_vintage',
+    badge: { en: 'Pro', es: 'Pro' },
+    label: { en: 'Retro Analog', es: 'Analógico Retro' },
+    description: {
+      en: 'Nostalgic print warmth and classic analog character.',
+      es: 'Calidez impresa nostálgica y carácter analógico clásico.',
+    },
+    isPaidOnly: true,
+  },
+  {
+    id: 'surreal_editorial',
+    badge: { en: 'Pro', es: 'Pro' },
+    label: { en: 'Surreal Concept', es: 'Concepto Surrealista' },
+    description: {
+      en: 'Imaginative visual metaphors and dreamlike compositions.',
+      es: 'Metáforas visuales imaginativas y composiciones oníricas.',
+    },
+    isPaidOnly: true,
   },
 ];
 
+export const VOICE_OPTIONS = [
+  { id: 'alloy', label: { en: 'Alloy (Balanced)', es: 'Alloy (Equilibrada)' } },
+  { id: 'nova', label: { en: 'Nova (Warm)', es: 'Nova (Cálida)' } },
+  { id: 'echo', label: { en: 'Echo (Clear)', es: 'Echo (Clara)' } },
+  { id: 'onyx', label: { en: 'Onyx (Deep)', es: 'Onyx (Profunda)' } },
+];
+
+function sanitizeDraftForPolicy(
+  draft: StudioLiteDraft,
+  planTier: PlanTier
+): StudioLiteDraft {
+  const policy = getPlanWizardPolicy(planTier);
+
+  const nextMode: WizardInputMode = draft.mode === 'script' ? 'script' : 'idea';
+
+  const presetAccess = getOptionAccessState(
+    policy.presets,
+    draft.presetId,
+    PRESET_OPTIONS.find((p) => p.id === draft.presetId)?.isPaidOnly
+  );
+  const nextPresetId = presetAccess.enabled
+    ? draft.presetId
+    : policy.defaultPresetId;
+
+  const formatAccess = getOptionAccessState(
+    policy.styleFormats,
+    draft.visualFormatId,
+    VISUAL_FORMATS.find((f) => f.id === draft.visualFormatId)?.isPaidOnly
+  );
+  const nextVisualFormatId = formatAccess.enabled
+    ? draft.visualFormatId
+    : policy.defaultStyleFormatId;
+
+  const nextAspectRatio: WizardAspectRatio = policy.allowedAspectRatios.includes(
+    draft.aspectRatio
+  )
+    ? draft.aspectRatio
+    : (policy.defaultAspectRatio as WizardAspectRatio);
+
+  const nextDurationSec: AllowedDurationSec = policy.allowedDurationsSec.includes(
+    draft.durationSec as AllowedDurationSec
+  )
+    ? (draft.durationSec as AllowedDurationSec)
+    : policy.defaultDurationSec;
+
+  return {
+    ...draft,
+    mode: nextMode,
+    presetId: nextPresetId,
+    visualFormatId: nextVisualFormatId,
+    aspectRatio: nextAspectRatio,
+    durationSec: nextDurationSec,
+  };
+}
+
 function StudioLiteWorkspaceWizard({
   initialPrompt = '',
-  isAuthenticated,
-  planTier,
-  presets = WORKSPACE_PRESETS,
-  formats = WORKSPACE_FORMATS,
-  onRequireAuthAndPlan,
-  onLockedOption,
-  onGenerationStarted,
+  onRequireAuth,
   onGenerationCompleted,
+  onBackToDashboard,
 }: StudioLiteWorkspaceWizardProps) {
   const { language } = useTranslation();
+  const { isAuthenticated, planTier, user } = useAuth();
   const lang = language === 'es' ? 'es' : 'en';
-  const isSpanish = lang === 'es';
-
-  const [wizardState, setWizardState] = useState<PersistedWizardState>(() =>
-    loadWizardState(initialPrompt)
+  const normalizedPlan = normalizePlanTier(planTier);
+  const planPolicy = useMemo(
+    () => getPlanWizardPolicy(normalizedPlan),
+    [normalizedPlan]
   );
-  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Si llega un prompt nuevo desde "Start Creating" en LandingPage, actualiza el Paso 1
-  useEffect(() => {
-    if (!initialPrompt.trim()) return;
-    setWizardState((prev) => {
-      const next: PersistedWizardState = {
-        ...prev,
-        draft: {
-          ...prev.draft,
-          prompt: initialPrompt,
-          currentStep: 1,
-        },
-      };
-      saveWizardState(next);
-      return next;
-    });
-  }, [initialPrompt]);
+  const [wizardState, setWizardState] = useState<PersistedWizardState>(() => {
+    const loaded = loadWizardState(initialPrompt);
+    return {
+      ...loaded,
+      draft: sanitizeDraftForPolicy(loaded.draft, normalizePlanTier(planTier)),
+      updatedAt: Date.now(),
+    };
+  });
+
+  const [validationError, setValidationError] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [acceptedTerms, setAcceptedTerms] = useState<boolean>(false);
+  const [showTermsError, setShowTermsError] = useState<boolean>(false);
+  const [termsModalType, setTermsModalType] = useState<LegalDocType>('terms');
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState<boolean>(false);
 
   const updateDraft = useCallback(
-    (updater: (prevDraft: StudioLiteDraft) => StudioLiteDraft) => {
+    (updater: (prev: StudioLiteDraft) => StudioLiteDraft) => {
       setWizardState((prev) => {
-        const next: PersistedWizardState = {
+        const nextDraft = sanitizeDraftForPolicy(
+          updater(prev.draft),
+          normalizedPlan
+        );
+        const nextState: PersistedWizardState = {
           ...prev,
-          draft: updater(prev.draft),
+          draft: nextDraft,
+          updatedAt: Date.now(),
         };
-        saveWizardState(next);
-        return next;
+        saveWizardState(nextState);
+        return nextState;
       });
+      setValidationError('');
     },
-    []
+    [normalizedPlan]
   );
 
-  const triggerGenerationFlow = useCallback(
-    (draftToRun: StudioLiteDraft) => {
-      setWizardState((prev) => {
-        const cleared: PersistedWizardState = {
-          ...prev,
-          draft: draftToRun,
-          pendingGenerateAfterAuth: false,
-        };
-        saveWizardState(cleared);
-        return cleared;
-      });
+  useEffect(() => {
+    setWizardState((prev) => {
+      const sanitized = sanitizeDraftForPolicy(prev.draft, normalizedPlan);
+      const nextState: PersistedWizardState = {
+        ...prev,
+        draft: sanitized,
+        updatedAt: Date.now(),
+      };
+      saveWizardState(nextState);
+      return nextState;
+    });
+  }, [normalizedPlan]);
+
+  useEffect(() => {
+    if (initialPrompt && initialPrompt.trim().length > 0) {
+      updateDraft((prev) => ({
+        ...prev,
+        prompt: prev.prompt.trim().length > 0 ? prev.prompt : initialPrompt,
+      }));
+    }
+  }, [initialPrompt, updateDraft]);
+
+  const startGenerationFlow = useCallback(
+    async (draftToRun: StudioLiteDraft) => {
       setIsProcessing(true);
-      onGenerationStarted?.(draftToRun);
+      setValidationError('');
+
+      const videoTitle =
+        draftToRun.prompt.trim().slice(0, 48) ||
+        (lang === 'es' ? 'Video Studio Lite' : 'Studio Lite Video');
+      const resolvedResolution = planPolicy.defaultResolution || '720p';
+
+      try {
+        const token = localStorage.getItem('cempa_token');
+        const userId =
+          (user as { id?: string; _id?: string } | null)?.id ||
+          (user as { id?: string; _id?: string } | null)?._id;
+
+        if (token) {
+          const response = await fetch('/api/studio-lite/generate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              userId,
+              prompt: draftToRun.prompt.trim(),
+              mode: draftToRun.mode,
+              preset: draftToRun.presetId,
+              styleFormat: draftToRun.visualFormatId,
+              aspectRatio: draftToRun.aspectRatio,
+              resolution: resolvedResolution,
+              durationSec: draftToRun.durationSec,
+              voice: draftToRun.voice,
+              plan: normalizedPlan,
+              acceptedTerms: true,
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json().catch(() => ({}));
+            const updatedCredits =
+              typeof data?.creditsRemaining === 'number'
+                ? data.creditsRemaining
+                : typeof data?.credits === 'number'
+                ? data.credits
+                : undefined;
+
+            const resetState: PersistedWizardState = {
+              draft: {
+                ...loadWizardState().draft,
+                currentStep: 1,
+                prompt: '',
+              },
+              pendingGenerateAfterAuth: false,
+              updatedAt: Date.now(),
+            };
+            saveWizardState(resetState);
+
+            setIsProcessing(false);
+            onGenerationCompleted?.({
+              title: data?.title || videoTitle,
+              prompt: draftToRun.prompt.trim(),
+              presetId: draftToRun.presetId,
+              styleFormatId: draftToRun.visualFormatId,
+              aspectRatio: draftToRun.aspectRatio,
+              resolution: resolvedResolution,
+              durationSec: draftToRun.durationSec,
+              voice: draftToRun.voice,
+              creditsRemaining: updatedCredits,
+            });
+            return;
+          }
+        }
+      } catch {
+        // Fallback local limpio si el backend aún no responde o está en modo demo
+      }
+
+      window.setTimeout(() => {
+        const resetState: PersistedWizardState = {
+          draft: {
+            ...loadWizardState().draft,
+            currentStep: 1,
+            prompt: '',
+          },
+          pendingGenerateAfterAuth: false,
+          updatedAt: Date.now(),
+        };
+        saveWizardState(resetState);
+
+        setIsProcessing(false);
+        onGenerationCompleted?.({
+          title: videoTitle,
+          prompt: draftToRun.prompt.trim(),
+          presetId: draftToRun.presetId,
+          styleFormatId: draftToRun.visualFormatId,
+          aspectRatio: draftToRun.aspectRatio,
+          resolution: resolvedResolution,
+          durationSec: draftToRun.durationSec,
+          voice: draftToRun.voice,
+        });
+      }, 1400);
     },
-    [onGenerationStarted]
+    [lang, normalizedPlan, onGenerationCompleted, planPolicy.defaultResolution, user]
   );
 
-  // Al volver autenticado desde el registro / selección de plan, continúa directo a generar
   useEffect(() => {
     if (isAuthenticated && wizardState.pendingGenerateAfterAuth && !isProcessing) {
-      triggerGenerationFlow(wizardState.draft);
+      const draftSnapshot = wizardState.draft;
+      const clearedPendingState: PersistedWizardState = {
+        ...wizardState,
+        pendingGenerateAfterAuth: false,
+        updatedAt: Date.now(),
+      };
+      saveWizardState(clearedPendingState);
+      setWizardState(clearedPendingState);
+      void startGenerationFlow(draftSnapshot);
     }
-  }, [
-    isAuthenticated,
-    isProcessing,
-    triggerGenerationFlow,
-    wizardState.draft,
-    wizardState.pendingGenerateAfterAuth,
-  ]);
+  }, [isAuthenticated, isProcessing, startGenerationFlow, wizardState]);
+
+  const currentStep = wizardState.draft.currentStep;
+
+  const handleStepSelect = (targetStep: WizardStepNumber) => {
+    if (targetStep <= currentStep) {
+      setValidationError('');
+      updateDraft((prev) => ({ ...prev, currentStep: targetStep }));
+    }
+  };
+
+  const handleBack = () => {
+    setValidationError('');
+    if (currentStep > 1) {
+      const prevStep = (currentStep - 1) as WizardStepNumber;
+      updateDraft((prev) => ({ ...prev, currentStep: prevStep }));
+    } else {
+      onBackToDashboard?.();
+    }
+  };
 
   const handleNextOrGenerate = () => {
-    const step = wizardState.draft.currentStep;
+    if (currentStep === 1 && !wizardState.draft.prompt.trim()) {
+      setValidationError(
+        lang === 'es'
+          ? 'Escribe una idea o guion breve antes de pasar al Paso 2.'
+          : 'Enter a brief idea or script before moving to Step 2.'
+      );
+      return;
+    }
 
-    if (step < 5) {
-      const nextStep = (step + 1) as WizardStepNumber;
+    if (currentStep < 5) {
+      setValidationError('');
+      const nextStep = (currentStep + 1) as WizardStepNumber;
       updateDraft((prev) => ({ ...prev, currentStep: nextStep }));
       return;
     }
 
-    // Paso 5: Generar Video
-    if (!isAuthenticated) {
-      const pendingState: PersistedWizardState = {
-        ...wizardState,
-        pendingGenerateAfterAuth: true,
-      };
-      setWizardState(pendingState);
-      saveWizardState(pendingState);
-      onRequireAuthAndPlan(wizardState.draft);
+    if (!acceptedTerms) {
+      setShowTermsError(true);
+      setValidationError(
+        lang === 'es'
+          ? 'Debes aceptar los Términos de Servicio y la Política de Generación de Contenido con IA antes de generar.'
+          : 'You must accept the Terms of Service and AI Content Generation Policy before generating.'
+      );
       return;
     }
 
-    triggerGenerationFlow(wizardState.draft);
+    if (!isAuthenticated) {
+      const currentSaved = loadWizardState();
+      saveWizardState({
+        ...currentSaved,
+        draft: wizardState.draft,
+        pendingGenerateAfterAuth: true,
+        updatedAt: Date.now(),
+      });
+      onRequireAuth?.(wizardState.draft);
+      return;
+    }
+
+    void startGenerationFlow(wizardState.draft);
   };
 
-  const handleBack = () => {
-    const step = wizardState.draft.currentStep;
-    if (step <= 1) return;
-    const prevStep = (step - 1) as WizardStepNumber;
-    updateDraft((prev) => ({ ...prev, currentStep: prevStep }));
-  };
+  const selectedPreset =
+    PRESET_OPTIONS.find((item) => item.id === wizardState.draft.presetId) ||
+    PRESET_OPTIONS.find((item) => item.id === planPolicy.defaultPresetId) ||
+    PRESET_OPTIONS[0];
 
-  const selectedPreset = useMemo(
-    () =>
-      presets.find((p) => p.id === wizardState.draft.presetId) ?? presets[0],
-    [presets, wizardState.draft.presetId]
-  );
-
-  const selectedFormat = useMemo(
-    () =>
-      formats.find((f) => f.id === wizardState.draft.visualFormatId) ??
-      formats[0],
-    [formats, wizardState.draft.visualFormatId]
-  );
-
-  const planLabel = isSpanish
-    ? `Plan: ${planTier}`
-    : `Plan: ${planTier}`;
+  const selectedFormat =
+    VISUAL_FORMATS.find(
+      (item) => item.id === wizardState.draft.visualFormatId
+    ) ||
+    VISUAL_FORMATS.find(
+      (item) => item.id === planPolicy.defaultStyleFormatId
+    ) ||
+    VISUAL_FORMATS[0];
 
   return (
-    <div className={styles.wizardHost}>
+    <div className={styles.wizardShell}>
       <WizardContainer
-        currentStep={wizardState.draft.currentStep}
-        planLabel={planLabel}
+        currentStep={currentStep}
+        planLabel={planPolicy.label[lang]}
         isProcessing={isProcessing}
-        onSelectStep={(step) =>
-          updateDraft((prev) => ({ ...prev, currentStep: step }))
-        }
+        onSelectStep={handleStepSelect}
         onBack={handleBack}
         onNextOrGenerate={handleNextOrGenerate}
       >
@@ -229,53 +603,64 @@ function StudioLiteWorkspaceWizard({
           <WizardProcessingStep
             draft={wizardState.draft}
             onCancel={() => setIsProcessing(false)}
-            onComplete={() => onGenerationCompleted?.(wizardState.draft)}
           />
         ) : (
           <>
-            {wizardState.draft.currentStep === 1 && (
+            {validationError && (
+              <p className={styles.validationBanner} role="alert">
+                {validationError}
+              </p>
+            )}
+
+            {currentStep === 1 && (
               <WizardStep1
                 mode={wizardState.draft.mode}
                 prompt={wizardState.draft.prompt}
+                planTier={normalizedPlan}
                 onModeChange={(mode) =>
                   updateDraft((prev) => ({ ...prev, mode }))
                 }
                 onPromptChange={(prompt) =>
                   updateDraft((prev) => ({ ...prev, prompt }))
                 }
+                onLockedScriptMode={() =>
+                  setValidationError(
+                    lang === 'es'
+                      ? 'El modo guion personalizado requiere un plan superior.'
+                      : 'Custom script mode requires a higher plan.'
+                  )
+                }
               />
             )}
 
-            {wizardState.draft.currentStep === 2 && (
+            {currentStep === 2 && (
               <WizardStep2
                 selectedPresetId={wizardState.draft.presetId}
-                planTier={planTier}
-                presets={presets}
+                planTier={normalizedPlan}
+                presets={PRESET_OPTIONS}
                 onSelectPreset={(presetId) =>
                   updateDraft((prev) => ({ ...prev, presetId }))
                 }
-                onLockedSelect={(id) => onLockedOption?.(id, 2)}
               />
             )}
 
-            {wizardState.draft.currentStep === 3 && (
+            {currentStep === 3 && (
               <WizardStep3
                 selectedFormatId={wizardState.draft.visualFormatId}
-                planTier={planTier}
-                formats={formats}
+                planTier={normalizedPlan}
+                formats={VISUAL_FORMATS}
                 onSelectFormat={(visualFormatId) =>
                   updateDraft((prev) => ({ ...prev, visualFormatId }))
                 }
-                onLockedSelect={(id) => onLockedOption?.(id, 3)}
               />
             )}
 
-            {wizardState.draft.currentStep === 4 && (
+            {currentStep === 4 && (
               <WizardStep4
                 aspectRatio={wizardState.draft.aspectRatio}
                 voice={wizardState.draft.voice}
                 durationSec={wizardState.draft.durationSec}
-                planTier={planTier}
+                planTier={normalizedPlan}
                 onAspectRatioChange={(aspectRatio) =>
                   updateDraft((prev) => ({ ...prev, aspectRatio }))
                 }
@@ -288,12 +673,26 @@ function StudioLiteWorkspaceWizard({
               />
             )}
 
-            {wizardState.draft.currentStep === 5 && (
+            {currentStep === 5 && (
               <WizardStep5
                 draft={wizardState.draft}
                 presetLabel={selectedPreset.label[lang]}
                 visualFormatLabel={selectedFormat.label[lang]}
+                planTier={normalizedPlan}
                 isAuthenticated={isAuthenticated}
+                acceptedTerms={acceptedTerms}
+                showTermsError={showTermsError}
+                onAcceptedTermsChange={(checked) => {
+                  setAcceptedTerms(checked);
+                  if (checked) {
+                    setShowTermsError(false);
+                    setValidationError('');
+                  }
+                }}
+                onOpenLegalDoc={(docType) => {
+                  setTermsModalType(docType);
+                  setIsTermsModalOpen(true);
+                }}
                 onJumpToStep={(step) =>
                   updateDraft((prev) => ({ ...prev, currentStep: step }))
                 }
@@ -302,13 +701,20 @@ function StudioLiteWorkspaceWizard({
           </>
         )}
       </WizardContainer>
+
+      <TermsModal
+        isOpen={isTermsModalOpen}
+        type={termsModalType}
+        onClose={() => setIsTermsModalOpen(false)}
+        onAccept={() => {
+          setAcceptedTerms(true);
+          setShowTermsError(false);
+          setValidationError('');
+        }}
+      />
     </div>
   );
 }
 
-export {
-  StudioLiteWorkspaceWizard,
-  WORKSPACE_PRESETS,
-  WORKSPACE_FORMATS,
-};
+export { StudioLiteWorkspaceWizard };
 export default StudioLiteWorkspaceWizard;

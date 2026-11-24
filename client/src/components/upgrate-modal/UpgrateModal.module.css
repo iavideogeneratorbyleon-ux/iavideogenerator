@@ -1,37 +1,26 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: 80;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
-  background-color: rgba(11, 15, 25, 0.76);
-  backdrop-filter: blur(6px);
+  padding: 1.25rem;
+  background-color: rgba(8, 11, 18, 0.72);
+  backdrop-filter: blur(8px);
 }
 
 .panel {
   width: 100%;
-  max-width: 54rem;
+  max-width: 56rem;
   max-height: 90vh;
   overflow-y: auto;
-  border-radius: 1.25rem;
-  border: 1px solid var(--border-accent);
+  border-radius: 1.15rem;
+  border: 1px solid var(--border-subtle);
   background-color: var(--bg-page);
-  background-image: radial-gradient(
-    circle at 90% 6%,
-    color-mix(in srgb, var(--brand-primary) 14%, transparent),
-    transparent 45%
-  );
-  padding: 1.5rem;
   color: var(--text-primary);
-  box-shadow: 0 28px 64px -20px rgba(0, 0, 0, 0.7);
-}
-
-@media (min-width: 640px) {
-  .panel {
-    padding: 2rem;
-  }
+  padding: 1.5rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
 }
 
 .topBar {
@@ -39,67 +28,56 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  padding-bottom: 1.15rem;
   border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 1rem;
 }
 
 .kicker {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
+  display: inline-block;
+  font-size: 0.72rem;
   font-weight: 700;
-  text-transform: uppercase;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--brand-primary);
+  margin-bottom: 0.35rem;
 }
 
 .heading {
-  margin: 0.3rem 0 0;
+  margin: 0;
   font-family: var(--font-display);
   font-size: 1.45rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
 .lead {
-  margin: 0.3rem 0 0;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
+  margin: 0.4rem 0 0;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  opacity: 0.8;
+  max-width: 44rem;
 }
 
 .closeButton {
-  border-radius: 0.625rem;
-  border: 1px solid var(--border-subtle);
-  background-color: var(--bg-card);
-  padding: 0.45rem 0.75rem;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-secondary);
+  padding: 0.45rem 0.8rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border-accent);
+  background-color: var(--bg-section-alt);
+  color: var(--text-primary);
+  font-size: 0.82rem;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .closeButton:hover {
   border-color: var(--brand-primary);
-  color: var(--text-primary);
 }
 
 .plansGrid {
-  margin-top: 1.5rem;
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
   gap: 0.9rem;
-}
-
-@media (min-width: 640px) {
-  .plansGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 900px) {
-  .plansGrid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
+  margin-top: 1.25rem;
 }
 
 .planCard {
@@ -107,105 +85,95 @@
   flex-direction: column;
   justify-content: space-between;
   text-align: left;
-  border-radius: 1rem;
+  padding: 1.1rem;
+  border-radius: 0.9rem;
   border: 1px solid var(--border-subtle);
-  background-color: var(--bg-card);
-  padding: 1rem;
+  background-color: var(--bg-section-alt);
+  color: var(--text-primary);
   cursor: pointer;
-  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  transition: border-color 0.15s ease, transform 0.15s ease;
 }
 
 .planCard:hover {
-  transform: translateY(-2px);
   border-color: var(--border-accent);
+  transform: translateY(-1px);
 }
 
 .planCardSelected {
   border-color: var(--brand-primary);
-  background-color: color-mix(in srgb, var(--brand-primary) 12%, var(--bg-card));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-primary) 25%, transparent);
+  background-color: var(--bg-prompt);
+  box-shadow: 0 0 0 1px var(--brand-primary);
 }
 
 .planTag {
-  align-self: flex-start;
-  border-radius: 9999px;
-  border: 1px solid var(--border-accent);
-  background-color: var(--bg-page);
-  padding: 0.2rem 0.6rem;
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  display: inline-block;
+  font-size: 0.7rem;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background-color: var(--bg-page);
+  border: 1px solid var(--border-subtle);
   color: var(--brand-primary);
 }
 
 .planTitle {
-  margin-top: 0.7rem;
+  margin: 0.65rem 0 0.2rem;
   font-family: var(--font-display);
   font-size: 1.05rem;
-  font-weight: 800;
-  color: var(--text-primary);
+  font-weight: 700;
 }
 
 .planPrice {
-  margin-top: 0.3rem;
-  font-family: var(--font-mono);
-  font-size: 1rem;
+  font-size: 0.92rem;
   font-weight: 700;
   color: var(--brand-primary);
+  margin-bottom: 0.5rem;
 }
 
 .planDesc {
-  margin-top: 0.45rem;
+  margin: 0;
   font-size: 0.8rem;
   line-height: 1.45;
-  color: var(--text-secondary);
+  opacity: 0.85;
 }
 
 .planFeature {
-  margin-top: 0.85rem;
-  border-top: 1px solid var(--border-subtle);
+  margin-top: 0.9rem;
   padding-top: 0.65rem;
-  font-size: 0.78rem;
-  color: var(--text-primary);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.76rem;
+  font-weight: 600;
 }
 
 .bottomBar {
-  margin-top: 1.6rem;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.75rem;
+  margin-top: 1.35rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--border-subtle);
-  padding-top: 1.15rem;
 }
 
 .cancelAction {
-  border-radius: 0.75rem;
-  border: 1px solid var(--border-subtle);
-  background-color: var(--bg-card);
-  padding: 0.65rem 1.15rem;
-  font-size: 0.875rem;
-  font-weight: 600;
+  padding: 0.6rem 1.05rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border-accent);
+  background-color: var(--bg-section-alt);
   color: var(--text-primary);
+  font-size: 0.85rem;
   cursor: pointer;
-}
-
-.cancelAction:hover {
-  border-color: var(--brand-primary);
 }
 
 .confirmAction {
-  border: none;
-  border-radius: 0.75rem;
-  background-image: linear-gradient(90deg, var(--brand-primary), var(--brand-primary-hover));
-  padding: 0.68rem 1.4rem;
-  font-size: 0.875rem;
-  font-weight: 700;
+  padding: 0.6rem 1.2rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--brand-primary);
+  background-color: var(--brand-primary);
   color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
-}
-
-.confirmAction:hover {
-  filter: brightness(1.07);
 }

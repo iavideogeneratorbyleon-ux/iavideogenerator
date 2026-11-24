@@ -1,22 +1,37 @@
 import { useTranslation } from '../../hooks/useTranslations';
+import { getPlanWizardPolicy, type PlanTier } from './wizardPlanConfig';
 import { type WizardInputMode } from './wizardStorage';
 import styles from './WizardStep1.module.css';
 
 interface WizardStep1Props {
   mode: WizardInputMode;
   prompt: string;
+  planTier?: PlanTier;
   onModeChange: (mode: WizardInputMode) => void;
   onPromptChange: (value: string) => void;
+  onLockedScriptMode?: () => void;
 }
 
 function WizardStep1({
   mode,
   prompt,
+  planTier = 'free_trial',
   onModeChange,
   onPromptChange,
+  onLockedScriptMode,
 }: WizardStep1Props) {
   const { t, language } = useTranslation();
   const isSpanish = language === 'es';
+  const policy = getPlanWizardPolicy(planTier);
+  const isScriptLocked = !policy.allowCustomScript;
+
+  const handleSelectScript = () => {
+    if (isScriptLocked) {
+      onLockedScriptMode?.();
+      return;
+    }
+    onModeChange('script');
+  };
 
   return (
     <div className={styles.stepSection}>
@@ -45,12 +60,14 @@ function WizardStep1({
         </button>
         <button
           type="button"
-          onClick={() => onModeChange('script')}
+          aria-disabled={isScriptLocked}
+          onClick={handleSelectScript}
           className={`${styles.modeButton} ${
             mode === 'script' ? styles.modeButtonActive : ''
           }`}
         >
           {t.studioLite.modeScript}
+          {isScriptLocked ? (isSpanish ? ' (Plan+)' : ' (Plan+)') : ''}
         </button>
       </div>
 

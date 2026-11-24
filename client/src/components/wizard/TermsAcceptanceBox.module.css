@@ -1,0 +1,51 @@
+.termsBox {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-section-alt);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.termsBoxError {
+  border-color: #ef4444;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.checkboxInput {
+  margin-top: 0.2rem;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--brand-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.docLink {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--brand-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.validationMsg {
+  margin: 0;
+  padding-left: 1.65rem;
+  font-size: 0.78rem;
+  color: #f87171;
+}

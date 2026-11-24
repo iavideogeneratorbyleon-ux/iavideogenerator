@@ -2,6 +2,22 @@ const express = require('express');
 const router = express.Router();
 const Video = require('../models/Videos');
 const User = require('../models/User');
+const { CREDIT_CONFIG, PLAN_POLICIES } = require('../config/globals');
+
+function resolveUserCreditPolicy(planKey = 'free_trial') {
+  const byPlan = CREDIT_CONFIG?.byPlan || {};
+  const normalized = Object.prototype.hasOwnProperty.call(PLAN_POLICIES, planKey)
+    ? planKey
+    : 'free_trial';
+  return (
+    byPlan[normalized] || {
+      initialCredits: CREDIT_CONFIG?.freeTrialInitialCredits ?? 50,
+      videoCreditCost: CREDIT_CONFIG?.videoCreditCost ?? 30,
+      minCreditsToGenerate: CREDIT_CONFIG?.minCreditsToGenerate ?? 30,
+      unlimitedCredits: false
+    }
+  );
+}
 
 // 1. Guardar video al terminar el Wizard y descontar créditos de Studio Lite
 router.post('/save', async (req, res) => {
@@ -14,7 +30,7 @@ router.post('/save', async (req, res) => {
     if (validUserId) {
       user = await User.findById(validUserId);
     }
-    
+
     if (!user && email) {
       user = await User.findOne({ email });
       if (user) validUserId = user._id;
@@ -24,20 +40,24 @@ router.post('/save', async (req, res) => {
       return res.status(400).json({ error: 'No se pudo asociar un usuario válido' });
     }
 
-    // Costo del video en Studio Lite (ej. 30 créditos de los 50 iniciales)
-    const COSTO_VIDEO_LITE = 30;
+    const planCreditRule = resolveUserCreditPolicy(user.plan);
+    const costoVideoLite = planCreditRule.videoCreditCost ?? 30;
+    const minRequired = planCreditRule.minCreditsToGenerate ?? costoVideoLite;
 
-    if (user.credits < COSTO_VIDEO_LITE) {
-      return res.status(403).json({ 
-        error: 'Créditos insuficientes', 
+    if (!planCreditRule.unlimitedCredits && user.credits < minRequired) {
+      return res.status(403).json({
+        error: 'Créditos insuficientes',
         remainingCredits: user.credits,
-        needsUpgrade: true 
+        requiredCredits: minRequired,
+        needsUpgrade: true
       });
     }
 
     // Descontar los créditos de la generación
-    user.credits -= COSTO_VIDEO_LITE;
-    await user.save();
+    if (!planCreditRule.unlimitedCredits && costoVideoLite > 0) {
+      user.credits -= costoVideoLite;
+      await user.save();
+    }
 
     // Guardar el video asociado con los 6 parámetros dinámicos
     const newVideo = new Video({
@@ -50,17 +70,16 @@ router.post('/save', async (req, res) => {
     });
 
     await newVideo.save();
-    return res.status(201).json({ 
-      success: true, 
-      video: newVideo, 
-      remainingCredits: user.credits 
+    return res.status(201).json({
+      success: true,
+      video: newVideo,
+      remainingCredits: user.credits
     });
-} catch (error) {
-  console.error('❌ ERROR DETALLADO AL GUARDAR VIDEO:', error.message);
-  console.error(error); // <--- Esto imprimirá el rastro exacto en la terminal de tu servidor
-  return res.status(500).json({ error: 'Error al guardar el video', details: error.message });
-}
-
+  } catch (error) {
+    console.error('❌ ERROR DETALLADO AL GUARDAR VIDEO:', error.message);
+    console.error(error); // <--- Esto imprimirá el rastro exacto en la terminal de tu servidor
+    return res.status(500).json({ error: 'Error al guardar el video', details: error.message });
+  }
 });
 
 // 2. Obtener los videos del usuario para el Dashboard

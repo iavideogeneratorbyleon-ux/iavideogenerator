@@ -3,6 +3,7 @@ import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth, type AuthUser } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslations';
 import { type PlanTier } from '../wizard/wizardStorage';
+import styles from './AuthModal.module.css';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -11,6 +12,9 @@ interface AuthModalProps {
   selectedPlan?: PlanTier;
   onLoginSuccess?: () => void;
 }
+
+const API_BASE_URL =
+  import.meta.env?.VITE_API_URL || 'http://localhost:3030';
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
@@ -25,12 +29,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [isRegistering, setIsRegistering] = useState(mode === 'signup');
   const [step, setStep] = useState<'credentials' | 'verify'>('credentials');
 
-  // Campos Paso 1
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Campos Paso 2 (Verificación y Nombre)
   const [name, setName] = useState('');
   const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -55,14 +57,47 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   }, [isOpen, mode]);
 
-  // Temporizador para reenvío de código
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = setTimeout(() => setResendCooldown((prev) => prev - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
-  const handlePostAuthSuccess = () => {
+  const syncCreditsAndFinish = (
+    userObj: Record<string, unknown>,
+    resolvedPlan: PlanTier
+  ) => {
+    if (typeof userObj.credits === 'number') {
+      window.dispatchEvent(
+        new CustomEvent('cempa:credits-updated', {
+          detail: { credits: userObj.credits },
+        })
+      );
+    }
+
+    const userProfile: AuthUser = {
+      id: String(
+        userObj.id || userObj._id || userObj.email || 'cempa-user'
+      ),
+      name:
+        String(userObj.name || '').trim() ||
+        (typeof userObj.email === 'string'
+          ? userObj.email.split('@')[0]
+          : isEn
+          ? 'User'
+          : 'Usuario'),
+      email: String(userObj.email || email),
+      avatarUrl:
+        typeof userObj.avatarUrl === 'string'
+          ? userObj.avatarUrl
+          : typeof userObj.picture === 'string'
+          ? userObj.picture
+          : undefined,
+      provider:
+        userObj.provider === 'google' ? 'google' : 'email',
+    };
+
+    completeAuth(userProfile, resolvedPlan);
     onLoginSuccess?.();
     onClose();
   };
@@ -72,7 +107,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setLoading(true);
       setError('');
       try {
-        const res = await fetch('http://localhost:3030/api/auth/google', {
+        const res = await fetch(`${API_BASE_URL}/api/auth/google`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -84,20 +119,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const data = await res.json();
 
         if (res.ok) {
-          const userObj = data.user || data;
-          const userProfile: AuthUser = {
-            id: String(userObj.id || userObj._id || userObj.email || 'google-user'),
-            name:
-              userObj.name ||
-              userObj.email?.split('@')[0] ||
-              (isEn ? 'User' : 'Usuario'),
-            email: userObj.email,
-            avatarUrl: userObj.avatarUrl || userObj.picture,
-            provider: 'google',
-          };
-
-          completeAuth(userProfile, (userObj.plan as PlanTier) || targetPlan);
-          handlePostAuthSuccess();
+          const userObj = (data.user || data) as Record<string, unknown>;
+          const resolvedPlan =
+            (typeof userObj.plan === 'string'
+              ? (userObj.plan as PlanTier)
+              : targetPlan) || targetPlan;
+          syncCreditsAndFinish(
+            { ...userObj, provider: 'google' },
+            resolvedPlan
+          );
         } else {
           setError(
             data.message ||
@@ -127,7 +157,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Paso 1: Solicitar envío de código OTP o Iniciar Sesión normal
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -152,14 +181,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     try {
       if (isRegistering) {
-        const res = await fetch(
-          'http://localhost:3030/api/auth/send-verification',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, plan: targetPlan }),
-          }
-        );
+        const res = await fetch(`${API_BASE_URL}/api/auth/send-verification`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, plan: targetPlan }),
+        });
 
         const data = await res.json();
 
@@ -183,7 +209,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setVerifyStatus('idle');
         setStep('verify');
       } else {
-        const res = await fetch('http://localhost:3030/api/auth/login', {
+        const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
@@ -198,17 +224,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           );
         }
 
-        const userObj = data.user || data;
-        const userProfile: AuthUser = {
-          id: String(userObj.id || userObj._id || email),
-          name: userObj.name || email.split('@')[0],
-          email: userObj.email || email,
-          avatarUrl: userObj.avatarUrl,
-          provider: 'email',
-        };
-
-        completeAuth(userProfile, (userObj.plan as PlanTier) || targetPlan);
-        handlePostAuthSuccess();
+        const userObj = (data.user || data) as Record<string, unknown>;
+        const resolvedPlan =
+          (typeof userObj.plan === 'string'
+            ? (userObj.plan as PlanTier)
+            : targetPlan) || targetPlan;
+        syncCreditsAndFinish(
+          { ...userObj, provider: 'email' },
+          resolvedPlan
+        );
       }
     } catch (err: unknown) {
       const message =
@@ -223,7 +247,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // Manejo de las 6 casillas del código OTP
   const handleOtpChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
     const newOtp = [...otp];
@@ -265,7 +288,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     otpRefs.current[nextIndex]?.focus();
   };
 
-  // Paso 2: Validar código OTP, guardar nombre y crear usuario definitivo
   const handleVerifySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -292,7 +314,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     try {
       const res = await fetch(
-        'http://localhost:3030/api/auth/verify-and-register',
+        `${API_BASE_URL}/api/auth/verify-and-register`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -314,21 +336,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         );
       }
 
-      const userObj = data.user || data;
-      const userProfile: AuthUser = {
-        id: String(userObj.id || userObj._id || email),
-        name: userObj.name || name.trim(),
-        email: userObj.email || email,
-        avatarUrl: userObj.avatarUrl,
-        provider: 'email',
-      };
+      const userObj = (data.user || data) as Record<string, unknown>;
+      const resolvedPlan =
+        (typeof userObj.plan === 'string'
+          ? (userObj.plan as PlanTier)
+          : targetPlan) || targetPlan;
 
       setVerifyStatus('success');
 
       setTimeout(() => {
-        completeAuth(userProfile, (userObj.plan as PlanTier) || targetPlan);
-        handlePostAuthSuccess();
-      }, 1800);
+        syncCreditsAndFinish(
+          { ...userObj, name: userObj.name || name.trim(), provider: 'email' },
+          resolvedPlan
+        );
+      }, 1200);
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -348,14 +369,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setVerifyStatus('idle');
     setLoading(true);
     try {
-      const res = await fetch(
-        'http://localhost:3030/api/auth/send-verification',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, plan: targetPlan }),
-        }
-      );
+      const res = await fetch(`${API_BASE_URL}/api/auth/send-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, plan: targetPlan }),
+      });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.message);
@@ -376,12 +394,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl text-white relative">
+    <div
+      className={styles.backdrop}
+      role="dialog"
+      aria-modal="true"
+      aria-label={
+        isRegistering
+          ? isEn
+            ? 'Create account'
+            : 'Crear cuenta'
+          : isEn
+          ? 'Sign in'
+          : 'Iniciar sesión'
+      }
+    >
+      <div className={styles.card}>
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+          className={styles.closeBtn}
+          aria-label={isEn ? 'Close modal' : 'Cerrar modal'}
         >
           ✕
         </button>
@@ -396,52 +428,44 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 setError('');
                 setVerifyStatus('idle');
               }}
-              className="text-xs text-slate-400 hover:text-white flex items-center gap-1 mb-3 transition-colors disabled:opacity-50"
+              className={styles.backLink}
             >
               ← {isEn ? 'Change email' : 'Cambiar correo'}
             </button>
 
-            <h2 className="text-2xl font-bold text-center mb-2">
+            <span className={styles.kicker}>CEMPA.AI · ACCOUNT VERIFICATION</span>
+            <h2 className={styles.title}>
               {isEn ? 'Verify your email' : 'Verifica tu correo'}
             </h2>
-            <p className="text-slate-400 text-sm text-center mb-6">
+            <p className={styles.subtitle}>
               {isEn
                 ? 'We sent a 6-digit code to '
                 : 'Enviamos un código de 6 dígitos a '}
-              <span className="text-white font-semibold">{email}</span>
+              <strong>{email}</strong>
             </p>
 
             {verifyStatus === 'verifying' && (
-              <div className="bg-orange-500/10 border border-orange-500/40 text-orange-300 text-sm p-3 rounded-xl mb-4 flex items-center justify-center gap-2.5">
-                <span className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
-                <span>
-                  {isEn
-                    ? 'Verifying your email code...'
-                    : 'Verificando tu código de correo...'}
-                </span>
+              <div className={styles.alertInfo}>
+                {isEn
+                  ? 'Verifying your email code...'
+                  : 'Verificando tu código de correo...'}
               </div>
             )}
 
             {verifyStatus === 'success' && (
-              <div className="bg-emerald-500/15 border border-emerald-500/50 text-emerald-300 text-sm p-3 rounded-xl mb-4 flex items-center justify-center gap-2 font-medium">
-                <span>✓</span>
-                <span>
-                  {isEn
-                    ? 'Email verified! Setting up your account...'
-                    : '¡Correo verificado! Preparando tu cuenta...'}
-                </span>
+              <div className={styles.alertSuccess}>
+                ✓{' '}
+                {isEn
+                  ? 'Email verified! Setting up your account...'
+                  : '¡Correo verificado! Preparando tu cuenta...'}
               </div>
             )}
 
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm p-3 rounded-xl mb-4 text-center">
-                ✕ {error}
-              </div>
-            )}
+            {error && <div className={styles.alertError}>✕ {error}</div>}
 
-            <form onSubmit={handleVerifySubmit} className="space-y-5">
+            <form onSubmit={handleVerifySubmit} className={styles.formStack}>
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                <label className={styles.fieldLabel}>
                   {isEn ? 'Your Name' : 'Tu Nombre'}
                 </label>
                 <input
@@ -453,15 +477,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   placeholder={
                     isEn ? 'How should we call you?' : '¿Cómo te llamas?'
                   }
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition disabled:opacity-60"
+                  className={styles.inputControl}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-2 text-center">
+                <label className={styles.fieldLabel}>
                   {isEn ? 'Verification Code' : 'Código de Verificación'}
                 </label>
-                <div className="flex justify-center gap-2" onPaste={handleOtpPaste}>
+                <div className={styles.otpRow} onPaste={handleOtpPaste}>
                   {otp.map((digit, index) => (
                     <input
                       key={index}
@@ -475,13 +499,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       value={digit}
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                      className={`w-11 h-12 text-center text-lg font-bold bg-slate-800/80 border rounded-xl text-white focus:outline-none transition disabled:opacity-60 ${
-                        verifyStatus === 'success'
-                          ? 'border-emerald-500 text-emerald-300'
-                          : verifyStatus === 'error'
-                          ? 'border-red-500/70 focus:border-red-500'
-                          : 'border-slate-700 focus:border-orange-500 focus:ring-1 focus:ring-orange-500'
-                      }`}
+                      className={styles.otpInput}
                     />
                   ))}
                 </div>
@@ -490,10 +508,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="submit"
                 disabled={loading || verifyStatus === 'success'}
-                className={`w-full font-semibold py-3 rounded-xl shadow-lg transition disabled:opacity-80 ${
-                  verifyStatus === 'success'
-                    ? 'bg-emerald-600 text-white shadow-emerald-500/20'
-                    : 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-orange-500/20'
+                className={`${styles.submitBtn} ${
+                  verifyStatus === 'success' ? styles.submitBtnSuccess : ''
                 }`}
               >
                 {verifyStatus === 'success'
@@ -510,7 +526,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </button>
             </form>
 
-            <div className="mt-5 text-center text-xs text-slate-400">
+            <div className={styles.footerSwitch}>
               {resendCooldown > 0 ? (
                 <span>
                   {isEn
@@ -522,7 +538,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="button"
                   onClick={handleResendCode}
                   disabled={loading || verifyStatus === 'success'}
-                  className="text-orange-400 hover:text-orange-300 hover:underline font-semibold transition disabled:opacity-50"
+                  className={styles.inlineAction}
                 >
                   {isEn
                     ? "Didn't receive it? Resend code"
@@ -533,16 +549,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         ) : (
           <>
-            <h2 className="text-2xl font-bold text-center mb-2">
+            <span className={styles.kicker}>CEMPA.AI · ACCOUNT</span>
+            <h2 className={styles.title}>
               {isRegistering
                 ? isEn
-                  ? 'Create your cempa.ai account'
-                  : 'Crea tu cuenta en cempa.ai'
+                  ? 'Create your Cempa.ai account'
+                  : 'Crea tu cuenta en Cempa.ai'
                 : isEn
                 ? 'Sign In'
                 : 'Iniciar Sesión'}
             </h2>
-            <p className="text-slate-400 text-sm text-center mb-6">
+            <p className={styles.subtitle}>
               {isRegistering
                 ? isEn
                   ? `Selected plan: ${targetPlan}. Complete sign up to continue.`
@@ -556,9 +573,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               type="button"
               onClick={() => handleGoogleLogin()}
               disabled={loading}
-              className="w-full bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-orange-500/50 text-white font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 transition shadow-sm mb-5 disabled:opacity-50"
+              className={styles.googleBtn}
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <svg width="18" height="18" viewBox="0 0 24 24">
                 <path
                   fill="#EA4335"
                   d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.2 9 5 12 5z"
@@ -579,22 +596,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {isEn ? 'Continue with Google' : 'Continuar con Google'}
             </button>
 
-            <div className="relative flex items-center justify-center mb-5">
-              <div className="border-t border-slate-800 w-full" />
-              <span className="bg-slate-900 px-3 text-xs text-slate-500 uppercase tracking-wider absolute">
+            <div className={styles.divider}>
+              <div className={styles.dividerLine} />
+              <span className={styles.dividerText}>
                 {isEn ? 'or with email' : 'o con tu correo'}
               </span>
             </div>
 
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm p-3 rounded-xl mb-4 text-center">
-                {error}
-              </div>
-            )}
+            {error && <div className={styles.alertError}>{error}</div>}
 
-            <form onSubmit={handleCredentialsSubmit} className="space-y-4">
+            <form onSubmit={handleCredentialsSubmit} className={styles.formStack}>
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                <label className={styles.fieldLabel}>
                   {isEn ? 'Email Address' : 'Correo electrónico'}
                 </label>
                 <input
@@ -604,28 +617,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="tu@correo.com"
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition"
+                  className={styles.inputControl}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                <label className={styles.fieldLabel}>
                   {isEn ? 'Password' : 'Contraseña'}
                 </label>
                 <input
                   type="password"
                   required
-                  autoComplete={isRegistering ? 'new-password' : 'current-password'}
+                  autoComplete={
+                    isRegistering ? 'new-password' : 'current-password'
+                  }
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition"
+                  className={styles.inputControl}
                 />
               </div>
 
               {isRegistering && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className={styles.fieldLabel}>
                     {isEn ? 'Confirm Password' : 'Confirmar Contraseña'}
                   </label>
                   <input
@@ -635,7 +650,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition"
+                    className={styles.inputControl}
                   />
                 </div>
               )}
@@ -643,7 +658,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-orange-500/20 transition disabled:opacity-50 mt-2"
+                className={styles.submitBtn}
               >
                 {loading
                   ? isEn
@@ -659,7 +674,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </button>
             </form>
 
-            <div className="mt-6 text-center text-sm text-slate-400">
+            <div className={styles.footerSwitch}>
               {isRegistering ? (
                 <p>
                   {isEn ? 'Already have an account? ' : '¿Ya tienes cuenta? '}
@@ -669,23 +684,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       setIsRegistering(false);
                       setError('');
                     }}
-                    className="text-orange-400 hover:text-orange-300 hover:underline font-semibold transition"
+                    className={styles.inlineAction}
                   >
                     {isEn ? 'Sign in here' : 'Inicia sesión aquí'}
                   </button>
                 </p>
               ) : (
                 <p>
-                  {isEn
-                    ? "Don't have an account? "
-                    : '¿No tienes cuenta? '}
+                  {isEn ? "Don't have an account? " : '¿No tienes cuenta? '}
                   <button
                     type="button"
                     onClick={() => {
                       setIsRegistering(true);
                       setError('');
                     }}
-                    className="text-orange-400 hover:text-orange-300 hover:underline font-semibold transition"
+                    className={styles.inlineAction}
                   >
                     {isEn ? 'Sign up free' : 'Regístrate gratis'}
                   </button>
