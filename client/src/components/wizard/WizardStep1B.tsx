@@ -3,7 +3,7 @@ import type { WizardData } from "./WizardStep1";
 import { useLanguage } from "../landing/LanguageContext";
 import { useAuth } from "../auth/AuthContext";
 import styles from "./WizardStep1B.module.css";
-import { SCRIPT_TEMPLATES } from "../../constants/templates";
+import { SCRIPT_TEMPLATES } from "../../config/templates";
 
 interface Step1BProps {
   data: WizardData;

@@ -3,7 +3,7 @@ import type { WizardData } from './WizardStep1';
 import { useLanguage } from '../landing/LanguageContext';
 import { useAuth } from '../auth/AuthContext'; // <--- 1. Importamos el AuthContext
 import styles from './WizardStep2.module.css';
-import { STUDIO_LITE_VOICES } from '../../constants/voices';
+import { STUDIO_LITE_VOICES } from '../../config/voices';
 
 interface Step2Props {
   data: WizardData;

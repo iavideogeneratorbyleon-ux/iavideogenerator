@@ -19,7 +19,7 @@ import type {
   MusicStyle,
 } from "../../features/studio-lite/types";
 import { useAuth } from "../auth/AuthContext";
-import { SCRIPT_TEMPLATES } from "../../constants/templates";
+import { SCRIPT_TEMPLATES } from "../../config/templates";
 
 interface WizardContainerProps {
   onClose?: () => void;
