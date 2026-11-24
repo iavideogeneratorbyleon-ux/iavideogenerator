@@ -1,5 +1,6 @@
 import { useTranslation } from '../../hooks/useTranslations';
 import { type LegalDocType } from '../terms-modal/TermsModal';
+import { SUBTITLE_STYLE_OPTIONS } from './StudioLiteWorkspaceWizard';
 import { TermsAcceptanceBox } from './TermsAcceptanceBox';
 import { getPlanWizardPolicy, type PlanTier } from './wizardPlanConfig';
 import { type WizardStepNumber } from './WizardContainer';
@@ -10,6 +11,9 @@ interface WizardStep5Props {
   draft: StudioLiteDraft;
   presetLabel: string;
   visualFormatLabel: string;
+  subtitlesEnabled?: boolean;
+  subtitleStyle?: string;
+  canChooseSubtitleStyle?: boolean;
   planTier?: PlanTier;
   isAuthenticated: boolean;
   acceptedTerms: boolean;
@@ -23,7 +27,10 @@ function WizardStep5({
   draft,
   presetLabel,
   visualFormatLabel,
+  subtitlesEnabled = true,
+  subtitleStyle = 'auto',
   planTier = 'free_trial',
+  canChooseSubtitleStyle = planTier !== 'free_trial',
   isAuthenticated,
   acceptedTerms,
   showTermsError = false,
@@ -34,6 +41,22 @@ function WizardStep5({
   const { t, language } = useTranslation();
   const isSpanish = language === 'es';
   const policy = getPlanWizardPolicy(planTier);
+
+  const selectedSubtitleOption =
+    SUBTITLE_STYLE_OPTIONS.find((item) => item.id === subtitleStyle) ||
+    SUBTITLE_STYLE_OPTIONS[0];
+
+  const subtitleSummaryText = !subtitlesEnabled
+    ? isSpanish
+      ? 'Sin subtítulos'
+      : 'Without subtitles'
+    : canChooseSubtitleStyle
+    ? `${isSpanish ? 'Con subtítulos' : 'With subtitles'} · ${
+        selectedSubtitleOption.label[isSpanish ? 'es' : 'en']
+      }`
+    : isSpanish
+    ? 'Con subtítulos'
+    : 'With subtitles';
 
   return (
     <div className={styles.stepSection}>
@@ -123,6 +146,22 @@ function WizardStep5({
             <span className={styles.summaryValue}>
               {draft.voice} · {draft.durationSec}s
             </span>
+            <button
+              type="button"
+              onClick={() => onJumpToStep(4)}
+              className={styles.editLink}
+            >
+              {isSpanish ? 'Editar' : 'Edit'}
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.summaryItem}>
+          <span className={styles.summaryLabel}>
+            {isSpanish ? 'Subtítulos' : 'Subtitles'}
+          </span>
+          <div className={styles.summaryRight}>
+            <span className={styles.summaryValue}>{subtitleSummaryText}</span>
             <button
               type="button"
               onClick={() => onJumpToStep(4)}

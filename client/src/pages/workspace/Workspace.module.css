@@ -1,0 +1,204 @@
+.workspacePage {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 100dvh;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+}
+
+.workspaceContainer {
+  width: 100%;
+  max-width: 82rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.75rem;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.noticeBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.25rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--border-accent);
+  background-color: var(--bg-prompt);
+  flex-wrap: wrap;
+}
+
+.noticeWarning {
+  border-color: var(--brand-primary);
+}
+
+.noticeText {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+  overflow-wrap: break-word;
+}
+
+.noticeActionBtn {
+  padding: 0.5rem 0.95rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--brand-primary);
+  background-color: var(--brand-primary);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.toolCard {
+  padding: 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-prompt);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.toolHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.toolEyebrow {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-primary);
+  margin-bottom: 0.35rem;
+}
+
+.toolTitle {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.toolSubtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.fieldLabel {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.scriptTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-accent);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.scriptTextarea:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+}
+
+.toolFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.charCounter {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.footerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.primaryBtn {
+  padding: 0.65rem 1.1rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--brand-primary);
+  background-color: var(--brand-primary);
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.secondaryBtn {
+  padding: 0.65rem 1.1rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border-accent);
+  background-color: var(--bg-section-alt);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .workspaceContainer {
+    padding: 1.25rem 1.25rem;
+  }
+}
+
+/* Móvil y tablet vertical */
+@media (max-width: 768px) {
+  .workspaceContainer {
+    padding: 1rem 0.85rem;
+  }
+
+  .toolCard {
+    padding: 1.15rem;
+  }
+
+  .toolTitle {
+    font-size: 1.2rem;
+  }
+
+  .toolFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .footerActions {
+    width: 100%;
+  }
+
+  .footerActions > button {
+    flex: 1 1 auto;
+  }
+}

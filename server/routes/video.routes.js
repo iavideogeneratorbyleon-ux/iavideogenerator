@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const Video = require('../models/Videos');
 const User = require('../models/User');
@@ -24,15 +25,21 @@ router.post('/save', async (req, res) => {
   try {
     const { email, title, mode, aspectRatio, userId, parameters } = req.body;
 
-    let validUserId = userId;
+    let validUserId = null;
     let user = null;
 
-    if (validUserId) {
-      user = await User.findById(validUserId);
+    const candidateId = userId ? String(userId).trim() : '';
+    if (candidateId && mongoose.Types.ObjectId.isValid(candidateId)) {
+      user = await User.findById(candidateId);
+      if (user) validUserId = user._id;
     }
 
-    if (!user && email) {
-      user = await User.findOne({ email });
+    const candidateEmail =
+      (email && String(email).trim().toLowerCase()) ||
+      (candidateId.includes('@') ? candidateId.toLowerCase() : '');
+
+    if (!user && candidateEmail) {
+      user = await User.findOne({ email: candidateEmail });
       if (user) validUserId = user._id;
     }
 
@@ -59,14 +66,14 @@ router.post('/save', async (req, res) => {
       await user.save();
     }
 
-    // Guardar el video asociado con los 6 parámetros dinámicos
+    // Guardar el video asociado con los parámetros dinámicos
     const newVideo = new Video({
       userId: validUserId,
       email: user.email,
       title: title || 'Studio Lite Video',
       mode: mode || 'idea',
       aspectRatio: aspectRatio || parameters?.aspectRatio || '9:16',
-      parameters: parameters || {} // <--- Guardamos todos los parámetros dinámicos en MongoDB
+      parameters: parameters || {}
     });
 
     await newVideo.save();
@@ -77,7 +84,7 @@ router.post('/save', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ ERROR DETALLADO AL GUARDAR VIDEO:', error.message);
-    console.error(error); // <--- Esto imprimirá el rastro exacto en la terminal de tu servidor
+    console.error(error);
     return res.status(500).json({ error: 'Error al guardar el video', details: error.message });
   }
 });
@@ -85,7 +92,7 @@ router.post('/save', async (req, res) => {
 // 2. Obtener los videos del usuario para el Dashboard
 router.get('/:email', async (req, res) => {
   try {
-    const { email } = req.params;
+    const email = String(req.params.email || '').trim().toLowerCase();
     const videos = await Video.find({ email }).sort({ createdAt: -1 });
     return res.status(200).json({ success: true, videos });
   } catch (error) {

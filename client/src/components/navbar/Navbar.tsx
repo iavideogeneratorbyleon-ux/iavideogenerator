@@ -233,6 +233,7 @@ export interface NavbarProps {
   onOpenSignup: () => void;
   onOpenPlansModal: () => void;
   onSignOut: () => void;
+  onGoToDashboard?: () => void;
   workspaceMenu?: WorkspaceHamburgerMenuConfig;
 }
 
@@ -243,6 +244,7 @@ const NAVBAR_COPY = {
     extraGroup: 'Extra Tools',
     plans: 'Plans',
     pricing: 'Pricing',
+    dashboard: 'Dashboard',
     workspace: 'Workspace',
     landing: 'Landing',
     light: 'Light',
@@ -263,6 +265,7 @@ const NAVBAR_COPY = {
     extraGroup: 'Herramientas Extra',
     plans: 'Planes',
     pricing: 'Precios',
+    dashboard: 'Dashboard',
     workspace: 'Workspace',
     landing: 'Inicio',
     light: 'Claro',
@@ -290,6 +293,7 @@ export default function Navbar({
   onOpenSignup,
   onOpenPlansModal,
   onSignOut,
+  onGoToDashboard,
   workspaceMenu,
 }: NavbarProps) {
   const { theme, toggleTheme } = useTheme();
@@ -360,6 +364,18 @@ export default function Navbar({
     setIsProductsOpen(false);
     setIsMobileMenuOpen(false);
     onNavigateSection(section);
+  };
+
+  const handleDashboardClick = () => {
+    setIsProductsOpen(false);
+    setIsMobileMenuOpen(false);
+    if (onGoToDashboard) {
+      onGoToDashboard();
+      return;
+    }
+    if (workspaceMenu) {
+      workspaceMenu.onSelectSection('dashboard');
+    }
   };
 
   return (
@@ -467,10 +483,10 @@ export default function Navbar({
         {isAuthenticated && (
           <button
             type="button"
-            onClick={onToggleView}
+            onClick={handleDashboardClick}
             className={styles.utilityBtn}
           >
-            {activeView === 'landing' ? copy.workspace : copy.landing}
+            {copy.dashboard}
           </button>
         )}
 
@@ -638,7 +654,7 @@ export default function Navbar({
                   type="button"
                   onClick={() => {
                     setIsMobileMenuOpen(false);
-                    workspaceMenu.onSelectSection('dashboard');
+                    handleDashboardClick();
                   }}
                   className={`${styles.mobileListRow} ${
                     workspaceMenu.activeSection === 'dashboard'
@@ -752,15 +768,10 @@ export default function Navbar({
               {isAuthenticated && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    onToggleView();
-                  }}
+                  onClick={handleDashboardClick}
                   className={styles.mobileListRow}
                 >
-                  <span>
-                    {activeView === 'landing' ? copy.workspace : copy.landing}
-                  </span>
+                  <span>{copy.dashboard}</span>
                   <span className={styles.mobileRowChevron}>›</span>
                 </button>
               )}

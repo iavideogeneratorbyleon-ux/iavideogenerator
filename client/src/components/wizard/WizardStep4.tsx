@@ -1,5 +1,10 @@
 import { useTranslation } from '../../hooks/useTranslations';
 import {
+  SUBTITLE_STYLE_OPTIONS,
+  VOICE_OPTIONS,
+  type SubtitleStyleOptionItem,
+} from './StudioLiteWorkspaceWizard';
+import {
   getPlanWizardPolicy,
   type AllowedDurationSec,
 } from './wizardPlanConfig';
@@ -11,9 +16,15 @@ interface WizardStep4Props {
   voice: string;
   durationSec: number;
   planTier: PlanTier;
+  subtitlesEnabled?: boolean;
+  subtitleStyle?: string;
+  canChooseSubtitleStyle?: boolean;
+  subtitleStyles?: SubtitleStyleOptionItem[];
   onAspectRatioChange: (ratio: WizardAspectRatio) => void;
   onVoiceChange: (voice: string) => void;
   onDurationChange: (duration: number) => void;
+  onSubtitlesEnabledChange?: (enabled: boolean) => void;
+  onSubtitleStyleChange?: (styleId: string) => void;
 }
 
 const ALL_DURATIONS: AllowedDurationSec[] = [30, 60, 90];
@@ -23,27 +34,34 @@ function WizardStep4({
   voice,
   durationSec,
   planTier,
+  subtitlesEnabled = true,
+  subtitleStyle = 'auto',
+  canChooseSubtitleStyle = planTier !== 'free_trial',
+  subtitleStyles = SUBTITLE_STYLE_OPTIONS,
   onAspectRatioChange,
   onVoiceChange,
   onDurationChange,
+  onSubtitlesEnabledChange,
+  onSubtitleStyleChange,
 }: WizardStep4Props) {
   const { t, language } = useTranslation();
   const isSpanish = language === 'es';
   const policy = getPlanWizardPolicy(planTier);
   const allowedSet = new Set<number>(policy.allowedDurationsSec);
+  const allowProVoices = planTier !== 'free_trial';
 
   return (
     <div className={styles.stepSection}>
       <div>
         <h3 className={styles.stepTitle}>
           {isSpanish
-            ? '4. Define encuadre, voz y duración'
-            : '4. Set framing, voice, and duration'}
+            ? '4. Define encuadre, voz, subtítulos y duración'
+            : '4. Set framing, voice, subtitles, and duration'}
         </h3>
         <p className={styles.stepHint}>
           {isSpanish
-            ? 'Ajusta la proporción visual y la narración antes de revisar el resumen.'
-            : 'Adjust visual aspect ratio and narration before reviewing the summary.'}
+            ? 'Ajusta la proporción visual, narración, subtítulos y duración antes de revisar el resumen.'
+            : 'Adjust visual aspect ratio, narration, subtitles, and duration before reviewing the summary.'}
         </p>
       </div>
 
@@ -96,9 +114,23 @@ function WizardStep4({
             onChange={(e) => onVoiceChange(e.target.value)}
             className={styles.selectField}
           >
-            <option value="Warm Narrator">Warm Narrator</option>
-            <option value="Dynamic Host">Dynamic Host</option>
-            <option value="Calm Storyteller">Calm Storyteller</option>
+            {VOICE_OPTIONS.map((voiceItem) => {
+              const isVoiceAllowed =
+                voiceItem.tier === 'free' || allowProVoices;
+              return (
+                <option
+                  key={voiceItem.id}
+                  value={voiceItem.id}
+                  disabled={!isVoiceAllowed}
+                >
+                  {isVoiceAllowed
+                    ? voiceItem.label[isSpanish ? 'es' : 'en']
+                    : `${voiceItem.label[isSpanish ? 'es' : 'en']} (${
+                        isSpanish ? 'Plan+' : 'Plan+'
+                      })`}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -126,6 +158,55 @@ function WizardStep4({
             })}
           </select>
         </div>
+      </div>
+
+      <div className={styles.controlsGrid}>
+        <div>
+          <label
+            htmlFor="wizard-step4-subtitles"
+            className={styles.groupLabel}
+          >
+            {isSpanish ? 'Subtítulos' : 'Subtitles'}
+          </label>
+          <select
+            id="wizard-step4-subtitles"
+            value={subtitlesEnabled ? 'enabled' : 'disabled'}
+            onChange={(e) =>
+              onSubtitlesEnabledChange?.(e.target.value === 'enabled')
+            }
+            className={styles.selectField}
+          >
+            <option value="enabled">
+              {isSpanish ? 'Con subtítulos' : 'With subtitles'}
+            </option>
+            <option value="disabled">
+              {isSpanish ? 'Sin subtítulos' : 'Without subtitles'}
+            </option>
+          </select>
+        </div>
+
+        {canChooseSubtitleStyle && subtitlesEnabled && (
+          <div>
+            <label
+              htmlFor="wizard-step4-subtitle-style"
+              className={styles.groupLabel}
+            >
+              {isSpanish ? 'Estilo de subtítulos' : 'Subtitle style'}
+            </label>
+            <select
+              id="wizard-step4-subtitle-style"
+              value={subtitleStyle}
+              onChange={(e) => onSubtitleStyleChange?.(e.target.value)}
+              className={styles.selectField}
+            >
+              {subtitleStyles.map((styleOpt) => (
+                <option key={styleOpt.id} value={styleOpt.id}>
+                  {styleOpt.label[isSpanish ? 'es' : 'en']}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
     </div>
   );
