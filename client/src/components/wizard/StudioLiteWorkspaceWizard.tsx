@@ -672,6 +672,8 @@ function StudioLiteWorkspaceWizard({
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [acceptedTerms, setAcceptedTerms] = useState<boolean>(false);
   const [showTermsError, setShowTermsError] = useState<boolean>(false);
+  const [acceptedAiDisclaimer, setAcceptedAiDisclaimer] = useState<boolean>(false);
+  const [showAiDisclaimerError, setShowAiDisclaimerError] = useState<boolean>(false);
   const [termsModalType, setTermsModalType] = useState<LegalDocType>('terms');
   const [isTermsModalOpen, setIsTermsModalOpen] = useState<boolean>(false);
 
@@ -794,6 +796,7 @@ function StudioLiteWorkspaceWizard({
           subtitleStyle: resolvedSubtitleStyle,
           plan: normalizedPlan,
           acceptedTerms: true,
+          acceptedAiDisclaimer: true,
           meta: {
             jobId,
             userId,
@@ -895,6 +898,8 @@ function StudioLiteWorkspaceWizard({
         setWizardState(resetState);
         setAcceptedTerms(false);
         setShowTermsError(false);
+        setAcceptedAiDisclaimer(false);
+        setShowAiDisclaimerError(false);
 
         setIsProcessing(false);
         onGenerationCompleted?.({
@@ -982,12 +987,17 @@ function StudioLiteWorkspaceWizard({
       return;
     }
 
-    if (!acceptedTerms) {
-      setShowTermsError(true);
+    if (!acceptedTerms || !acceptedAiDisclaimer) {
+      if (!acceptedTerms) {
+        setShowTermsError(true);
+      }
+      if (!acceptedAiDisclaimer) {
+        setShowAiDisclaimerError(true);
+      }
       setValidationError(
         lang === 'es'
-          ? 'Debes aceptar los Términos de Servicio y la Política de Generación de Contenido con IA antes de generar.'
-          : 'You must accept the Terms of Service and AI Content Generation Policy before generating.'
+          ? 'Debes aceptar los Términos de Servicio, la Política de Generación de Contenido con IA y la variabilidad de duración y resultados antes de generar.'
+          : 'You must accept the Terms of Service, AI Content Generation Policy, and duration/output variability policy before generating.'
       );
       return;
     }
@@ -1142,12 +1152,25 @@ function StudioLiteWorkspaceWizard({
                 planTier={normalizedPlan}
                 isAuthenticated={isAuthenticated}
                 acceptedTerms={acceptedTerms}
+                acceptedAiDisclaimer={acceptedAiDisclaimer}
                 showTermsError={showTermsError}
+                showAiDisclaimerError={showAiDisclaimerError}
                 onAcceptedTermsChange={(checked) => {
                   setAcceptedTerms(checked);
                   if (checked) {
                     setShowTermsError(false);
-                    setValidationError('');
+                    if (acceptedAiDisclaimer) {
+                      setValidationError('');
+                    }
+                  }
+                }}
+                onAcceptedAiDisclaimerChange={(checked) => {
+                  setAcceptedAiDisclaimer(checked);
+                  if (checked) {
+                    setShowAiDisclaimerError(false);
+                    if (acceptedTerms) {
+                      setValidationError('');
+                    }
                   }
                 }}
                 onOpenLegalDoc={(docType) => {
@@ -1170,7 +1193,9 @@ function StudioLiteWorkspaceWizard({
         onAccept={() => {
           setAcceptedTerms(true);
           setShowTermsError(false);
-          setValidationError('');
+          if (acceptedAiDisclaimer) {
+            setValidationError('');
+          }
         }}
       />
     </div>
