@@ -1,199 +1,125 @@
-@reference "../../index.css";
-
-.stepContainer {
+.stepSection {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  flex: 1;
+  gap: 1.25rem;
 }
 
-.contentSection {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-@media (min-width: 768px) {
-  .contentSection {
-    gap: 2rem;
-  }
-}
-
-.headingTitle {
-  font-size: 1.25rem;
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  margin-bottom: 0.5rem;
-  color: var(--color-text-main, #F8FAFC);
-}
-
-@media (min-width: 768px) {
-  .headingTitle {
-    font-size: 1.875rem;
-  }
-}
-
-.headingSub {
-  font-size: 0.75rem;
-  color: var(--color-text-muted, #94A3B8);
-  line-height: 1.6;
-}
-
-@media (min-width: 768px) {
-  .headingSub {
-    font-size: 0.875rem;
-  }
-}
-
-/* Lista de Voces */
-.voicesList {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.voiceCard {
-  padding: 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  transition: all 0.2s ease;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 0.5rem;
-  background-color: rgba(11, 15, 25, 0.5);
-}
-
-.voiceCard:hover {
-  background-color: var(--color-bg-surface, #1E293B);
-  border-color: rgba(148, 163, 184, 0.3);
-}
-
-.voiceCardSelected {
-  background-color: var(--color-bg-surface, #1E293B);
-  border-color: var(--color-brand-primary, #FF6B00);
-  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.1);
-  box-shadow: 0 0 0 1px var(--color-brand-primary, #FF6B00);
-}
-
-.voiceHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-}
-
-.voiceInfoGroup {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.voiceName {
-  font-size: 0.875rem;
+.stepTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
   font-weight: 700;
-  color: var(--color-text-main, #F8FAFC);
+  color: var(--text-primary);
 }
 
-.voiceAccentBadge {
-  font-size: 0.625rem;
-  background-color: var(--color-bg-surface, #1E293B);
-  color: var(--color-text-muted, #94A3B8);
-  padding: 0.125rem 0.5rem;
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.stepHint {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
 }
 
-.radioCircle {
-  width: 1rem;
-  height: 1rem;
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+.cardsGrid {
+  display: grid;
+  gap: 1rem;
 }
 
-.radioCircleSelected {
-  border-color: var(--color-brand-primary, #FF6B00);
-  background-color: var(--color-brand-primary, #FF6B00);
-}
-
-.radioDot {
-  width: 0.375rem;
-  height: 0.375rem;
-  background-color: #ffffff;
-  border-radius: 9999px;
-}
-
-.voiceDesc {
-  font-size: 0.75rem;
-  color: var(--color-text-muted, #94A3B8);
-  line-height: 1.4;
-}
-
-/* Footer / Navegación */
-.footerAction {
-  padding-top: 1.5rem;
-  margin-top: 2rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.backBtn {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-text-muted, #94A3B8);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 0.75rem 1rem;
-  transition: color 0.2s ease;
-}
-
-.backBtn:hover {
-  color: var(--color-text-main, #F8FAFC);
-}
-
-.nextBtn {
-  width: 100%;
-  background-color: var(--color-brand-primary, #FF6B00);
-  color: #ffffff;
-  font-weight: 600;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 20px rgba(255, 107, 0, 0.2);
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  border: none;
-  font-size: 0.875rem;
-}
-
-@media (min-width: 768px) {
-  .nextBtn {
-    width: auto;
-    min-width: 180px;
+@media (min-width: 640px) {
+  .cardsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-.nextBtn:hover:not(:disabled) {
-  background-color: #e05e00;
+.optionCard {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  border-radius: 1rem;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-card);
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
 
-.nextBtn:disabled {
-  opacity: 0.5;
+.optionCard:hover:not(.optionCardLocked) {
+  transform: translateY(-2px);
+  border-color: var(--border-accent);
+}
+
+.optionCardSelected {
+  border-color: var(--brand-primary);
+  background-color: color-mix(in srgb, var(--brand-primary) 11%, var(--bg-card));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-primary) 24%, transparent);
+}
+
+.optionCardLocked {
+  opacity: 0.62;
   cursor: not-allowed;
 }
 
-.iconSvg {
-  width: 1rem;
-  height: 1rem;
+.previewBox {
+  position: relative;
+  height: 6.5rem;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-subtle);
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--brand-primary) 65%, #161310),
+    color-mix(in srgb, var(--brand-amber) 35%, #12100e)
+  );
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.5rem;
+}
+
+.previewImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.badgePill {
+  position: relative;
+  z-index: 1;
+  border-radius: 9999px;
+  background-color: rgba(16, 14, 12, 0.8);
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #fff8ed;
+}
+
+.lockedTag {
+  position: relative;
+  z-index: 1;
+  border-radius: 9999px;
+  border: 1px solid var(--brand-primary);
+  background-color: rgba(24, 16, 10, 0.88);
+  padding: 0.2rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--brand-primary);
+}
+
+.cardTitle {
+  margin-top: 0.7rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cardDesc {
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
 }

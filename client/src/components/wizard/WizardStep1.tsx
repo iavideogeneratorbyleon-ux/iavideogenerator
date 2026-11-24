@@ -1,258 +1,80 @@
-import React from 'react';
-import { useLanguage } from '../landing/LanguageContext';
-import { useAuth } from '../auth/AuthContext';
+import { useTranslation } from '../../hooks/useTranslations';
+import { type WizardInputMode } from './wizardStorage';
 import styles from './WizardStep1.module.css';
 
-export type WizardData = {
-  mode?: 'idea' | 'script';
-  scriptIdea: string;
-  visualPrompt?: string;
-  introHook?: string;
-  outroCta?: string;
-  tone: string;
-  voiceId?: string;
-  aspectRatio?: string;
-  visualStyle?: string;
-  musicStyle?: 'none' | 'lofi' | 'epic' | 'upbeat' | 'tech';
-  subtitles: boolean;
-};
-
-interface Step1Props {
-  data: WizardData;
-  onUpdate: (fields: Partial<WizardData>) => void;
-  onNext: () => void;
-  wizardMode?: 'lite' | 'pro';
+interface WizardStep1Props {
+  mode: WizardInputMode;
+  prompt: string;
+  onModeChange: (mode: WizardInputMode) => void;
+  onPromptChange: (value: string) => void;
 }
 
-export default function WizardStep1({ 
-  data, 
-  onUpdate, 
-  onNext, 
-  wizardMode = 'lite' 
-}: Step1Props) {
-  const { t, lang } = useLanguage();
-  const { user } = useAuth();
-
-  // AI Idea Generator es activo para todos los planes (incluido free_trial); My Own Script en planes de pago o wizardMode === 'pro'
-  const isPaidPlan = ['pro', 'unlimited', 'pay_per_video'].includes((user as any)?.plan);
-  const canUseOwnScript = wizardMode === 'pro' || isPaidPlan;
-  const currentMode = canUseOwnScript ? (data.mode || 'idea') : 'idea';
-
-  const tones = [
-    { 
-      id: 'professional', 
-      label: lang === 'en' ? 'Professional' : 'Profesional', 
-      desc: lang === 'en' ? 'Serious, clear, and business-focused' : 'Serio, claro y enfocado en negocios' 
-    },
-    { 
-      id: 'dynamic', 
-      label: lang === 'en' ? 'Dynamic' : 'Dinámico', 
-      desc: lang === 'en' ? 'Fast-paced, entertaining, and high energy' : 'Rápido, entretenido y con ritmo alto' 
-    },
-    { 
-      id: 'casual', 
-      label: lang === 'en' ? 'Casual' : 'Casual', 
-      desc: lang === 'en' ? 'Approachable, friendly, and conversational' : 'Cercano, amigable y conversacional' 
-    },
-  ];
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (data.scriptIdea.trim()) {
-      onNext();
-    }
-  };
+function WizardStep1({
+  mode,
+  prompt,
+  onModeChange,
+  onPromptChange,
+}: WizardStep1Props) {
+  const { t, language } = useTranslation();
+  const isSpanish = language === 'es';
 
   return (
-    <form onSubmit={handleSubmit} className={styles.formContainer}>
-      <div className={styles.contentSection}>
-        
-        <div>
-          <h1 className={styles.headingTitle}>
-            {t('step1_title')}
-          </h1>
-          <p className={styles.headingSub}>
-            {t('step1_sub')}
-          </p>
-        </div>
-
-        {/* SELECTOR DE MÉTODO DE CREACIÓN */}
-        <div className={styles.inputGroup}>
-          <label className={styles.inputLabel}>
-            {lang === 'en' ? 'Select Creation Method' : 'Selecciona el método de creación'}
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            
-            {/* Opción 1: Generar desde idea (Habilitada en todos los planes incluido free_trial) */}
-            <button
-              type="button"
-              onClick={() => onUpdate({ mode: 'idea' })}
-              style={{
-                background: currentMode === 'idea' ? 'rgba(255, 107, 0, 0.15)' : 'rgba(30, 41, 59, 0.5)',
-                border: `1px solid ${currentMode === 'idea' ? 'var(--color-brand-primary, #FF6B00)' : 'rgba(255, 255, 255, 0.08)'}`,
-                color: currentMode === 'idea' ? 'var(--color-brand-primary, #FF6B00)' : 'var(--color-text-muted, #94A3B8)',
-                padding: '0.75rem',
-                borderRadius: '0.75rem',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                textAlign: 'center',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              {lang === 'en' ? '💡 AI Idea Generator' : '💡 Generar desde Idea'}
-            </button>
-
-            {/* Opción 2: Guion propio (Habilitada en planes de pago / Studio Pro) */}
-            <button
-              type="button"
-              disabled={!canUseOwnScript}
-              onClick={() => canUseOwnScript && onUpdate({ mode: 'script' })}
-              title={!canUseOwnScript ? (lang === 'en' ? 'Available in paid plans' : 'Disponible en planes de pago') : undefined}
-              style={{
-                background: currentMode === 'script' 
-                  ? 'rgba(255, 107, 0, 0.15)' 
-                  : canUseOwnScript 
-                    ? 'rgba(30, 41, 59, 0.5)' 
-                    : 'rgba(30, 41, 59, 0.25)',
-                border: `1px solid ${currentMode === 'script' ? 'var(--color-brand-primary, #FF6B00)' : 'rgba(255, 255, 255, 0.08)'}`,
-                color: canUseOwnScript 
-                  ? (currentMode === 'script' ? 'var(--color-brand-primary, #FF6B00)' : 'var(--color-text-muted, #94A3B8)') 
-                  : '#64748B',
-                padding: '0.75rem',
-                borderRadius: '0.75rem',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                cursor: canUseOwnScript ? 'pointer' : 'not-allowed',
-                textAlign: 'center',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.35rem',
-                opacity: canUseOwnScript ? 1 : 0.6
-              }}
-            >
-              <span>{lang === 'en' ? '📝 My Own Script' : '📝 Tengo mi Guion'}</span>
-              {!canUseOwnScript && (
-                <span style={{ 
-                  background: '#FF6B00', 
-                  color: '#FFF', 
-                  fontSize: '0.65rem', 
-                  padding: '0.1rem 0.35rem', 
-                  borderRadius: '0.25rem',
-                  fontWeight: 800,
-                  marginLeft: '0.2rem'
-                }}>
-                  PRO 🔒
-                </span>
-              )}
-            </button>
-
-          </div>
-        </div>
-
-        {/* MODO A: GENERAR DESDE IDEA GENERAL (Todos los planes) */}
-        {currentMode === 'idea' ? (
-          <div className={styles.inputGroup}>
-            <label className={styles.inputLabel}>
-              {t('step1_input_label')}
-            </label>
-            <textarea
-              rows={4}
-              value={data.scriptIdea}
-              onChange={(e) => onUpdate({ scriptIdea: e.target.value })}
-              placeholder={t('step1_placeholder')}
-              className={styles.textareaField}
-              required
-            />
-            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted, #94A3B8)', marginTop: '0.25rem', display: 'block' }}>
-              {lang === 'en' 
-                ? '✨ Our AI will write the script, handle scene transitions, and sync the audio.' 
-                : '✨ Nuestra IA redactará el guion, gestionará las escenas y sincronizará el audio.'}
-            </span>
-          </div>
-        ) : (
-          /* MODO B: GUION PROPIO + PROMPT DIRECCIÓN VISUAL (Planes de pago / Studio Pro) */
-          <>
-            <div className={styles.inputGroup}>
-              <label className={styles.inputLabel}>
-                {lang === 'en' ? '1. Paste your exact script or dialogue:' : '1. Pega tu guion o diálogo exacto:'}
-              </label>
-              <textarea
-                rows={4}
-                value={data.scriptIdea}
-                onChange={(e) => onUpdate({ scriptIdea: e.target.value })}
-                placeholder={lang === 'en' ? 'E.g., [Narrator]: Welcome back to the channel. Today we talk about...' : 'Ej., [Narrador]: Bienvenidos al canal. Hoy hablaremos sobre...'}
-                className={styles.textareaField}
-                required
-              />
-            </div>
-
-            <div className={styles.inputGroup} style={{ marginTop: '1rem' }}>
-              <label className={styles.inputLabel}>
-                {lang === 'en' ? '2. Visual context / idea for the scenes (Optional):' : '2. Contexto de la idea / Dirección visual (Opcional):'}
-              </label>
-              <textarea
-                rows={2}
-                value={data.visualPrompt || ''}
-                onChange={(e) => onUpdate({ visualPrompt: e.target.value })}
-                placeholder={lang === 'en' ? 'E.g., Show 3D golden spirals, mathematical formulas floating in dark space...' : 'Ej., Muestra espirales doradas 3D, fórmulas matemáticas flotando en el espacio oscuro...'}
-                className={styles.textareaField}
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted, #94A3B8)', marginTop: '0.25rem', display: 'block' }}>
-                {lang === 'en'
-                  ? '🎨 Describe the imagery you want the AI to generate while your script plays.'
-                  : '🎨 Describe las imágenes que quieres que la IA genere mientras suena tu guion.'}
-              </span>
-            </div>
-          </>
-        )}
-
-        {/* SELECTOR DE TONO */}
-        <div className={styles.inputGroup}>
-          <label className={styles.inputLabel}>
-            {t('step1_tone_label')}
-          </label>
-          <div className={styles.tonesGrid}>
-            {tones.map((tone) => {
-              const isSelected = data.tone === tone.id;
-              return (
-                <button
-                  key={tone.id}
-                  type="button"
-                  onClick={() => onUpdate({ tone: tone.id })}
-                  className={`${styles.toneCard} ${isSelected ? styles.toneCardSelected : ''}`}
-                >
-                  <div className={styles.toneHeader}>
-                    <span className={styles.toneTitle}>{tone.label}</span>
-                    <span
-                      className={`${styles.radioCircle} ${isSelected ? styles.radioCircleSelected : ''}`}
-                    >
-                      {isSelected && <span className={styles.radioDot} />}
-                    </span>
-                  </div>
-                  <p className={styles.toneDesc}>{tone.desc}</p>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+    <div className={styles.stepSection}>
+      <div>
+        <h3 className={styles.stepTitle}>
+          {isSpanish
+            ? '1. Define tu idea o guion inicial'
+            : '1. Define your starting idea or script'}
+        </h3>
+        <p className={styles.stepHint}>
+          {isSpanish
+            ? 'Puedes partir de un concepto breve o pegar un guion ya redactado.'
+            : 'Start from a short concept or paste a ready-to-use script.'}
+        </p>
       </div>
 
-      <div className={styles.footerAction}>
+      <div className={styles.modeGroup} role="group" aria-label="Input mode">
         <button
           type="button"
-          disabled={!data.scriptIdea.trim()}
-          onClick={handleSubmit}
-          className={styles.submitBtn}
+          onClick={() => onModeChange('idea')}
+          className={`${styles.modeButton} ${
+            mode === 'idea' ? styles.modeButtonActive : ''
+          }`}
         >
-          {t('step1_next_btn')}
-          <svg className={styles.iconSvg} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-          </svg>
+          {t.studioLite.modeIdea}
+        </button>
+        <button
+          type="button"
+          onClick={() => onModeChange('script')}
+          className={`${styles.modeButton} ${
+            mode === 'script' ? styles.modeButtonActive : ''
+          }`}
+        >
+          {t.studioLite.modeScript}
         </button>
       </div>
-    </form>
+
+      <div>
+        <label htmlFor="wizard-step1-prompt" className={styles.fieldLabel}>
+          {mode === 'idea'
+            ? t.studioLite.promptPlaceholderIdea
+            : t.studioLite.promptPlaceholderScript}
+        </label>
+        <textarea
+          id="wizard-step1-prompt"
+          value={prompt}
+          onChange={(e) => onPromptChange(e.target.value)}
+          placeholder={
+            mode === 'idea'
+              ? t.studioLite.promptPlaceholderIdea
+              : t.studioLite.promptPlaceholderScript
+          }
+          className={styles.promptInput}
+        />
+      </div>
+    </div>
   );
 }
+
+export { WizardStep1, type WizardStep1Props };
+export default WizardStep1;

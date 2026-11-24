@@ -1,417 +1,185 @@
-@reference "../../index.css";
-
-.wrapper {
-  min-height: 100vh;
-  background-color: var(--color-bg-main, #0B0F19);
-  color: var(--color-text-main, #F8FAFC);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  font-family: var(--font-sans, system-ui, sans-serif);
-}
-
-/* En tu WizardContainer.module.css para pantallas móviles */
-@media (max-width: 768px) {
-  .wrapper {
-    align-items: flex-start !important; /* Fuerza a que el modal comience desde el encabezado en móvil */
-    justify-content: flex-start !important;
-    overflow-y: auto;
-    padding-top: 1rem;
-  }
-
-  .leftColumn {
-    justify-content: flex-start !important; /* Empieza el contenido desde la cabecera */
-    padding-top: 1rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .wrapper {
-    padding: 2.5rem;
-  }
-}
-
-.cardContainer {
-  position: relative;
-  width: 100%;
-  min-height: 100vh;
-  overflow: hidden;
+.workspaceShell {
+  border-radius: 1.25rem;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  background-color: var(--bg-card, #111827);
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
+  gap: 1.5rem;
+  box-shadow: 0 20px 44px -24px rgba(0, 0, 0, 0.55);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  padding-bottom: 1.1rem;
 }
 
 @media (min-width: 768px) {
-  .cardContainer {
-    min-height: 0;
-    max-width: 64rem;
-    background-color: var(--color-bg-surface, #1E293B);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 1rem;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  .header {
     flex-direction: row;
-  }
-}
-
-/* Botón 'X' para versión Desktop (Forzado a ocultarse en móvil con !important para evitar caché) */
-.closeBtn {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 1rem;
-  color: #9ca3af;
-  cursor: pointer;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  z-index: 20;
-}
-
-.closeBtn:hover {
-  background-color: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.3);
-}
-
-/* Contenedor Izquierda: Wizard Steps */
-.leftColumn {
-  flex: 1;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-@media (min-width: 640px) {
-  .leftColumn {
-    padding: 1.5rem;
-  }
-}
-
-@media (min-width: 768px) {
-  .leftColumn {
-    padding: 2.5rem;
-  }
-}
-
-.progressHeader {
-  margin-bottom: 1.5rem;
-}
-
-@media (min-width: 768px) {
-  .progressHeader {
-    margin-bottom: 2rem;
-  }
-}
-
-.progressTopRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
-}
-
-.stepInfoGroup {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.backBtn {
-  font-size: 0.75rem;
-  color: var(--color-text-muted, #94A3B8);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-right: 0.5rem;
-  transition: color 0.2s ease;
-}
-
-.backBtn:hover {
-  color: var(--color-brand-primary, #FF6B00);
-}
-
-.stepBadge {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: var(--color-brand-primary, #FF6B00);
-  text-transform: uppercase;
-}
-
-.progressPercent {
-  font-size: 0.75rem;
-  color: var(--color-text-muted, #94A3B8);
-  font-weight: 500;
-}
-
-.progressBarTrack {
-  width: 100%;
-  background-color: var(--color-bg-main, #0B0F19);
-  height: 0.5rem;
-  border-radius: 9999px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.03);
-}
-
-.progressBarFill {
-  background-color: var(--color-brand-primary, #FF6B00);
-  height: 100%;
-  transition: width 0.5s cubic-bezier(0, 0, 0.2, 1);
-}
-
-/* Columna Derecha: Resumen en Vivo */
-.rightColumn {
-  display: none;
-}
-
-@media (min-width: 768px) {
-  .rightColumn {
-    display: flex;
-    width: 20rem;
-    background-color: rgba(11, 15, 25, 0.6);
-    border-left: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 1.5rem;
-    flex-direction: column;
+    align-items: flex-start;
     justify-content: space-between;
   }
 }
 
-@media (min-width: 1024px) {
-  .rightColumn {
-    width: 24rem;
-    padding: 2rem;
-  }
-}
-
-.summaryContent {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.summaryBadge {
-  font-size: 0.625rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--color-brand-primary, #FF6B00);
-  background-color: rgba(255, 107, 0, 0.1);
-  padding: 0.25rem 0.625rem;
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 107, 0, 0.2);
-  display: inline-block;
-}
-
-.summaryTitle {
-  font-size: 1.125rem;
+.eyebrow {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
   font-weight: 700;
-  color: var(--color-text-main, #F8FAFC);
-  margin-top: 0.75rem;
-}
-
-.summarySub {
-  font-size: 0.75rem;
-  color: var(--color-text-muted, #94A3B8);
-}
-
-.summaryCard {
-  background-color: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.75rem;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.summaryCardLabel {
-  font-size: 0.625rem;
-  font-weight: 600;
-  color: var(--color-text-muted, #94A3B8);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  color: var(--brand-primary, #ff7a00);
 }
 
-.summaryCardValue {
+.title {
+  margin: 0.25rem 0 0;
+  font-family: var(--font-display, inherit);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary, #f8fafc);
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.planBadge {
+  align-self: flex-start;
+  border-radius: 9999px;
+  border: 1px solid var(--border-accent, rgba(255, 122, 0, 0.45));
+  background-color: color-mix(
+    in srgb,
+    var(--brand-primary, #ff7a00) 14%,
+    transparent
+  );
+  padding: 0.3rem 0.75rem;
+  font-family: var(--font-mono, monospace);
   font-size: 0.75rem;
-  color: var(--color-text-main, #F8FAFC);
-  line-height: 1.6;
+  font-weight: 700;
+  color: var(--brand-primary, #ff7a00);
+  white-space: nowrap;
 }
 
-.summaryGrid {
+.stepper {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
-.summarySubCard {
-  background-color: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.75rem;
-  padding: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+@media (min-width: 768px) {
+  .stepper {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 
-.summaryCard.summaryCardActive,
-.summarySubCard.summarySubCardActive {
-  border-color: var(--color-brand-primary, #FF6B00);
-  background-color: rgba(255, 107, 0, 0.14);
-  box-shadow: 0 0 0 1px rgba(255, 107, 0, 0.35);
-}
-
-.highlightValue {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--color-brand-primary, #FF6B00);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.summaryFooter {
-  padding-top: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  text-align: center;
-}
-
-.footerText {
-  font-size: 0.625rem;
-  color: var(--color-text-muted, #94A3B8);
-}
-
-/* Contenedor de salida para Móvil (Oculto en Desktop por defecto) */
-.mobileExitContainer {
-  display: none;
-}
-
-/* Modal de confirmación en Dark Mode */
-.confirmModalBackdrop {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(6px);
+.stepBtn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  z-index: 100;
-}
-
-.confirmModalBox {
-  background: #18181b;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1rem;
-  padding: 1.75rem;
-  max-width: 380px;
-  width: 100%;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  background-color: var(--bg-page, #0b0f19);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+  cursor: pointer;
   text-align: left;
+  transition: border-color 140ms ease, background-color 140ms ease,
+    color 140ms ease;
 }
 
-.confirmTitle {
-  font-size: 1.15rem;
+.stepBtn:hover {
+  border-color: var(--border-accent, rgba(255, 122, 0, 0.45));
+  color: var(--text-primary, #f8fafc);
+}
+
+.stepBtnDone {
+  border-color: color-mix(
+    in srgb,
+    var(--brand-primary, #ff7a00) 40%,
+    var(--border-subtle, rgba(255, 255, 255, 0.12))
+  );
+  color: var(--text-primary, #f8fafc);
+}
+
+.stepBtnActive {
+  border-color: var(--brand-primary, #ff7a00);
+  background-color: color-mix(
+    in srgb,
+    var(--brand-primary, #ff7a00) 16%,
+    var(--bg-page, #0b0f19)
+  );
+  color: var(--text-primary, #f8fafc);
+}
+
+.stepIndex {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
   font-weight: 700;
-  color: #f3f4f6;
-  margin-bottom: 0.5rem;
+  color: var(--brand-primary, #ff7a00);
 }
 
-.confirmSub {
-  font-size: 0.9rem;
-  color: #9ca3af;
-  line-height: 1.4;
-  margin-bottom: 1.5rem;
+.stepName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.confirmActions {
+.contentArea {
+  min-height: 13rem;
+}
+
+.footerBar {
   display: flex;
-  gap: 0.75rem;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  padding-top: 1.15rem;
 }
 
-.cancelExitBtn {
-  background-color: rgba(255, 255, 255, 0.08);
-  color: #d1d5db;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 0.6rem 1rem;
+.backBtn {
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  background-color: var(--bg-page, #0b0f19);
+  padding: 0.65rem 1.2rem;
   font-size: 0.875rem;
   font-weight: 600;
-  border-radius: 0.5rem;
+  color: var(--text-primary, #f8fafc);
   cursor: pointer;
-  flex: 1;
-  transition: all 0.2s;
 }
 
-.cancelExitBtn:hover {
-  background-color: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+.backBtn:hover:not(:disabled) {
+  border-color: var(--brand-primary, #ff7a00);
 }
 
-.confirmExitBtn {
-  background-color: #f97316;
-  color: #ffffff;
+.backBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nextBtn {
   border: none;
-  padding: 0.6rem 1rem;
+  border-radius: 0.75rem;
+  background-image: linear-gradient(
+    90deg,
+    var(--brand-primary, #ff7a00),
+    var(--brand-primary-hover, #e56a00)
+  );
+  padding: 0.7rem 1.4rem;
   font-size: 0.875rem;
-  font-weight: 600;
-  border-radius: 0.5rem;
+  font-weight: 700;
+  color: #ffffff;
   cursor: pointer;
-  flex: 1;
-  transition: background 0.2s;
+  box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--brand-primary, #ff7a00) 65%, transparent);
 }
 
-.confirmExitBtn:hover {
-  background-color: #ea580c;
-}
-
-/* Reglas Responsivas para Móvil (Pantallas menores a 768px) */
-@media (max-width: 768px) {
-  /* Ocultamos rotundamente la 'X' superior en celulares */
-  .closeBtn {
-    display: none !important;
-  }
-
-  /* Mostramos el contenedor inferior */
-  .mobileExitContainer {
-    display: block !important;
-    margin-top: 1.25rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    width: 100%;
-  }
-
-  /* Estilo sólido y formal de botón para móvil */
-  .mobileExitBtn {
-    display: block;
-    width: 100%;
-    background-color: rgba(239, 68, 68, 0.1);
-    color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.25);
-    padding: 0.75rem 1rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    border-radius: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-align: center;
-  }
-
-  .mobileExitBtn:hover {
-    background-color: rgba(239, 68, 68, 0.2);
-    color: #ffffff;
-    border-color: rgba(239, 68, 68, 0.4);
-  }
+.nextBtn:hover {
+  filter: brightness(1.06);
 }

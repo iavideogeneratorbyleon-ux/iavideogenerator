@@ -1,636 +1,110 @@
-import { useState } from "react";
-import { useLanguage } from "../landing/LanguageContext";
-import WizardStep1, { type WizardData } from "./WizardStep1";
-import WizardStep1B from "./WizardStep1B";
-import WizardStep2 from "./WizardStep2";
-import WizardStep3 from "./WizardStep3";
-import WizardStep4 from "./WizardStep4";
-import WizardStep5 from "./WizardStep5";
-import WizardProcessingStep from "./WizardProcessingStep";
-import styles from "./WizardContainer.module.css";
+import { type ReactNode } from 'react';
+import { useTranslation } from '../../hooks/useTranslations';
+import styles from './WizardContainer.module.css';
 
-// 1. Importamos nuestra función de conexión con el Backend y los tipos
-import { generateStudioLiteVideo } from "../../features/studio-lite/api";
-import type {
-  GenerateVideoResponse,
-  VoiceId,
-  AspectRatio,
-  VisualStyle,
-  MusicStyle,
-} from "../../features/studio-lite/types";
-import { useAuth } from "../auth/AuthContext";
-import { SCRIPT_TEMPLATES } from "../../config/templates";
+export type WizardStepNumber = 1 | 2 | 3 | 4 | 5;
 
 interface WizardContainerProps {
-  onClose?: () => void;
-  onComplete?: () => void;
-  wizardMode?: "lite" | "pro";
-  onOpenAuthModal?: (mode: "login" | "signup", onSuccess?: () => void) => void;
-  onOpenPricingModal?: () => void;
+  currentStep: WizardStepNumber;
+  planLabel: string;
+  isProcessing?: boolean;
+  onSelectStep: (step: WizardStepNumber) => void;
+  onBack: () => void;
+  onNextOrGenerate: () => void;
+  children: ReactNode;
 }
 
-export default function WizardContainer({
-  onClose,
-  onComplete,
-  wizardMode = "lite",
-  onOpenAuthModal,
-  onOpenPricingModal,
+const STEP_LABELS: Record<WizardStepNumber, { en: string; es: string }> = {
+  1: { en: 'Prompt', es: 'Prompt' },
+  2: { en: 'Preset', es: 'Preset' },
+  3: { en: 'Format', es: 'Formato' },
+  4: { en: 'Voice & Frame', es: 'Voz y Marco' },
+  5: { en: 'Summary', es: 'Resumen' },
+};
+
+function WizardContainer({
+  currentStep,
+  planLabel,
+  isProcessing = false,
+  onSelectStep,
+  onBack,
+  onNextOrGenerate,
+  children,
 }: WizardContainerProps) {
-  const { t, lang } = useLanguage();
-  const [currentStep, setCurrentStep] = useState<number>(1);
-  const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const { updateCredits } = useAuth();
-
-  const totalSteps = 6;
-  const progressPercent = Math.round((currentStep / totalSteps) * 100);
-
-  // 2. Nuevos estados para guardar la respuesta del video generado o errores del backend
-  const [generatedResult, setGeneratedResult] =
-    useState<GenerateVideoResponse | null>(null);
-  const [generationError, setGenerationError] = useState<string | null>(null);
-
-  const [formData, setFormData] = useState<WizardData>({
-    mode: "idea",
-    scriptIdea: "",
-    introHook: "",
-    outroCta: "",
-    tone: "professional",
-    voiceId: "",
-    aspectRatio: "9:16",
-    visualStyle: "cinematic",
-    musicStyle: "none",
-    subtitles: true,
-  });
-
-  const updateFormData = (fields: Partial<WizardData>) => {
-    setFormData((prev) => ({ ...prev, ...fields }));
-  };
-
-  const nextStep = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const prevStep = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1));
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const handleCloseAttempt = () => {
-    if (isProcessing) return; // Evita cerrar accidentalmente mientras genera
-
-    if (currentStep > 1 || formData.scriptIdea.trim().length > 0) {
-      setShowExitConfirm(true);
-    } else {
-      if (onClose) onClose();
-      else window.location.reload();
-    }
-  };
-
-  const confirmExit = () => {
-    setShowExitConfirm(false);
-    if (onClose) onClose();
-    else window.location.reload();
-  };
-
-  // 3. Orquestador centralizado que abre el modal al instante y llama al backend de forma única
-  const handleStartGeneration = async () => {
-    setIsProcessing(true);
-    setGenerationError(null);
-    setGeneratedResult(null);
-
-    try {
-      const mappedVisualStyle = (
-        formData.visualStyle === "3d-render"
-          ? "3d"
-          : formData.visualStyle || "cinematic"
-      ) as VisualStyle;
-
-      const templateParts: string[] = [];
-      if (formData.introHook)
-        templateParts.push(`[Intro Template: ${formData.introHook}]`);
-      templateParts.push(formData.scriptIdea);
-      if (formData.outroCta)
-        templateParts.push(`[Outro Template: ${formData.outroCta}]`);
-      const composedContent = templateParts.join("\n\n");
-
-      const result = await generateStudioLiteVideo(
-        {
-          rawContent: composedContent,
-          tone: formData.tone,
-          voiceId: (formData.voiceId || "alex") as VoiceId,
-          aspectRatio: (formData.aspectRatio || "9:16") as AspectRatio,
-          visualStyle: mappedVisualStyle,
-          musicStyle: (formData.musicStyle || "none") as MusicStyle,
-          subtitlesEnabled: formData.subtitles ?? true,
-        },
-        wizardMode === "pro" ? "pro" : "free_trial"
-      );
-
-      setGeneratedResult(result);
-
-      if (typeof result.remainingCredits === "number") {
-        updateCredits(result.remainingCredits);
-      }
-    } catch (err: any) {
-      console.error("❌ Error generando el video desde el Wizard:", err);
-      setGenerationError(
-        err.message || "Ocurrió un error inesperado al generar el video."
-      );
-      setIsProcessing(false);
-    }
-  };
-
-  const handleProcessingComplete = () => {
-    setIsProcessing(false);
-    if (onComplete) {
-      onComplete();
-    } else if (onClose) {
-      onClose();
-    }
-  };
-
-  // Diccionarios traducibles completos (Lite + Pro)
-  const modeLabels: Record<string, string> = {
-    idea: lang === "en" ? "AI Idea Generator" : "Generador de Idea por IA",
-    script:
-      lang === "en" ? "Direct Script / Dialogue" : "Guion / Diálogo Directo",
-  };
-
-  const toneLabels: Record<string, string> = {
-    professional:
-      lang === "en" ? "Professional & Corporate" : "Profesional y Corporativo",
-    dynamic: lang === "en" ? "Dynamic" : "Dinámico",
-    casual: lang === "en" ? "Casual & Friendly" : "Casual y Amigable",
-    energetic: lang === "en" ? "Energetic & Dynamic" : "Enérgico y Dinámico",
-    dramatic:
-      lang === "en" ? "Dramatic & Storytelling" : "Dramático y Narrativo",
-  };
-
-  const voiceLabels: Record<string, string> = {
-    carlos: "Carlos (Narrative)",
-    sofia: "Sofia (Commercial)",
-    alex: "Alex (Young / Casual)",
-    valeria: "Valeria (Executive)",
-    mateo: "Mateo (Cinematic Trailer)",
-    elena: "Elena (Warm Storyteller)",
-  };
-
-  const styleLabels: Record<string, string> = {
-    cinematic: lang === "en" ? "Cinematic" : "Cinematográfico",
-    "3d-render": "3D Render",
-    vector: lang === "en" ? "Minimalist Vector" : "Vector Minimalista",
-    anime: "Anime / Concept Art",
-    photorealistic: "Photorealistic Studio",
-    comic: lang === "en" ? "Comic / Graphic Novel" : "Cómic / Novela Gráfica",
-  };
-
-  const musicLabels: Record<string, string> = {
-    none: lang === "en" ? "No background music" : "Sin música de fondo",
-    lofi: lang === "en" ? "Lo-Fi / Relaxing" : "Lo-Fi / Relajante",
-    epic: lang === "en" ? "Epic / Cinematic" : "Épico / Cinematográfico",
-    upbeat: lang === "en" ? "Upbeat / Corporate" : "Animado / Corporativo",
-    tech: lang === "en" ? "Cyberpunk / Tech" : "Cyberpunk / Tecnológico",
-  };
-
-  const selectedHookLabel = formData.introHook
-    ? SCRIPT_TEMPLATES.find((tpl) => tpl.id === formData.introHook)?.label?.[
-        lang
-      ] || formData.introHook
-    : lang === "en"
-    ? "Auto / Default"
-    : "Automático";
-
-  const selectedCtaLabel = formData.outroCta
-    ? SCRIPT_TEMPLATES.find((tpl) => tpl.id === formData.outroCta)?.label?.[
-        lang
-      ] || formData.outroCta
-    : lang === "en"
-    ? "None / Default"
-    : "Ninguno / Default";
-
-  const selectedMusicLabel =
-    (formData as any).musicTrackId && (formData as any).musicTrackId !== "none"
-      ? `${
-          musicLabels[formData.musicStyle || "none"] || formData.musicStyle
-        } • ${String((formData as any).musicTrackId).replace("_", " #")}`
-      : musicLabels[formData.musicStyle || "none"] || formData.musicStyle;
+  const { t, language } = useTranslation();
+  const lang = language === 'es' ? 'es' : 'en';
 
   return (
-    <div className={styles.wrapper}>
-      <div className={styles.cardContainer}>
-        {!isProcessing && (
+    <section
+      className={styles.workspaceShell}
+      aria-label={t.studioLite.title}
+    >
+      <header className={styles.header}>
+        <div>
+          <span className={styles.eyebrow}>STUDIO LITE · WORKSPACE</span>
+          <h2 className={styles.title}>{t.studioLite.title}</h2>
+          <p className={styles.subtitle}>{t.studioLite.subtitle}</p>
+        </div>
+
+        <span className={styles.planBadge}>{planLabel}</span>
+      </header>
+
+      {!isProcessing && (
+        <nav className={styles.stepper} aria-label="Wizard steps">
+          {([1, 2, 3, 4, 5] as WizardStepNumber[]).map((stepNum) => {
+            const isActive = currentStep === stepNum;
+            const isDone = currentStep > stepNum;
+
+            return (
+              <button
+                key={stepNum}
+                type="button"
+                onClick={() => onSelectStep(stepNum)}
+                className={`${styles.stepBtn} ${
+                  isActive
+                    ? styles.stepBtnActive
+                    : isDone
+                    ? styles.stepBtnDone
+                    : ''
+                }`}
+              >
+                <span className={styles.stepIndex}>0{stepNum}</span>
+                <span className={styles.stepName}>
+                  {STEP_LABELS[stepNum][lang]}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
+
+      <div className={styles.contentArea}>{children}</div>
+
+      {!isProcessing && (
+        <footer className={styles.footerBar}>
           <button
             type="button"
-            onClick={handleCloseAttempt}
-            aria-label={t("wizard_close_aria") || "Close wizard"}
-            className={styles.closeBtn}
+            disabled={currentStep === 1}
+            onClick={onBack}
+            className={styles.backBtn}
           >
-            ✕
+            {t.common.back}
           </button>
-        )}
 
-        {/* MODO DE PROCESAMIENTO / GENERACIÓN EN VIVO */}
-        {isProcessing ? (
-          <div className="w-full flex justify-center items-center py-6">
-            <WizardProcessingStep
-              onComplete={handleProcessingComplete}
-              setIsProcessing={setIsProcessing}
-              generatedResult={generatedResult}
-            />
-          </div>
-        ) : (
-          <>
-            {/* COLUMNA IZQUIERDA: Wizard Steps */}
-            <div className={styles.leftColumn}>
-              <div className={styles.progressHeader}>
-                <div className={styles.progressTopRow}>
-                  <div className={styles.stepInfoGroup}>
-                    {currentStep > 1 && currentStep < totalSteps && (
-                      <button
-                        type="button"
-                        onClick={prevStep}
-                        className={styles.backBtn}
-                      >
-                        {t("wizard_back_btn")}
-                      </button>
-                    )}
-                    <span className={styles.stepBadge}>
-                      {t("wizard_step")} {currentStep} {t("wizard_of")}{" "}
-                      {totalSteps}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={styles.progressPercent}>
-                      {progressPercent}% {t("wizard_completed")}
-                    </span>
-                    {!isProcessing && (
-                      <button
-                        type="button"
-                        onClick={handleCloseAttempt}
-                        aria-label={t("wizard_close_aria") || "Close wizard"}
-                        className="md:hidden text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 w-7 h-7 rounded-full flex items-center justify-center text-xs transition-all"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className={styles.progressBarTrack}>
-                  <div
-                    className={styles.progressBarFill}
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-              </div>
-
-              {generationError && (
-                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                  ⚠️ {generationError}
-                </div>
-              )}
-
-              {/* Paso 1: Creation Method + Initial Idea or Script */}
-              {currentStep === 1 && (
-                <WizardStep1
-                  data={formData}
-                  onUpdate={updateFormData}
-                  onNext={nextStep}
-                  wizardMode={wizardMode}
-                />
-              )}
-
-              {/* Paso 2: Pre-designed Voice Template (Hooks & CTAs) */}
-              {currentStep === 2 && (
-                <WizardStep1B
-                  data={formData}
-                  onUpdate={updateFormData}
-                  onNext={nextStep}
-                  onPrev={prevStep}
-                  wizardMode={wizardMode}
-                />
-              )}
-
-              {/* Paso 3 */}
-              {currentStep === 3 && (
-                <WizardStep2
-                  data={formData}
-                  onUpdate={updateFormData}
-                  onNext={nextStep}
-                  onPrev={prevStep}
-                  wizardMode={wizardMode}
-                />
-              )}
-
-              {/* Paso 4 */}
-              {currentStep === 4 && (
-                <WizardStep3
-                  data={formData}
-                  onUpdate={updateFormData}
-                  onNext={nextStep}
-                  onPrev={prevStep}
-                  wizardMode={wizardMode}
-                />
-              )}
-
-              {/* Paso 5 */}
-              {currentStep === 5 && (
-                <WizardStep4
-                  data={formData}
-                  onUpdate={updateFormData}
-                  onNext={nextStep}
-                  onPrev={prevStep}
-                  wizardMode={wizardMode}
-                />
-              )}
-
-              {/* Paso 6 */}
-              {currentStep === 6 && (
-                <WizardStep5
-                  data={formData}
-                  onPrev={prevStep}
-                  toneLabels={toneLabels}
-                  voiceLabels={voiceLabels}
-                  styleLabels={styleLabels}
-                  onStartProcessing={handleStartGeneration}
-                  onOpenAuthModal={(mode, onSuccess) => {
-                    if (onOpenAuthModal) {
-                      onOpenAuthModal(mode, onSuccess);
-                    }
-                  }}
-                  onOpenPricingModal={() => {
-                    if (onOpenPricingModal) {
-                      onOpenPricingModal();
-                    } else if (onClose) {
-                      onClose();
-                    }
-                  }}
-                />
-              )}
-
-              <div className={styles.mobileExitContainer}>
-                <button
-                  type="button"
-                  onClick={handleCloseAttempt}
-                  className={styles.mobileExitBtn}
-                >
-                  {t("wizard_exit_mobile_btn") || "Salir del asistente"}
-                </button>
-              </div>
-            </div>
-
-            {/* COLUMNA DERECHA: Resumen en Vivo */}
-            {/* COLUMNA DERECHA: Resumen en Vivo */}
-            <div className={styles.rightColumn}>
-              <div className={styles.summaryContent}>
-                <div>
-                  <span className={styles.summaryBadge}>
-                    {t("summary_live_preview")} (
-                    {wizardMode === "pro" ? "Studio Pro" : "Studio Lite"})
-                  </span>
-                  <h2 className={styles.summaryTitle}>
-                    {t("summary_project_title")}
-                  </h2>
-                  <p className={styles.summarySub}>
-                    {t("summary_project_sub")}
-                  </p>
-                </div>
-
-                {/* Paso 1: Modo de Creación */}
-                <div
-                  className={`${styles.summaryCard} ${
-                    currentStep === 1 ? styles.summaryCardActive : ""
-                  }`}
-                >
-                  <span className={styles.summaryCardLabel}>
-                    {lang === "en" ? "Creation Mode" : "Modo de Creación"}
-                  </span>
-                  <p className={styles.highlightValue}>
-                    {modeLabels[formData.mode || "idea"]}
-                  </p>
-                </div>
-
-                {/* Paso 1: Idea o Guion */}
-                <div
-                  className={`${styles.summaryCard} ${
-                    currentStep === 1 ? styles.summaryCardActive : ""
-                  }`}
-                >
-                  <span className={styles.summaryCardLabel}>
-                    {formData.scriptIdea && formData.scriptIdea.length > 150
-                      ? lang === "en"
-                        ? "My Own Script"
-                        : "Mi Propio Guion"
-                      : t("summary_concept_label")}
-                  </span>
-                  <p className={styles.summaryCardValue}>
-                    {formData.scriptIdea ? (
-                      formData.scriptIdea
-                    ) : (
-                      <span
-                        style={{
-                          fontStyle: "italic",
-                          color: "var(--color-text-muted)",
-                        }}
-                      >
-                        {t("summary_undefined")}
-                      </span>
-                    )}
-                  </p>
-                </div>
-
-                {/* Paso 2: Intro Hook y Outro CTA */}
-                <div className={styles.summaryGrid}>
-                  <div
-                    className={`${styles.summarySubCard} ${
-                      currentStep === 2 ? styles.summarySubCardActive : ""
-                    }`}
-                  >
-                    <span className={styles.summaryCardLabel}>
-                      {lang === "en" ? "Intro Hook" : "Gancho Inicial"}
-                    </span>
-                    <p
-                      className={styles.highlightValue}
-                      style={{ fontSize: "0.7rem" }}
-                    >
-                      {selectedHookLabel}
-                    </p>
-                  </div>
-                  <div
-                    className={`${styles.summarySubCard} ${
-                      currentStep === 2 ? styles.summarySubCardActive : ""
-                    }`}
-                  >
-                    <span className={styles.summaryCardLabel}>
-                      {lang === "en" ? "Outro CTA" : "Cierre / CTA"}
-                    </span>
-                    <p
-                      className={styles.highlightValue}
-                      style={{ fontSize: "0.7rem" }}
-                    >
-                      {selectedCtaLabel}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Tono (Paso 2) y Formato (Paso 4) por separado */}
-                <div className={styles.summaryGrid}>
-                  <div
-                    className={`${styles.summarySubCard} ${
-                      currentStep === 2 ? styles.summarySubCardActive : ""
-                    }`}
-                  >
-                    <span className={styles.summaryCardLabel}>
-                      {t("summary_tone_label")}
-                    </span>
-                    <p className={styles.highlightValue}>
-                      {toneLabels[formData.tone] || formData.tone}
-                    </p>
-                  </div>
-                  <div
-                    className={`${styles.summarySubCard} ${
-                      currentStep === 4 ? styles.summarySubCardActive : ""
-                    }`}
-                  >
-                    <span className={styles.summaryCardLabel}>
-                      {t("summary_format_label")}
-                    </span>
-                    <p className={styles.highlightValue}>
-                      {formData.aspectRatio || "9:16"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Voz (Paso 3) y Música (Paso 5) por separado */}
-                <div className={styles.summaryGrid}>
-                  <div
-                    className={`${styles.summarySubCard} ${
-                      currentStep === 3 ? styles.summarySubCardActive : ""
-                    }`}
-                  >
-                    <span className={styles.summaryCardLabel}>
-                      {t("summary_voice_label")}
-                    </span>
-                    <p
-                      className={styles.highlightValue}
-                      style={{ fontSize: "0.7rem" }}
-                    >
-                      {formData.voiceId ? (
-                        voiceLabels[formData.voiceId] || formData.voiceId
-                      ) : (
-                        <span
-                          style={{
-                            fontStyle: "italic",
-                            fontWeight: "normal",
-                            color: "var(--color-text-muted)",
-                          }}
-                        >
-                          {t("summary_unselected")}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <div
-                    className={`${styles.summarySubCard} ${
-                      currentStep === 5 ? styles.summarySubCardActive : ""
-                    }`}
-                  >
-                    <span className={styles.summaryCardLabel}>
-                      {lang === "en" ? "Music" : "Música"}
-                    </span>
-                    <p
-                      className={styles.highlightValue}
-                      style={{ fontSize: "0.7rem" }}
-                    >
-                      {selectedMusicLabel}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Paso 4: Subtítulos */}
-                <div
-                  className={`${styles.summaryCard} ${
-                    currentStep === 4 ? styles.summaryCardActive : ""
-                  }`}
-                >
-                  <span className={styles.summaryCardLabel}>
-                    {lang === "en" ? "Subtitles" : "Subtítulos"}
-                  </span>
-                  <p className={styles.highlightValue}>
-                    {formData.subtitles
-                      ? lang === "en"
-                        ? "Enabled (Auto-generated)"
-                        : "Activados (Automáticos)"
-                      : lang === "en"
-                      ? "Disabled"
-                      : "Desactivados"}
-                  </p>
-                </div>
-
-                {/* Paso 4: Estilo Visual */}
-                <div
-                  className={`${styles.summaryCard} ${
-                    currentStep === 4 ? styles.summaryCardActive : ""
-                  }`}
-                >
-                  <span className={styles.summaryCardLabel}>
-                    {t("summary_style_label")}
-                  </span>
-                  <p className={styles.highlightValue}>
-                    {formData.visualStyle ? (
-                      styleLabels[formData.visualStyle] || formData.visualStyle
-                    ) : (
-                      <span
-                        style={{
-                          fontStyle: "italic",
-                          fontWeight: "normal",
-                          color: "var(--color-text-muted)",
-                        }}
-                      >
-                        {t("summary_undefined")}
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              <div className={styles.summaryFooter}>
-                <p className={styles.footerText}>
-                  {t("summary_engine_label")} • {t("wizard_step")} {currentStep}{" "}
-                  {t("wizard_of")} {totalSteps}
-                </p>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {showExitConfirm && (
-        <div className={styles.confirmModalBackdrop}>
-          <div className={styles.confirmModalBox}>
-            <h3 className={styles.confirmTitle}>{t("wizard_exit_title")}</h3>
-            <p className={styles.confirmSub}>{t("wizard_exit_sub")}</p>
-            <div className={styles.confirmActions}>
-              <button
-                type="button"
-                onClick={() => setShowExitConfirm(false)}
-                className={styles.cancelExitBtn}
-              >
-                {t("wizard_exit_keep_editing")}
-              </button>
-              <button
-                type="button"
-                onClick={confirmExit}
-                className={styles.confirmExitBtn}
-              >
-                {t("wizard_exit_confirm")}
-              </button>
-            </div>
-          </div>
-        </div>
+          <button
+            type="button"
+            onClick={onNextOrGenerate}
+            className={styles.nextBtn}
+          >
+            {currentStep < 5
+              ? t.common.continue
+              : t.studioLite.generateButton}
+          </button>
+        </footer>
       )}
-    </div>
+    </section>
   );
 }
+
+export { WizardContainer, type WizardContainerProps };
+export default WizardContainer;

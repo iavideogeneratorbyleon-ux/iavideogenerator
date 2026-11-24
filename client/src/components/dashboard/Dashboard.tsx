@@ -1,10 +1,21 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../auth/AuthContext';
-import { useLanguage } from '../landing/LanguageContext';
-import UpgradeModal from '../upgrate-modal/UpgrateModal'; // <--- Importamos el componente modal creado
+import { useEffect, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from '../../hooks/useTranslations';
+import UpgrateModal from '../upgrate-modal/UpgrateModal';
+import StudioLiteWorkspaceWizard from '../wizard/StudioLiteWorkspaceWizard';
+import { type PlanTier, type StudioLiteDraft } from '../wizard/wizardStorage';
+import styles from './Dashboard.module.css';
+
+export type WorkspaceSection =
+  | 'studio-lite'
+  | 'dashboard'
+  | 'text-to-speech';
 
 interface DashboardProps {
-  onStartWizard: () => void;
+  initialSection?: WorkspaceSection;
+  initialPrompt?: string;
+  onRequireAuthFromWizard?: (draft: StudioLiteDraft) => void;
+  onBackToLanding?: () => void;
 }
 
 interface VideoItem {
@@ -15,184 +26,359 @@ interface VideoItem {
   createdAt: string;
 }
 
-export default function Dashboard({ onStartWizard }: DashboardProps) {
-  const { user } = useAuth();
-  const { lang } = useLanguage();
+export default function Dashboard({
+  initialSection = 'studio-lite',
+  initialPrompt = '',
+  onRequireAuthFromWizard,
+  onBackToLanding,
+}: DashboardProps) {
+  const {
+    user,
+    isAuthenticated,
+    planTier,
+    setPlanTier,
+    setSelectedPlanForAuth,
+    logout,
+  } = useAuth();
+  const { t, language } = useTranslation();
+  const isEn = language === 'en';
 
+  const [activeSection, setActiveSection] =
+    useState<WorkspaceSection>(initialSection);
   const [videos, setVideos] = useState<VideoItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  
-  // Estado para controlar la visibilidad del UpgradeModal
+  const [loadingVideos, setLoadingVideos] = useState<boolean>(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState<boolean>(false);
+  const [ttsText, setTtsText] = useState<string>('');
 
   useEffect(() => {
-    if (user?.email) {
-      fetch(`http://localhost:3030/api/videos/${user.email}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && Array.isArray(data.videos)) {
-            setVideos(data.videos);
-          }
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error('Error al cargar videos del usuario:', err);
-          setLoading(false);
-        });
-    } else {
-      setLoading(false);
-    }
-  }, [user]);
+    setActiveSection(initialSection);
+  }, [initialSection]);
 
-  // Validamos si el usuario tiene menos de 30 créditos (el costo de un video Lite)
-  const currentCredits = user?.credits ?? 0;
-  const needsMoreCredits = currentCredits < 30;
-
-  // Función manejadora para el botón de crear video con validación de créditos
-  const handleCreateVideoClick = () => {
-    if (needsMoreCredits) {
-      // En lugar de un alert simple, abrimos el UpgradeModal con las opciones de pago
-      setIsUpgradeModalOpen(true);
+  useEffect(() => {
+    if (!user?.email) {
+      setVideos([]);
+      setLoadingVideos(false);
       return;
     }
-    onStartWizard();
-  };
 
-  const handleSelectPlan = (planName: string) => {
-    alert(
-      lang === 'en'
-        ? `Selected plan: ${planName}. (Here you will integrate Stripe/PayPal)`
-        : `Plan seleccionado: ${planName}. (Aquí integrarás Stripe/PayPal)`
-    );
+    setLoadingVideos(true);
+    fetch(`http://localhost:3030/api/videos/${encodeURIComponent(user.email)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.videos)) {
+          setVideos(data.videos);
+        }
+      })
+      .catch((err) => {
+        console.error('Error loading user videos:', err);
+      })
+      .finally(() => {
+        setLoadingVideos(false);
+      });
+  }, [user?.email]);
+
+  const handleSelectPlanInModal = (plan: PlanTier) => {
+    setPlanTier(plan);
+    setSelectedPlanForAuth(plan);
     setIsUpgradeModalOpen(false);
   };
 
+  const handleWizardRequireAuth = (draft: StudioLiteDraft) => {
+    if (onRequireAuthFromWizard) {
+      onRequireAuthFromWizard(draft);
+      return;
+    }
+    setIsUpgradeModalOpen(true);
+  };
+
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-white p-6 sm:p-10">
-      <div className="max-w-7xl mx-auto flex flex-col gap-8">
-        
-        {/* Bienvenida personalizada */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#1e293b]/50 border border-white/10 p-6 rounded-2xl backdrop-blur-md">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-black">
-              {lang === 'en' ? `Welcome back, ${user?.name}!` : `¡Bienvenido de nuevo, ${user?.name}!`} 👋
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              {lang === 'en' 
-                ? 'Ready to create your next viral video with AI?' 
-                : '¿Listo para crear tu próximo video viral con IA?'}
-            </p>
+    <div className={styles.shell}>
+      <aside
+        className={styles.sidebar}
+        aria-label={isEn ? 'Workspace menu' : 'Menú del espacio de trabajo'}
+      >
+        <div>
+          <div className={styles.sidebarBrand}>
+            <span className={styles.brandTitle}>CEMPA.AI</span>
+            <span className={styles.planPill}>{planTier}</span>
           </div>
 
-          <button
-            type="button"
-            onClick={handleCreateVideoClick}
-            className="rounded-xl bg-[#ff6b00] px-5 py-3 text-sm font-bold text-white shadow-lg hover:bg-[#e05d00] transition-all"
-          >
-            {lang === 'en' ? '🚀 Create New Video' : '🚀 Crear Nuevo Video'}
-          </button>
-        </div>
+          <div className={styles.navGroup}>
+            <span className={styles.navSectionLabel}>
+              {isEn ? 'Core Studio' : 'Estudio Principal'}
+            </span>
 
-        {/* Resumen de cuenta / Tarjetas de métricas */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-[#1e293b] border border-white/10 p-5 rounded-xl flex flex-col justify-between">
-            <div>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                {lang === 'en' ? 'Credits Available' : 'Créditos Disponibles'}
-              </span>
-              <div className="text-2xl font-black text-[#ff6b00] mt-2 flex items-center gap-2">
-                <span>⚡</span> {currentCredits}
-              </div>
-            </div>
-            {needsMoreCredits && (
-              <span className="text-[11px] text-amber-400 mt-3 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
-                {lang === 'en' ? 'Need 30 credits to generate a new video' : 'Se necesitan 30 créditos para generar un nuevo video'}
-              </span>
+            <button
+              type="button"
+              onClick={() => setActiveSection('studio-lite')}
+              className={`${styles.navButton} ${
+                activeSection === 'studio-lite' ? styles.navButtonActive : ''
+              }`}
+            >
+              <span>✨ Studio Lite</span>
+              <span className={styles.badgeSecondary}>5 steps</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveSection('dashboard')}
+              className={`${styles.navButton} ${
+                activeSection === 'dashboard' ? styles.navButtonActive : ''
+              }`}
+            >
+              <span>📊 {isEn ? 'Dashboard' : 'Panel'}</span>
+              <span className={styles.badgeSecondary}>{videos.length}</span>
+            </button>
+
+            <span className={styles.navSectionLabel}>
+              {isEn ? 'Secondary Tools' : 'Herramientas Extra'}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setActiveSection('text-to-speech')}
+              className={`${styles.navButton} ${
+                activeSection === 'text-to-speech'
+                  ? styles.navButtonActive
+                  : ''
+              }`}
+            >
+              <span>🎙️ Text to Speech</span>
+            </button>
+
+            <span className={styles.navSectionLabel}>
+              {isEn ? 'Account & Plans' : 'Cuenta y Planes'}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setIsUpgradeModalOpen(true)}
+              className={styles.navButton}
+            >
+              <span>⚡ {isEn ? 'Plans & Upgrade' : 'Planes'}</span>
+            </button>
+
+            {onBackToLanding && (
+              <button
+                type="button"
+                onClick={onBackToLanding}
+                className={styles.navButton}
+              >
+                <span>← {isEn ? 'Landing Page' : 'Inicio'}</span>
+              </button>
             )}
           </div>
-
-          <div className="bg-[#1e293b] border border-white/10 p-5 rounded-xl">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              {lang === 'en' ? 'Current Plan' : 'Plan Actual'}
-            </span>
-            <div className="text-2xl font-black text-white mt-2 uppercase">
-              {user?.plan || 'Free'}
-            </div>
-          </div>
-
-          <div className="bg-[#1e293b] border border-white/10 p-5 rounded-xl">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              {lang === 'en' ? 'Generated Videos' : 'Videos Generados'}
-            </span>
-            <div className="text-2xl font-black text-white mt-2">
-              {videos.length}
-            </div>
-          </div>
         </div>
 
-        {/* Sección de Proyectos Recientes */}
-        <div className="mt-4">
-          <h2 className="text-lg font-bold mb-4">
-            {lang === 'en' ? 'Your Projects' : 'Tus Proyectos'}
-          </h2>
+        <div className={styles.sidebarFooter}>
+          <div className={styles.userMeta}>
+            {isAuthenticated
+              ? user?.name || user?.email
+              : isEn
+              ? 'Guest session (drafts saved)'
+              : 'Modo invitado (borrador activo)'}
+          </div>
 
-          {loading ? (
-            <div className="p-8 text-center text-slate-400 text-sm">
-              {lang === 'en' ? 'Loading projects...' : 'Cargando proyectos...'}
-            </div>
-          ) : videos.length === 0 ? (
-            <div className="border border-dashed border-white/10 rounded-2xl p-12 text-center flex flex-col items-center justify-center gap-3">
-              <span className="text-4xl">🎬</span>
-              <p className="text-sm font-semibold text-slate-300">
-                {lang === 'en' ? 'No videos generated yet' : 'Aún no has generado ningún video'}
-              </p>
-              <p className="text-xs text-slate-500 max-w-sm">
-                {lang === 'en' 
-                  ? 'Start your first idea using our video generation wizard.' 
-                  : 'Comienza tu primera idea usando nuestro asistente de generación.'}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {videos.map((video) => (
-                <div 
-                  key={video._id} 
-                  className="bg-[#1e293b] border border-white/10 rounded-2xl p-5 flex flex-col justify-between gap-4"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="bg-[#ff6b00]/20 text-[#ff6b00] text-xs font-bold px-2.5 py-1 rounded-md">
-                        {video.aspectRatio || '9:16'}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        {new Date(video.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <h3 className="font-bold text-slate-100 text-base line-clamp-2">
-                      {video.title}
-                    </h3>
-                  </div>
+          {isAuthenticated && (
+            <button
+              type="button"
+              onClick={logout}
+              className={styles.logoutButton}
+            >
+              {isEn ? 'Sign Out' : 'Cerrar sesión'}
+            </button>
+          )}
+        </div>
+      </aside>
 
+      <main className={styles.workspaceMain}>
+        <div className={styles.workspaceInner}>
+          {activeSection === 'studio-lite' && (
+            <StudioLiteWorkspaceWizard
+              initialPrompt={initialPrompt}
+              isAuthenticated={isAuthenticated}
+              planTier={planTier}
+              onRequireAuthAndPlan={handleWizardRequireAuth}
+            />
+          )}
+
+          {activeSection === 'dashboard' && (
+            <>
+              <div className={styles.headerCard}>
+                <div>
+                  <h1 className={styles.headerTitle}>
+                    {isAuthenticated
+                      ? isEn
+                        ? `Welcome back, ${user?.name || 'Creator'}`
+                        : `Bienvenido de nuevo, ${user?.name || 'Creador'}`
+                      : isEn
+                      ? 'Your Creator Workspace'
+                      : 'Tu Espacio de Creación'}
+                  </h1>
+                  <p className={styles.headerSubtitle}>
+                    {isEn
+                      ? 'Launch Studio Lite or review your generated videos.'
+                      : 'Abre Studio Lite o revisa tus videos generados.'}
+                  </p>
+                </div>
+
+                <div className={styles.headerActions}>
                   <button
                     type="button"
-                    onClick={() => alert(lang === 'en' ? 'Downloading video...' : 'Descargando video...')}
-                    className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold py-2.5 rounded-xl border border-white/10 transition-all flex items-center justify-center gap-2"
+                    onClick={() => setActiveSection('studio-lite')}
+                    className={styles.primaryCta}
                   >
-                    📥 {lang === 'en' ? 'Download' : 'Descargar'}
+                    {isEn ? 'Open Studio Lite' : 'Abrir Studio Lite'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsUpgradeModalOpen(true)}
+                    className={styles.secondaryCta}
+                  >
+                    {isEn ? 'Manage Plan' : 'Cambiar Plan'}
                   </button>
                 </div>
-              ))}
+              </div>
+
+              <div className={styles.statsGrid}>
+                <div className={styles.statCard}>
+                  <span className={styles.statLabel}>
+                    {isEn ? 'Active Plan' : 'Plan Activo'}
+                  </span>
+                  <div className={styles.statValue}>{planTier}</div>
+                </div>
+
+                <div className={styles.statCard}>
+                  <span className={styles.statLabel}>
+                    {isEn ? 'Generated Videos' : 'Videos Generados'}
+                  </span>
+                  <div className={styles.statValueNeutral}>{videos.length}</div>
+                </div>
+
+                <div className={styles.statCard}>
+                  <span className={styles.statLabel}>
+                    {isEn ? 'Session Status' : 'Estado de Sesión'}
+                  </span>
+                  <div className={styles.statValueNeutral}>
+                    {isAuthenticated
+                      ? isEn
+                        ? 'Authenticated'
+                        : 'Conectado'
+                      : isEn
+                      ? 'Guest'
+                      : 'Invitado'}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h2 className={styles.sectionHeading}>
+                  {isEn ? 'Your Projects' : 'Tus Proyectos'}
+                </h2>
+
+                {loadingVideos ? (
+                  <div className={styles.emptyState}>
+                    <p className={styles.emptyDesc}>
+                      {isEn ? 'Loading projects...' : 'Cargando proyectos...'}
+                    </p>
+                  </div>
+                ) : videos.length === 0 ? (
+                  <div className={styles.emptyState}>
+                    <p className={styles.emptyTitle}>
+                      {isEn
+                        ? 'No videos generated yet'
+                        : 'Aún no has generado ningún video'}
+                    </p>
+                    <p className={styles.emptyDesc}>
+                      {isEn
+                        ? 'Start a new concept in Studio Lite across 5 guided steps.'
+                        : 'Inicia un nuevo concepto en Studio Lite en 5 pasos guiados.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveSection('studio-lite')}
+                      className={styles.primaryCta}
+                    >
+                      {isEn ? 'Start in Studio Lite' : 'Empezar en Studio Lite'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className={styles.projectsGrid}>
+                    {videos.map((video) => (
+                      <div key={video._id} className={styles.projectCard}>
+                        <div>
+                          <div className={styles.projectMeta}>
+                            <span className={styles.aspectBadge}>
+                              {video.aspectRatio || '9:16'}
+                            </span>
+                            <span className={styles.projectDate}>
+                              {new Date(video.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <h3 className={styles.projectTitle}>{video.title}</h3>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            alert(
+                              isEn
+                                ? 'Downloading video...'
+                                : 'Descargando video...'
+                            )
+                          }
+                          className={styles.downloadButton}
+                        >
+                          {t.common.continue} ·{' '}
+                          {isEn ? 'Download' : 'Descargar'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {activeSection === 'text-to-speech' && (
+            <div className={styles.secondaryToolCard}>
+              <h1 className={styles.headerTitle}>Text to Speech</h1>
+              <p className={styles.headerSubtitle}>
+                {isEn
+                  ? 'Draft voiceover scripts for your upcoming videos.'
+                  : 'Redacta guiones de voz en off para tus próximos videos.'}
+              </p>
+
+              <textarea
+                rows={5}
+                value={ttsText}
+                onChange={(e) => setTtsText(e.target.value)}
+                placeholder={
+                  isEn
+                    ? 'Write your narration script here...'
+                    : 'Escribe aquí el guion de tu narración...'
+                }
+                style={{
+                  width: '100%',
+                  marginTop: '1rem',
+                  borderRadius: '0.75rem',
+                  border: '1px solid var(--border-subtle)',
+                  backgroundColor: 'var(--bg-page)',
+                  color: 'var(--text-primary)',
+                  padding: '0.85rem',
+                  fontSize: '0.9rem',
+                }}
+              />
             </div>
           )}
         </div>
+      </main>
 
-      </div>
-
-      {/* Componente UpgradeModal integrado */}
-      <UpgradeModal
+      <UpgrateModal
         isOpen={isUpgradeModalOpen}
+        initialPlan={planTier}
         onClose={() => setIsUpgradeModalOpen(false)}
-        onSelectPlan={handleSelectPlan}
+        onSelectPlanAndAuth={handleSelectPlanInModal}
       />
     </div>
   );

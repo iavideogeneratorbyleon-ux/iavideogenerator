@@ -1,17 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useAuth, type UserProfile } from './AuthContext';
+import React, { useEffect, useRef, useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
-import { useLanguage } from '../landing/LanguageContext';
+import { useAuth, type AuthUser } from '../../context/AuthContext';
+import { useTranslation } from '../../hooks/useTranslations';
+import { type PlanTier } from '../wizard/wizardStorage';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   mode?: 'login' | 'signup';
+  selectedPlan?: PlanTier;
   onLoginSuccess?: () => void;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 'signup', onLoginSuccess }) => {
-  const { lang } = useLanguage();
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onClose,
+  mode = 'signup',
+  selectedPlan,
+  onLoginSuccess,
+}) => {
+  const { language } = useTranslation();
+  const isEn = language === 'en';
+
   const [isRegistering, setIsRegistering] = useState(mode === 'signup');
   const [step, setStep] = useState<'credentials' | 'verify'>('credentials');
 
@@ -28,9 +38,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [verifyStatus, setVerifyStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle');
+  const [verifyStatus, setVerifyStatus] = useState<
+    'idle' | 'verifying' | 'success' | 'error'
+  >('idle');
 
-  const { login, setUser } = useAuth();
+  const { completeAuth, selectedPlanForAuth } = useAuth();
+  const targetPlan = selectedPlan ?? selectedPlanForAuth ?? 'free_trial';
 
   useEffect(() => {
     if (isOpen) {
@@ -50,9 +63,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
   }, [resendCooldown]);
 
   const handlePostAuthSuccess = () => {
-    if (onLoginSuccess) {
-      onLoginSuccess();
-    }
+    onLoginSuccess?.();
     onClose();
   };
 
@@ -64,34 +75,53 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
         const res = await fetch('http://localhost:3030/api/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: tokenResponse.access_token }),
+          body: JSON.stringify({
+            token: tokenResponse.access_token,
+            plan: targetPlan,
+          }),
         });
 
         const data = await res.json();
 
         if (res.ok) {
           const userObj = data.user || data;
-          const userProfile: UserProfile = {
-            name: userObj.name || userObj.email?.split('@')[0] || 'User',
+          const userProfile: AuthUser = {
+            id: String(userObj.id || userObj._id || userObj.email || 'google-user'),
+            name:
+              userObj.name ||
+              userObj.email?.split('@')[0] ||
+              (isEn ? 'User' : 'Usuario'),
             email: userObj.email,
             avatarUrl: userObj.avatarUrl || userObj.picture,
-            credits: userObj.credits ?? 30,
-            plan: userObj.plan || 'lite',
+            provider: 'google',
           };
 
-          setUser(userProfile);
+          completeAuth(userProfile, (userObj.plan as PlanTier) || targetPlan);
           handlePostAuthSuccess();
         } else {
-          setError(data.message || (lang === 'en' ? 'Error authenticating with Google' : 'Error al autenticar con Google'));
+          setError(
+            data.message ||
+              (isEn
+                ? 'Error authenticating with Google'
+                : 'Error al autenticar con Google')
+          );
         }
-      } catch (err: any) {
-        setError(lang === 'en' ? 'Server connection error' : 'Error de conexión con el servidor backend');
+      } catch {
+        setError(
+          isEn
+            ? 'Server connection error'
+            : 'Error de conexión con el servidor backend'
+        );
       } finally {
         setLoading(false);
       }
     },
     onError: () => {
-      setError(lang === 'en' ? 'Google authentication was cancelled or failed' : 'La autenticación con Google fue cancelada o falló');
+      setError(
+        isEn
+          ? 'Google authentication was cancelled or failed'
+          : 'La autenticación con Google fue cancelada o falló'
+      );
     },
   });
 
@@ -103,12 +133,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
     setError('');
 
     if (isRegistering && password !== confirmPassword) {
-      setError(lang === 'en' ? 'Passwords do not match' : 'Las contraseñas no coinciden');
+      setError(
+        isEn ? 'Passwords do not match' : 'Las contraseñas no coinciden'
+      );
       return;
     }
 
     if (password.length < 6) {
-      setError(lang === 'en' ? 'Password must be at least 6 characters' : 'La contraseña debe tener al menos 6 caracteres');
+      setError(
+        isEn
+          ? 'Password must be at least 6 characters'
+          : 'La contraseña debe tener al menos 6 caracteres'
+      );
       return;
     }
 
@@ -116,8 +152,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
 
     try {
       if (isRegistering) {
-        // Enviamos correo y contraseña al backend para validar que no exista y mandar el código OTP
-        const res = await fetch('http://localhost:3030/api/auth/send-verification', {
+        const res = await fetch(
+          'http://localhost:3030/api/auth/send-verification',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, plan: targetPlan }),
+          }
+        );
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(
+            data.message ||
+              (isEn
+                ? 'Could not send verification code'
+                : 'No se pudo enviar el código de verificación')
+          );
+        }
+
+        if (!name) {
+          const suggestedName = email.split('@')[0].replace(/[._-]/g, ' ');
+          setName(
+            suggestedName.charAt(0).toUpperCase() + suggestedName.slice(1)
+          );
+        }
+
+        setResendCooldown(60);
+        setVerifyStatus('idle');
+        setStep('verify');
+      } else {
+        const res = await fetch('http://localhost:3030/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
@@ -126,24 +192,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
         const data = await res.json();
 
         if (!res.ok) {
-          throw new Error(data.message || (lang === 'en' ? 'Could not send verification code' : 'No se pudo enviar el código de verificación'));
+          throw new Error(
+            data.message ||
+              (isEn ? 'Invalid credentials' : 'Credenciales inválidas')
+          );
         }
 
-        // Prellenamos el nombre sugerido basado en el correo si aún está vacío
-        if (!name) {
-          const suggestedName = email.split('@')[0].replace(/[._-]/g, ' ');
-          setName(suggestedName.charAt(0).toUpperCase() + suggestedName.slice(1));
-        }
+        const userObj = data.user || data;
+        const userProfile: AuthUser = {
+          id: String(userObj.id || userObj._id || email),
+          name: userObj.name || email.split('@')[0],
+          email: userObj.email || email,
+          avatarUrl: userObj.avatarUrl,
+          provider: 'email',
+        };
 
-        setResendCooldown(60);
-        setVerifyStatus('idle');
-        setStep('verify');
-      } else {
-        await login(email, password);
+        completeAuth(userProfile, (userObj.plan as PlanTier) || targetPlan);
         handlePostAuthSuccess();
       }
-    } catch (err: any) {
-      setError(err.message || (lang === 'en' ? 'Error processing request' : 'Error al procesar la solicitud'));
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : isEn
+          ? 'Error processing request'
+          : 'Error al procesar la solicitud';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -151,7 +225,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
 
   // Manejo de las 6 casillas del código OTP
   const handleOtpChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return; // Solo números
+    if (!/^\d*$/.test(value)) return;
     const newOtp = [...otp];
     newOtp[index] = value.slice(-1);
     setOtp(newOtp);
@@ -166,7 +240,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
     }
   };
 
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleOtpKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
     if (e.key === 'Backspace' && !otp[index] && index > 0) {
       otpRefs.current[index - 1]?.focus();
     }
@@ -174,7 +251,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
 
   const handleOtpPaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    const pasted = e.clipboardData
+      .getData('text')
+      .replace(/\D/g, '')
+      .slice(0, 6);
     if (!pasted) return;
     const newOtp = [...otp];
     pasted.split('').forEach((char, idx) => {
@@ -193,13 +273,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
     const code = otp.join('');
     if (code.length < 6) {
       setVerifyStatus('error');
-      setError(lang === 'en' ? 'Please enter the 6-digit code' : 'Ingresa el código completo de 6 dígitos');
+      setError(
+        isEn
+          ? 'Please enter the 6-digit code'
+          : 'Ingresa el código completo de 6 dígitos'
+      );
       return;
     }
 
     if (!name.trim()) {
       setVerifyStatus('error');
-      setError(lang === 'en' ? 'Please enter your name' : 'Por favor ingresa tu nombre');
+      setError(isEn ? 'Please enter your name' : 'Por favor ingresa tu nombre');
       return;
     }
 
@@ -207,36 +291,53 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
     setVerifyStatus('verifying');
 
     try {
-      const res = await fetch('http://localhost:3030/api/auth/verify-and-register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code, name: name.trim() }),
-      });
+      const res = await fetch(
+        'http://localhost:3030/api/auth/verify-and-register',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            code,
+            name: name.trim(),
+            plan: targetPlan,
+          }),
+        }
+      );
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || (lang === 'en' ? 'Invalid or expired code' : 'Código inválido o expirado'));
+        throw new Error(
+          data.message ||
+            (isEn ? 'Invalid or expired code' : 'Código inválido o expirado')
+        );
       }
 
       const userObj = data.user || data;
-      const userProfile: UserProfile = {
+      const userProfile: AuthUser = {
+        id: String(userObj.id || userObj._id || email),
         name: userObj.name || name.trim(),
         email: userObj.email || email,
-        credits: userObj.credits ?? 30,
-        plan: userObj.plan || 'lite',
+        avatarUrl: userObj.avatarUrl,
+        provider: 'email',
       };
 
       setVerifyStatus('success');
 
-      // Mostramos el estado de éxito por 1.8 segundos antes de cerrar y redirigir
       setTimeout(() => {
-        setUser(userProfile);
+        completeAuth(userProfile, (userObj.plan as PlanTier) || targetPlan);
         handlePostAuthSuccess();
       }, 1800);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : isEn
+          ? 'Verification failed'
+          : 'Error al verificar la cuenta';
       setVerifyStatus('error');
-      setError(err.message || (lang === 'en' ? 'Verification failed' : 'Error al verificar la cuenta'));
+      setError(message);
       setLoading(false);
     }
   };
@@ -247,19 +348,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
     setVerifyStatus('idle');
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3030/api/auth/send-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      const res = await fetch(
+        'http://localhost:3030/api/auth/send-verification',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, plan: targetPlan }),
+        }
+      );
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.message);
       }
       setResendCooldown(60);
       setOtp(['', '', '', '', '', '']);
-    } catch (err: any) {
-      setError(err.message || (lang === 'en' ? 'Error resending code' : 'Error al reenviar el código'));
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : isEn
+          ? 'Error resending code'
+          : 'Error al reenviar el código';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -269,13 +379,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl text-white relative">
         <button
+          type="button"
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
         >
           ✕
         </button>
 
-        {/* VISTA PASO 2: VERIFICACIÓN OTP Y NOMBRE */}
         {isRegistering && step === 'verify' ? (
           <div>
             <button
@@ -288,23 +398,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
               }}
               className="text-xs text-slate-400 hover:text-white flex items-center gap-1 mb-3 transition-colors disabled:opacity-50"
             >
-              ← {lang === 'en' ? 'Change email' : 'Cambiar correo'}
+              ← {isEn ? 'Change email' : 'Cambiar correo'}
             </button>
 
             <h2 className="text-2xl font-bold text-center mb-2">
-              {lang === 'en' ? 'Verify your email' : 'Verifica tu correo'}
+              {isEn ? 'Verify your email' : 'Verifica tu correo'}
             </h2>
             <p className="text-slate-400 text-sm text-center mb-6">
-              {lang === 'en' ? 'We sent a 6-digit code to ' : 'Enviamos un código de 6 dígitos a '}
+              {isEn
+                ? 'We sent a 6-digit code to '
+                : 'Enviamos un código de 6 dígitos a '}
               <span className="text-white font-semibold">{email}</span>
             </p>
 
-            {/* Banner visual de estado en tiempo real */}
             {verifyStatus === 'verifying' && (
               <div className="bg-orange-500/10 border border-orange-500/40 text-orange-300 text-sm p-3 rounded-xl mb-4 flex items-center justify-center gap-2.5">
                 <span className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
                 <span>
-                  {lang === 'en' ? 'Verifying your email code...' : 'Verificando tu código de correo...'}
+                  {isEn
+                    ? 'Verifying your email code...'
+                    : 'Verificando tu código de correo...'}
                 </span>
               </div>
             )}
@@ -313,7 +426,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
               <div className="bg-emerald-500/15 border border-emerald-500/50 text-emerald-300 text-sm p-3 rounded-xl mb-4 flex items-center justify-center gap-2 font-medium">
                 <span>✓</span>
                 <span>
-                  {lang === 'en'
+                  {isEn
                     ? 'Email verified! Setting up your account...'
                     : '¡Correo verificado! Preparando tu cuenta...'}
                 </span>
@@ -329,7 +442,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
             <form onSubmit={handleVerifySubmit} className="space-y-5">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  {lang === 'en' ? 'Your Name' : 'Tu Nombre'}
+                  {isEn ? 'Your Name' : 'Tu Nombre'}
                 </label>
                 <input
                   type="text"
@@ -337,20 +450,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
                   disabled={loading || verifyStatus === 'success'}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder={lang === 'en' ? 'How should we call you?' : '¿Cómo te llamas?'}
+                  placeholder={
+                    isEn ? 'How should we call you?' : '¿Cómo te llamas?'
+                  }
                   className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition disabled:opacity-60"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase mb-2 text-center">
-                  {lang === 'en' ? 'Verification Code' : 'Código de Verificación'}
+                  {isEn ? 'Verification Code' : 'Código de Verificación'}
                 </label>
                 <div className="flex justify-center gap-2" onPaste={handleOtpPaste}>
                   {otp.map((digit, index) => (
                     <input
                       key={index}
-                      ref={(el) => { otpRefs.current[index] = el; }}
+                      ref={(el) => {
+                        otpRefs.current[index] = el;
+                      }}
                       type="text"
                       inputMode="numeric"
                       maxLength={1}
@@ -380,17 +497,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
                 }`}
               >
                 {verifyStatus === 'success'
-                  ? (lang === 'en' ? 'Verified ✓' : 'Verificado ✓')
+                  ? isEn
+                    ? 'Verified ✓'
+                    : 'Verificado ✓'
                   : loading
-                  ? (lang === 'en' ? 'Verifying...' : 'Verificando...')
-                  : (lang === 'en' ? 'Verify & Claim 30 Credits' : 'Verificar y Reclamar 30 Créditos')}
+                  ? isEn
+                    ? 'Verifying...'
+                    : 'Verificando...'
+                  : isEn
+                  ? 'Verify & Continue'
+                  : 'Verificar y Continuar'}
               </button>
             </form>
 
             <div className="mt-5 text-center text-xs text-slate-400">
               {resendCooldown > 0 ? (
                 <span>
-                  {lang === 'en'
+                  {isEn
                     ? `Resend code in ${resendCooldown}s`
                     : `Reenviar código en ${resendCooldown}s`}
                 </span>
@@ -401,23 +524,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
                   disabled={loading || verifyStatus === 'success'}
                   className="text-orange-400 hover:text-orange-300 hover:underline font-semibold transition disabled:opacity-50"
                 >
-                  {lang === 'en' ? "Didn't receive it? Resend code" : '¿No lo recibiste? Reenviar código'}
+                  {isEn
+                    ? "Didn't receive it? Resend code"
+                    : '¿No lo recibiste? Reenviar código'}
                 </button>
               )}
             </div>
           </div>
         ) : (
-          /* VISTA PASO 1: CREDENCIALES O GOOGLE */
           <>
             <h2 className="text-2xl font-bold text-center mb-2">
               {isRegistering
-                ? (lang === 'en' ? 'Create your cempa.ai account' : 'Crea tu cuenta en cempa.ai')
-                : (lang === 'en' ? 'Sign In' : 'Iniciar Sesión')}
+                ? isEn
+                  ? 'Create your cempa.ai account'
+                  : 'Crea tu cuenta en cempa.ai'
+                : isEn
+                ? 'Sign In'
+                : 'Iniciar Sesión'}
             </h2>
             <p className="text-slate-400 text-sm text-center mb-6">
               {isRegistering
-                ? (lang === 'en' ? 'Get 30 free credits to generate your first video' : 'Obtén 30 créditos gratis para generar tu primer video')
-                : (lang === 'en' ? 'Enter your credentials to access your projects' : 'Ingresa tus credenciales para acceder a tus proyectos')}
+                ? isEn
+                  ? `Selected plan: ${targetPlan}. Complete sign up to continue.`
+                  : `Plan elegido: ${targetPlan}. Completa tu registro para continuar.`
+                : isEn
+                ? 'Enter your credentials to access your projects'
+                : 'Ingresa tus credenciales para acceder a tus proyectos'}
             </p>
 
             <button
@@ -427,18 +559,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
               className="w-full bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-orange-500/50 text-white font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 transition shadow-sm mb-5 disabled:opacity-50"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.2 9 5 12 5z"/>
-                <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"/>
-                <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9c-.6-1.5-1-3.2-1-5z"/>
-                <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.2-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/>
+                <path
+                  fill="#EA4335"
+                  d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.2 9 5 12 5z"
+                />
+                <path
+                  fill="#4285F4"
+                  d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9c-.6-1.5-1-3.2-1-5z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.2-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"
+                />
               </svg>
-              {lang === 'en' ? 'Continue with Google' : 'Continuar con Google'}
+              {isEn ? 'Continue with Google' : 'Continuar con Google'}
             </button>
 
             <div className="relative flex items-center justify-center mb-5">
               <div className="border-t border-slate-800 w-full" />
               <span className="bg-slate-900 px-3 text-xs text-slate-500 uppercase tracking-wider absolute">
-                {lang === 'en' ? 'or with email' : 'o con tu correo'}
+                {isEn ? 'or with email' : 'o con tu correo'}
               </span>
             </div>
 
@@ -451,12 +595,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
             <form onSubmit={handleCredentialsSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  {lang === 'en' ? 'Email Address' : 'Correo electrónico'}
+                  {isEn ? 'Email Address' : 'Correo electrónico'}
                 </label>
                 <input
                   type="email"
                   required
-                  autoComplete="current-email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="tu@correo.com"
@@ -466,12 +610,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  {lang === 'en' ? 'Password' : 'Contraseña'}
+                  {isEn ? 'Password' : 'Contraseña'}
                 </label>
                 <input
                   type="password"
                   required
-                  autoComplete="current-password"
+                  autoComplete={isRegistering ? 'new-password' : 'current-password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -482,12 +626,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
               {isRegistering && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                    {lang === 'en' ? 'Confirm Password' : 'Confirmar Contraseña'}
+                    {isEn ? 'Confirm Password' : 'Confirmar Contraseña'}
                   </label>
                   <input
                     type="password"
                     required
-                    autoComplete="current-password"
+                    autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
@@ -502,17 +646,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
                 className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-orange-500/20 transition disabled:opacity-50 mt-2"
               >
                 {loading
-                  ? (lang === 'en' ? 'Processing...' : 'Procesando...')
+                  ? isEn
+                    ? 'Processing...'
+                    : 'Procesando...'
                   : isRegistering
-                  ? (lang === 'en' ? 'Continue' : 'Continuar')
-                  : (lang === 'en' ? 'Sign In' : 'Iniciar Sesión')}
+                  ? isEn
+                    ? 'Continue'
+                    : 'Continuar'
+                  : isEn
+                  ? 'Sign In'
+                  : 'Iniciar Sesión'}
               </button>
             </form>
 
             <div className="mt-6 text-center text-sm text-slate-400">
               {isRegistering ? (
                 <p>
-                  {lang === 'en' ? 'Already have an account? ' : '¿Ya tienes cuenta? '}
+                  {isEn ? 'Already have an account? ' : '¿Ya tienes cuenta? '}
                   <button
                     type="button"
                     onClick={() => {
@@ -521,12 +671,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
                     }}
                     className="text-orange-400 hover:text-orange-300 hover:underline font-semibold transition"
                   >
-                    {lang === 'en' ? 'Sign in here' : 'Inicia sesión aquí'}
+                    {isEn ? 'Sign in here' : 'Inicia sesión aquí'}
                   </button>
                 </p>
               ) : (
                 <p>
-                  {lang === 'en' ? "Don't have an account? " : '¿No tienes cuenta? '}
+                  {isEn
+                    ? "Don't have an account? "
+                    : '¿No tienes cuenta? '}
                   <button
                     type="button"
                     onClick={() => {
@@ -535,7 +687,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode = 's
                     }}
                     className="text-orange-400 hover:text-orange-300 hover:underline font-semibold transition"
                   >
-                    {lang === 'en' ? 'Sign up free' : 'Regístrate gratis'}
+                    {isEn ? 'Sign up free' : 'Regístrate gratis'}
                   </button>
                 </p>
               )}

@@ -1,29 +1,96 @@
-import type { WizardData } from './WizardStep1';
+import { type WizardStepNumber } from './WizardContainer';
 
-const DRAFT_KEY = 'cempa_pending_video_draft';
+export type WizardInputMode = 'idea' | 'script';
+export type WizardAspectRatio = '16:9' | '9:16' | '1:1';
+export type PlanTier = 'free_trial' | 'pay_per_video' | 'pro' | 'unlimited';
 
-export const savePendingDraft = (data: WizardData) => {
-  try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.error('Error guardando borrador en localStorage', e);
-  }
+export interface StudioLiteDraft {
+  currentStep: WizardStepNumber;
+  mode: WizardInputMode;
+  prompt: string;
+  presetId: string;
+  visualFormatId: string;
+  aspectRatio: WizardAspectRatio;
+  voice: string;
+  durationSec: number;
+}
+
+export interface PersistedWizardState {
+  draft: StudioLiteDraft;
+  pendingGenerateAfterAuth: boolean;
+  updatedAt: number;
+}
+
+const STORAGE_KEY = 'cempa_studio_lite_wizard_v1';
+
+export const DEFAULT_WIZARD_DRAFT: StudioLiteDraft = {
+  currentStep: 1,
+  mode: 'idea',
+  prompt: '',
+  presetId: 'cinematic',
+  visualFormatId: 'cempasuchil-editorial',
+  aspectRatio: '16:9',
+  voice: 'Warm Narrator',
+  durationSec: 30,
 };
 
-export const getPendingDraft = (): WizardData | null => {
-  try {
-    const item = localStorage.getItem(DRAFT_KEY);
-    return item ? JSON.parse(item) : null;
-  } catch (e) {
-    console.error('Error leyendo borrador de localStorage', e);
-    return null;
-  }
-};
+export function createInitialWizardState(
+  initialPrompt = ''
+): PersistedWizardState {
+  return {
+    draft: {
+      ...DEFAULT_WIZARD_DRAFT,
+      currentStep: 1,
+      prompt: initialPrompt,
+    },
+    pendingGenerateAfterAuth: false,
+    updatedAt: Date.now(),
+  };
+}
 
-export const clearPendingDraft = () => {
+export function loadWizardState(fallbackPrompt = ''): PersistedWizardState {
   try {
-    localStorage.removeItem(DRAFT_KEY);
-  } catch (e) {
-    console.error('Error borrando borrador de localStorage', e);
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return createInitialWizardState(fallbackPrompt);
+    }
+
+    const parsed = JSON.parse(raw) as Partial<PersistedWizardState>;
+    const mergedDraft: StudioLiteDraft = {
+      ...DEFAULT_WIZARD_DRAFT,
+      ...(parsed.draft ?? {}),
+      prompt:
+        fallbackPrompt && !parsed.draft?.prompt
+          ? fallbackPrompt
+          : parsed.draft?.prompt ?? fallbackPrompt,
+    };
+
+    return {
+      draft: mergedDraft,
+      pendingGenerateAfterAuth: Boolean(parsed.pendingGenerateAfterAuth),
+      updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : Date.now(),
+    };
+  } catch {
+    return createInitialWizardState(fallbackPrompt);
   }
-};
+}
+
+export function saveWizardState(state: PersistedWizardState): void {
+  try {
+    const payload: PersistedWizardState = {
+      ...state,
+      updatedAt: Date.now(),
+    };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // Ignorar errores de cuota o almacenamiento restringido en modo privado
+  }
+}
+
+export function clearWizardStorage(): void {
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignorar errores de almacenamiento
+  }
+}

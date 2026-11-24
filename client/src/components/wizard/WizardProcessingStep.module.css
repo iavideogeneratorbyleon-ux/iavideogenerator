@@ -1,155 +1,94 @@
-.container {
+.processingWrap {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  padding: 2rem 1rem;
-  color: white;
-  animation: fadeIn 0.4s ease-in-out;
-}
-
-.card {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1.5rem;
-  padding: 2.5rem 2rem;
-  width: 100%;
-  max-width: 520px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   text-align: center;
+  padding: 2.25rem 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border-accent);
+  background-color: var(--bg-card);
+  gap: 1.15rem;
 }
 
-.spinnerWrapper {
-  position: relative;
-  width: 80px;
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1.5rem;
+.spinnerRing {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  border: 3px solid var(--border-subtle);
+  border-top-color: var(--brand-primary);
+  animation: spinRing 0.9s linear infinite;
 }
 
-.spinner {
-  position: absolute;
-  inset: 0;
-  border: 4px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #f97316; /* Naranja corporativo */
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+@keyframes spinRing {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.progressPercentage {
-  font-size: 0.95rem;
+.stageTag {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #fb923c;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brand-primary);
 }
 
-.title {
-  font-size: 1.35rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-  color: #f8fafc;
-}
-
-.subtitle {
-  font-size: 0.85rem;
-  color: #94a3b8;
-  margin-bottom: 2rem;
-}
-
-.stepsList {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  text-align: left;
-}
-
-.stepItem {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  background: rgba(30, 41, 59, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  transition: all 0.3s ease;
-}
-
-.stepItem.active {
-  background: rgba(249, 115, 22, 0.1);
-  border-color: rgba(249, 115, 22, 0.4);
-}
-
-.stepItem.completed {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.2);
-}
-
-.stepIcon {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.checkIcon {
-  color: #34d399;
-  font-weight: bold;
-  font-size: 1rem;
-}
-
-.dotPulse {
-  width: 10px;
-  height: 10px;
-  background-color: #f97316;
-  border-radius: 50%;
-  box-shadow: 0 0 10px #f97316;
-  animation: pulse 1.2s infinite ease-in-out;
-}
-
-.pendingDot {
-  width: 8px;
-  height: 8px;
-  background-color: #475569;
-  border-radius: 50%;
-}
-
-.stepTitle {
-  font-size: 0.85rem;
-  color: #cbd5e1;
-  font-weight: 500;
+.heading {
   margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-primary);
 }
 
-.stepItem.active .stepTitle {
-  color: #fdba74;
+.description {
+  margin: 0;
+  max-width: 34rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.metaPillRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.metaPill {
+  border-radius: 9999px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-page);
+  padding: 0.3rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-primary);
+}
+
+.actionsRow {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.cancelBtn {
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-page);
+  padding: 0.6rem 1.1rem;
+  font-size: 0.85rem;
   font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
 }
 
-.stepItem.completed .stepTitle {
-  color: #94a3b8;
-  text-decoration: line-through;
-  opacity: 0.8;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(0.8); opacity: 0.5; }
-  50% { transform: scale(1.2); opacity: 1; }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+.cancelBtn:hover {
+  border-color: var(--brand-primary);
+  color: var(--text-primary);
 }
