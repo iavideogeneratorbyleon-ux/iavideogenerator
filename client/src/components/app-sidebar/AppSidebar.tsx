@@ -1,3 +1,4 @@
+import { useAuth } from '../../context/AuthContext';
 import type { AppRouteId } from '../../navigation/appRoutes';
 import styles from './AppSidebar.module.css';
 
@@ -28,16 +29,25 @@ export default function AppSidebar({
   onBackToLanding,
   onLogout,
 }: AppSidebarProps) {
-  const navGroups: Array<{
+  const { user } = useAuth();
+  const userProfile = user as
+    | { name?: string; email?: string; avatarUrl?: string; picture?: string }
+    | null;
+
+  const displayName =
+    userProfile?.name?.trim() ||
+    (isEn ? 'Creator Account' : 'Cuenta de Creador');
+  const displayEmail = userEmail || userProfile?.email || '';
+  const avatarSrc = userProfile?.avatarUrl || userProfile?.picture || '';
+  const initial = (displayName || displayEmail || 'C')
+    .trim()
+    .charAt(0)
+    .toUpperCase();
+
+  const productGroups: Array<{
     title: string;
     items: Array<{ id: AppRouteId; label: string }>;
   }> = [
-    {
-      title: isEn ? 'Account' : 'Cuenta',
-      items: [
-        { id: 'dashboard', label: isEn ? 'My Dashboard' : 'Mi Panel' },
-      ],
-    },
     {
       title: isEn ? 'Main Studio' : 'Estudio Principal',
       items: [
@@ -63,20 +73,49 @@ export default function AppSidebar({
       className={styles.sidebar}
       aria-label={isEn ? 'Application navigation' : 'Navegación de la aplicación'}
     >
-      <div className={styles.header}>
-        <span className={styles.badge}>CEMPA.AI</span>
-        <p className={styles.heading}>
-          {isEn ? 'Navigation' : 'Navegación'}
-        </p>
-        {userEmail && (
-          <span className={styles.email} title={userEmail}>
-            {userEmail}
+      <div>
+        <div className={styles.profileCard}>
+          <span className={styles.avatarBadge}>
+            {avatarSrc ? (
+              <img
+                src={avatarSrc}
+                alt={displayName}
+                className={styles.avatarImg}
+              />
+            ) : (
+              initial
+            )}
           </span>
-        )}
+          <div className={styles.profileMeta}>
+            <span className={styles.badge}>CEMPA.AI</span>
+            <p className={styles.userName} title={displayName}>
+              {displayName}
+            </p>
+            {displayEmail && (
+              <span className={styles.email} title={displayEmail}>
+                {displayEmail}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div style={{ marginTop: '14px' }}>
+          <button
+            type="button"
+            className={`${styles.primaryDashboardBtn} ${
+              currentRoute === 'dashboard'
+                ? styles.primaryDashboardBtnActive
+                : ''
+            }`}
+            onClick={() => onNavigate('dashboard')}
+          >
+            <span>{isEn ? 'Dashboard' : 'Dashboard'}</span>
+          </button>
+        </div>
       </div>
 
       <div className={styles.groups}>
-        {navGroups.map((group) => (
+        {productGroups.map((group) => (
           <div key={group.title} className={styles.group}>
             <span className={styles.groupTitle}>{group.title}</span>
             <nav className={styles.navList}>
@@ -102,14 +141,19 @@ export default function AppSidebar({
       </div>
 
       <div className={styles.footer}>
-        <div className={styles.planBox}>
-          <span className={styles.planCaption}>
-            {isEn ? 'Current Plan' : 'Plan Actual'}
-          </span>
-          <strong className={styles.planName}>{planLabel}</strong>
-          <span className={styles.creditsText}>
-            {credits} {isEn ? 'credits' : 'créditos'}
-          </span>
+        <div className={styles.balanceBox}>
+          <div className={styles.balanceTop}>
+            <span>⚡ {isEn ? 'Balance' : 'Balance'}</span>
+            <span className={styles.balancePlan}>{planLabel}</span>
+          </div>
+          <div className={styles.balanceCreditsRow}>
+            <span className={styles.balanceCreditsLabel}>
+              {isEn ? 'Available credits' : 'Créditos disponibles'}
+            </span>
+            <span className={styles.balanceCreditsValue}>
+              {credits} {isEn ? 'credits' : 'créditos'}
+            </span>
+          </div>
         </div>
 
         <button
@@ -117,7 +161,7 @@ export default function AppSidebar({
           className={styles.upgradeButton}
           onClick={onOpenUpgrade}
         >
-          {isEn ? 'Upgrade Plan' : 'Mejorar Plan'}
+          {isEn ? 'Upgrade' : 'Mejorar Plan'}
         </button>
 
         <button
@@ -131,7 +175,7 @@ export default function AppSidebar({
         {isAuthenticated && (
           <button
             type="button"
-            className={styles.ghostButton}
+            className={styles.signOutButton}
             onClick={onLogout}
           >
             {logoutLabel}

@@ -243,10 +243,7 @@ const NAVBAR_COPY = {
     mainGroup: 'Main Studio',
     extraGroup: 'Extra Tools',
     plans: 'Plans',
-    pricing: 'Pricing',
     dashboard: 'Dashboard',
-    workspace: 'Workspace',
-    landing: 'Landing',
     light: 'Light',
     dark: 'Dark',
     themeLabel: 'Theme',
@@ -264,10 +261,7 @@ const NAVBAR_COPY = {
     mainGroup: 'Estudio Principal',
     extraGroup: 'Herramientas Extra',
     plans: 'Planes',
-    pricing: 'Precios',
     dashboard: 'Dashboard',
-    workspace: 'Workspace',
-    landing: 'Inicio',
     light: 'Claro',
     dark: 'Oscuro',
     themeLabel: 'Tema',
@@ -276,8 +270,8 @@ const NAVBAR_COPY = {
     signup: 'Registrarse',
     signOut: 'Cerrar sesión',
     credits: 'créditos',
-    balance: 'Saldo',
-    upgrade: 'Mejorar',
+    balance: 'Balance',
+    upgrade: 'Upgrade',
     menuLabel: 'Abrir o cerrar menú de navegación',
   },
 } as const;
@@ -344,11 +338,9 @@ export default function Navbar({
     | { name?: string; email?: string; avatarUrl?: string; picture?: string }
     | null;
   const avatarSrc = userWithAvatar?.avatarUrl || userWithAvatar?.picture || '';
-  const displayInitial = (
-    userWithAvatar?.name ||
-    userWithAvatar?.email ||
-    'U'
-  )
+  const displayName = userWithAvatar?.name?.trim() || '';
+  const displayEmail = userWithAvatar?.email?.trim() || '';
+  const displayInitial = (displayName || displayEmail || 'U')
     .trim()
     .charAt(0)
     .toUpperCase();
@@ -360,10 +352,10 @@ export default function Navbar({
     onSelectProduct(product);
   };
 
-  const handleSectionClick = (section: 'products' | 'plans' | 'pricing') => {
+  const handlePlansClick = () => {
     setIsProductsOpen(false);
     setIsMobileMenuOpen(false);
-    onNavigateSection(section);
+    onOpenPlansModal();
   };
 
   const handleDashboardClick = () => {
@@ -375,8 +367,14 @@ export default function Navbar({
     }
     if (workspaceMenu) {
       workspaceMenu.onSelectSection('dashboard');
+      return;
+    }
+    if (activeView !== 'workspace') {
+      onToggleView();
     }
   };
+
+  const isDark = theme === 'dark';
 
   return (
     <header className={styles.navbar}>
@@ -464,7 +462,7 @@ export default function Navbar({
 
         <button
           type="button"
-          onClick={() => handleSectionClick('plans')}
+          onClick={handlePlansClick}
           className={styles.centerLink}
         >
           {copy.plans}
@@ -472,10 +470,13 @@ export default function Navbar({
 
         <button
           type="button"
-          onClick={() => handleSectionClick('pricing')}
+          onClick={() => {
+            setIsProductsOpen(false);
+            onNavigateSection('products');
+          }}
           className={styles.centerLink}
         >
-          {copy.pricing}
+          {lang === 'es' ? 'Explorar' : 'Overview'}
         </button>
       </nav>
 
@@ -508,12 +509,12 @@ export default function Navbar({
 
             <span
               className={styles.avatarBadge}
-              title={userWithAvatar?.name || userWithAvatar?.email || 'User'}
+              title={displayName || displayEmail || 'User'}
             >
               {avatarSrc ? (
                 <img
                   src={avatarSrc}
-                  alt={userWithAvatar?.name || 'Avatar'}
+                  alt={displayName || 'Avatar'}
                   className={styles.avatarImg}
                 />
               ) : (
@@ -554,13 +555,13 @@ export default function Navbar({
           onClick={toggleTheme}
           className={styles.utilityBtn}
         >
-          {theme === 'dark' ? `☀️ ${copy.light}` : `🌙 ${copy.dark}`}
+          {isDark ? `☀️ ${copy.light}` : `🌙 ${copy.dark}`}
         </button>
 
         <button
           type="button"
           onClick={toggleLanguage}
-          className={styles.utilityBtn}
+          className={styles.langToggleBtn}
         >
           {language === 'en' ? 'ES' : 'EN'}
         </button>
@@ -591,8 +592,50 @@ export default function Navbar({
 
         {isMobileMenuOpen && (
           <div className={styles.mobileSheetMenu} role="menu">
-            <div className={styles.mobileSummaryCard}>
-              <div className={styles.mobileBalanceHeader}>
+            {isAuthenticated && (
+              <div className={styles.mobileProfileHeader}>
+                <span className={styles.avatarBadge}>
+                  {avatarSrc ? (
+                    <img
+                      src={avatarSrc}
+                      alt={displayName || 'Avatar'}
+                      className={styles.avatarImg}
+                    />
+                  ) : (
+                    displayInitial
+                  )}
+                </span>
+                <div className={styles.mobileProfileMeta}>
+                  <span className={styles.mobileProfileName}>
+                    {displayName || (lang === 'es' ? 'Usuario' : 'User')}
+                  </span>
+                  {displayEmail && (
+                    <span className={styles.mobileProfileEmail}>
+                      {displayEmail}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className={styles.mobileMenuGroup}>
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={handleDashboardClick}
+                  className={`${styles.mobilePrimaryItem} ${
+                    workspaceMenu?.activeSection === 'dashboard'
+                      ? styles.mobilePrimaryItemActive
+                      : ''
+                  }`}
+                >
+                  <span>{copy.dashboard}</span>
+                </button>
+              )}
+            </div>
+
+            <div className={styles.mobileBalanceBox}>
+              <div className={styles.mobileBalanceTop}>
                 <span className={styles.mobileBalanceTitle}>
                   ⚡ {copy.balance}
                 </span>
@@ -606,107 +649,26 @@ export default function Navbar({
                       onOpenPlansModal();
                     }
                   }}
-                  className={styles.mobileUpgradeChip}
+                  className={styles.mobileUpgradeBtn}
                 >
                   {copy.upgrade}
                 </button>
               </div>
 
-              <div className={styles.mobileBalanceRow}>
-                <span>{copy.credits}</span>
-                <strong>{credits}</strong>
+              <div className={styles.mobileBalanceCredits}>
+                <span>
+                  {lang === 'es' ? 'Créditos disponibles' : 'Available credits'}
+                </span>
+                <strong>
+                  {credits} {copy.credits}
+                </strong>
               </div>
-
-              {workspaceMenu && (
-                <div className={styles.mobileWorkspaceBox}>
-                  <span className={styles.mobileWorkspaceCaption}>
-                    {lang === 'es' ? 'Espacio activo' : 'Current workspace'}
-                  </span>
-                  <div className={styles.mobileWorkspaceTitle}>
-                    {userWithAvatar?.name || 'Cempai Workspace'}
-                  </div>
-                  <span className={styles.mobileWorkspacePlan}>
-                    {workspaceMenu.planLabel}
-                  </span>
-                </div>
-              )}
             </div>
-
-            {workspaceMenu && (
-              <div className={styles.mobileMenuGroup}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    workspaceMenu.onSelectSection('studio-lite');
-                  }}
-                  className={`${styles.mobileListRow} ${
-                    workspaceMenu.activeSection === 'studio-lite'
-                      ? styles.mobileListRowActive
-                      : ''
-                  }`}
-                >
-                  <span>Studio Lite</span>
-                  <span className={styles.mobileRowChevron}>›</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    handleDashboardClick();
-                  }}
-                  className={`${styles.mobileListRow} ${
-                    workspaceMenu.activeSection === 'dashboard'
-                      ? styles.mobileListRowActive
-                      : ''
-                  }`}
-                >
-                  <span>
-                    {lang === 'es' ? 'Panel' : 'Dashboard'} (
-                    {workspaceMenu.videosCount})
-                  </span>
-                  <span className={styles.mobileRowChevron}>›</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    workspaceMenu.onSelectSection('text-to-speech');
-                  }}
-                  className={`${styles.mobileListRow} ${
-                    workspaceMenu.activeSection === 'text-to-speech'
-                      ? styles.mobileListRowActive
-                      : ''
-                  }`}
-                >
-                  <span>Text to Speech</span>
-                  <span className={styles.mobileRowChevron}>›</span>
-                </button>
-
-                {workspaceMenu.onBackToLanding && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      workspaceMenu.onBackToLanding?.();
-                    }}
-                    className={styles.mobileListRow}
-                  >
-                    <span>{lang === 'es' ? 'Inicio' : 'Home'}</span>
-                    <span className={styles.mobileRowChevron}>›</span>
-                  </button>
-                )}
-              </div>
-            )}
 
             <div className={styles.mobileMenuGroup}>
               <button
                 type="button"
-                onClick={() =>
-                  setIsMobileProductsExpanded((prev) => !prev)
-                }
+                onClick={() => setIsMobileProductsExpanded((prev) => !prev)}
                 className={styles.mobileListRow}
               >
                 <span>{copy.products}</span>
@@ -749,56 +711,44 @@ export default function Navbar({
 
               <button
                 type="button"
-                onClick={() => handleSectionClick('plans')}
+                onClick={handlePlansClick}
                 className={styles.mobileListRow}
               >
                 <span>{copy.plans}</span>
-                <span className={styles.mobileRowChevron}>›</span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => handleSectionClick('pricing')}
-                className={styles.mobileListRow}
-              >
-                <span>{copy.pricing}</span>
-                <span className={styles.mobileRowChevron}>›</span>
-              </button>
-
-              {isAuthenticated && (
-                <button
-                  type="button"
-                  onClick={handleDashboardClick}
-                  className={styles.mobileListRow}
-                >
-                  <span>{copy.dashboard}</span>
-                  <span className={styles.mobileRowChevron}>›</span>
-                </button>
-              )}
             </div>
 
             <div className={styles.mobileMenuGroup}>
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className={styles.mobileListRow}
-              >
-                <span>{copy.themeLabel}</span>
-                <span className={styles.mobileRowMeta}>
-                  {theme === 'dark' ? copy.light : copy.dark} ›
+              <div className={styles.mobileControlRow}>
+                <span className={styles.mobileControlLabel}>
+                  {copy.themeLabel} ({isDark ? copy.dark : copy.light})
                 </span>
-              </button>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isDark}
+                  aria-label={copy.themeLabel}
+                  onClick={toggleTheme}
+                  className={`${styles.themeSwitch} ${
+                    isDark ? styles.themeSwitchChecked : ''
+                  }`}
+                >
+                  <span className={styles.themeSwitchThumb} />
+                </button>
+              </div>
 
-              <button
-                type="button"
-                onClick={toggleLanguage}
-                className={styles.mobileListRow}
-              >
-                <span>{copy.languageLabel}</span>
-                <span className={styles.mobileRowMeta}>
-                  {language === 'en' ? 'ES' : 'EN'} ›
+              <div className={styles.mobileControlRow}>
+                <span className={styles.mobileControlLabel}>
+                  {copy.languageLabel}
                 </span>
-              </button>
+                <button
+                  type="button"
+                  onClick={toggleLanguage}
+                  className={styles.langToggleBtn}
+                >
+                  {language === 'en' ? 'ES' : 'EN'}
+                </button>
+              </div>
             </div>
 
             <div className={styles.mobileMenuGroup}>
@@ -813,23 +763,21 @@ export default function Navbar({
                       onSignOut();
                     }
                   }}
-                  className={styles.mobileListRow}
+                  className={styles.mobileSignOutBtn}
                 >
-                  <span>{copy.signOut}</span>
-                  <span className={styles.mobileRowChevron}>›</span>
+                  {copy.signOut}
                 </button>
               ) : (
-                <>
+                <div className={styles.mobileAuthStack}>
                   <button
                     type="button"
                     onClick={() => {
                       setIsMobileMenuOpen(false);
                       onOpenLogin();
                     }}
-                    className={styles.mobileListRow}
+                    className={styles.loginBtn}
                   >
-                    <span>{copy.login}</span>
-                    <span className={styles.mobileRowChevron}>›</span>
+                    {copy.login}
                   </button>
 
                   <button
@@ -838,12 +786,11 @@ export default function Navbar({
                       setIsMobileMenuOpen(false);
                       onOpenSignup();
                     }}
-                    className={`${styles.mobileListRow} ${styles.mobileAccentRow}`}
+                    className={styles.signupBtn}
                   >
-                    <span>{copy.signup}</span>
-                    <span className={styles.mobileRowChevron}>›</span>
+                    {copy.signup}
                   </button>
-                </>
+                </div>
               )}
             </div>
           </div>
