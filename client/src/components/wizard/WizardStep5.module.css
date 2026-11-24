@@ -1,97 +1,395 @@
 .stepSection {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  justify-content: space-between;
+  gap: 0.95rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.headerBlock {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
 }
 
 .stepTitle {
   margin: 0;
-  font-family: var(--font-display);
+  font-family: var(--font-display, inherit);
   font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-weight: 800;
+  color: var(--text-primary, #f8fafc);
 }
 
 .stepHint {
-  margin: 0.25rem 0 0;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+  margin: 0.2rem 0 0;
+  font-size: 0.84rem;
+  color: var(--text-secondary, #94a3b8);
 }
 
-.summaryCard {
-  border-radius: 1rem;
-  border: 1px solid var(--border-subtle);
-  background-color: var(--bg-card);
-  padding: 1.2rem;
+.summaryGrid {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.95rem;
+  min-height: 0;
+}
+
+/* Laptop y tablet horizontal: dos columnas balanceadas */
+@media (min-width: 900px) and (orientation: landscape), (min-width: 1081px) {
+  .summaryGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    gap: 1.15rem;
+    align-items: stretch;
+  }
+}
+
+.specsCard {
+  border-radius: 1rem;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  background-color: var(--bg-page, #0b0f19);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.45rem;
 }
 
 .summaryItem {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  font-size: 0.875rem;
+  gap: 0.75rem;
+  font-size: 0.83rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--border-subtle, rgba(255, 255, 255, 0.08)) 65%, transparent);
+}
+
+.summaryItem:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .summaryLabel {
-  color: var(--text-muted);
+  color: var(--text-secondary, #94a3b8);
+  flex-shrink: 0;
 }
 
 .summaryRight {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  min-width: 0;
 }
 
 .summaryValue {
-  font-weight: 600;
-  color: var(--text-primary);
+  font-weight: 700;
+  color: var(--text-primary, #f8fafc);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .editLink {
   border: none;
   background: none;
   padding: 0;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--brand-primary);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--brand-primary, #ff7a00);
   cursor: pointer;
   text-decoration: underline;
+  flex-shrink: 0;
+}
+
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.promptCard {
+  border-radius: 1rem;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  background-color: var(--bg-page, #0b0f19);
+  padding: 0.8rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.promptCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.promptCardLabel {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--brand-primary, #ff7a00);
 }
 
 .promptPreview {
-  margin: 0.2rem 0 0;
-  border-top: 1px solid var(--border-subtle);
-  padding-top: 0.8rem;
-  font-size: 0.875rem;
-  line-height: 1.6;
-  color: var(--text-secondary);
+  margin: 0;
+  font-size: 0.83rem;
+  line-height: 1.48;
+  color: var(--text-secondary, #94a3b8);
+  max-height: 5.5rem;
+  overflow-y: auto;
 }
 
 .signupNotice {
   border-radius: 0.875rem;
-  border: 1px solid var(--border-accent);
-  background-color: color-mix(in srgb, var(--brand-primary) 11%, var(--bg-card));
-  padding: 0.95rem 1.05rem;
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--brand-primary, #ff7a00) 40%,
+      var(--border-subtle, rgba(255, 255, 255, 0.12))
+    );
+  background-color: color-mix(
+    in srgb,
+    var(--brand-primary, #ff7a00) 10%,
+    var(--bg-page, #0b0f19)
+  );
+  padding: 0.72rem 0.9rem;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.2rem;
 }
 
 .signupNoticeTitle {
-  font-family: var(--font-display);
-  font-size: 0.9rem;
+  font-family: var(--font-display, inherit);
+  font-size: 0.84rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--text-primary, #f8fafc);
 }
 
 .signupNoticeText {
   margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.5;
-  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.42;
+  color: var(--text-secondary, #94a3b8);
+}
+
+/* Franja inferior dinámica en Laptop y Tablet */
+.blueprintShowcase {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .blueprintShowcase {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.85rem;
+    flex: 1;
+    min-height: 145px;
+    border-radius: 1rem;
+    border: 1px solid
+      color-mix(
+        in srgb,
+        var(--brand-primary, #ff7a00) 28%,
+        var(--border-subtle, rgba(255, 255, 255, 0.12))
+      );
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--brand-primary, #ff7a00) 11%, var(--bg-page, #0b0f19)),
+      var(--bg-page, #0b0f19) 70%
+    );
+    padding: 0.95rem 1.1rem;
+  }
+}
+
+.blueprintVisual {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.miniCanvas {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 0.5rem;
+  border: 1.5px solid var(--brand-primary, #ff7a00);
+  background: linear-gradient(155deg, rgba(255, 122, 0, 0.25), rgba(15, 23, 42, 0.92));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem;
+}
+
+.frame16x9 {
+  width: 96px;
+  height: 56px;
+}
+
+.frame9x16 {
+  width: 48px;
+  height: 76px;
+}
+
+.frame1x1 {
+  width: 68px;
+  height: 68px;
+}
+
+.canvasRatioPill {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #fff8ed;
+}
+
+.canvasSubtitlePill {
+  font-size: 0.56rem;
+  font-weight: 700;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+  background-color: rgba(9, 12, 20, 0.85);
+  color: #fde68a;
+  white-space: nowrap;
+}
+
+.blueprintInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.blueprintEyebrow {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--brand-primary, #ff7a00);
+}
+
+.blueprintTitle {
+  font-family: var(--font-display, inherit);
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-primary, #f8fafc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.metaChip {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  background-color: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary, #94a3b8);
+}
+
+.pipelineTrack {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  padding-top: 0.75rem;
+}
+
+@media (max-width: 899px) and (orientation: portrait) {
+  .pipelineTrack {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+}
+
+.trackStep {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.trackNum {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--brand-primary, #ff7a00);
+  background-color: color-mix(in srgb, var(--brand-primary, #ff7a00) 15%, transparent);
+  padding: 0.15rem 0.38rem;
+  border-radius: 0.35rem;
+  flex-shrink: 0;
+}
+
+.trackCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.trackTitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary, #f8fafc);
+}
+
+.trackDesc {
+  font-size: 0.71rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.35;
+}
+
+/* Móvil: compacto y fácil de revisar antes de generar */
+@media (max-width: 639px) {
+  .stepSection {
+    gap: 0.75rem;
+    height: auto;
+  }
+
+  .stepHint,
+  .signupNoticeText {
+    display: none;
+  }
+
+  .specsCard {
+    padding: 0.75rem 0.85rem;
+    gap: 0.45rem;
+  }
+
+  .summaryItem {
+    font-size: 0.8rem;
+    padding-bottom: 0.38rem;
+  }
+
+  .promptCard {
+    padding: 0.75rem 0.85rem;
+  }
+
+  .promptPreview {
+    font-size: 0.8rem;
+    max-height: 5.5rem;
+  }
+
+  .signupNotice {
+    padding: 0.65rem 0.8rem;
+  }
 }

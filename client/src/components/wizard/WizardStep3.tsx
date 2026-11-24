@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from '../../hooks/useTranslations';
 import { getOptionAccessState, getPlanWizardPolicy } from './wizardPlanConfig';
 import { type PlanTier } from './wizardStorage';
@@ -7,7 +8,9 @@ export interface VisualFormatOption {
   id: string;
   label: { en: string; es: string };
   description: { en: string; es: string };
+  styleTag?: { en: string; es: string };
   imageUrl?: string;
+  videoUrl?: string;
   requiresPaidPlan?: boolean;
 }
 
@@ -17,6 +20,49 @@ interface WizardStep3Props {
   formats: VisualFormatOption[];
   onSelectFormat: (id: string) => void;
   onLockedSelect?: (id: string) => void;
+}
+
+function formatFallbackTitle(id: string): string {
+  return id
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getStyleBadge(format: VisualFormatOption, lang: 'es' | 'en'): string {
+  if (format.styleTag?.[lang]) {
+    return format.styleTag[lang];
+  }
+  const key = format.id.toLowerCase();
+  if (key.includes('comic') || key.includes('manga')) {
+    return lang === 'es' ? 'Viñeta · Tinta' : 'Ink · Panel';
+  }
+  if (key.includes('3d') || key.includes('render')) {
+    return lang === 'es' ? 'Volumen · 3D' : 'Depth · 3D';
+  }
+  if (key.includes('anime')) {
+    return lang === 'es' ? 'Animación · Japonesa' : 'Cel · Anime';
+  }
+  if (key.includes('cyber') || key.includes('neon') || key.includes('sci')) {
+    return lang === 'es' ? 'Neón · Futuro' : 'Neon · Sci-Fi';
+  }
+  if (key.includes('photo') || key.includes('real') || key.includes('film')) {
+    return lang === 'es' ? 'Fotografía · Real' : 'Photo · Live';
+  }
+  return lang === 'es' ? 'Estética Visual' : 'Visual Style';
+}
+
+function getFormatThemeClass(id: string): string {
+  const key = id.toLowerCase();
+  if (key.includes('comic') || key.includes('manga')) return styles.themeComic;
+  if (key.includes('3d') || key.includes('render')) return styles.theme3d;
+  if (key.includes('anime')) return styles.themeAnime;
+  if (key.includes('cyber') || key.includes('neon') || key.includes('sci')) {
+    return styles.themeNeon;
+  }
+  if (key.includes('photo') || key.includes('real') || key.includes('film')) {
+    return styles.themePhoto;
+  }
+  return styles.themeDefault;
 }
 
 function WizardStep3({
@@ -30,10 +76,11 @@ function WizardStep3({
   const lang = language === 'es' ? 'es' : 'en';
   const isSpanish = lang === 'es';
   const policy = getPlanWizardPolicy(planTier);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   return (
     <div className={styles.stepSection}>
-      <div>
+      <div className={styles.headerBlock}>
         <h3 className={styles.stepTitle}>
           {isSpanish
             ? '3. Elige el formato visual'
@@ -55,6 +102,13 @@ function WizardStep3({
           );
           const isLocked = access.locked;
           const isSelected = format.id === selectedFormatId;
+          const titleText =
+            format.label?.[lang]?.trim() || formatFallbackTitle(format.id);
+          const styleBadgeText = getStyleBadge(format, lang);
+          const themeClass = getFormatThemeClass(format.id);
+          const showVideo = Boolean(
+            format.videoUrl && (isSelected || hoveredId === format.id)
+          );
 
           const handleClick = () => {
             if (isLocked) {
@@ -69,17 +123,31 @@ function WizardStep3({
               key={format.id}
               type="button"
               aria-disabled={isLocked}
+              aria-pressed={isSelected}
               onClick={handleClick}
+              onMouseEnter={() => setHoveredId(format.id)}
+              onMouseLeave={() => setHoveredId(null)}
               className={`${styles.formatCard} ${
                 isSelected ? styles.formatCardSelected : ''
               } ${isLocked ? styles.formatCardLocked : ''}`}
             >
-              <div className={styles.visualThumb}>
+              <div className={`${styles.visualThumb} ${themeClass}`}>
                 {format.imageUrl && (
                   <img
                     src={format.imageUrl}
-                    alt={format.label[lang]}
+                    alt={titleText}
                     className={styles.visualImg}
+                    loading="lazy"
+                  />
+                )}
+                {showVideo && format.videoUrl && (
+                  <video
+                    src={format.videoUrl}
+                    className={styles.visualVideo}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
                   />
                 )}
                 <span className={styles.formatTag}>
@@ -92,10 +160,11 @@ function WizardStep3({
                 )}
               </div>
 
-              <span className={styles.formatTitle}>{format.label[lang]}</span>
-              <span className={styles.formatDesc}>
-                {format.description[lang]}
-              </span>
+              <div className={styles.cardBody}>
+                <span className={styles.formatTitle}>{titleText}</span>
+                <span className={styles.styleBadge}>{styleBadgeText}</span>
+                <p className={styles.formatDesc}>{format.description[lang]}</p>
+              </div>
             </button>
           );
         })}

@@ -1101,6 +1101,7 @@ function StudioLiteWorkspaceWizard({
                 voice={wizardState.draft.voice}
                 durationSec={wizardState.draft.durationSec}
                 planTier={normalizedPlan}
+                promptText={wizardState.draft.prompt}
                 subtitlesEnabled={subtitlesEnabled}
                 subtitleStyle={subtitleStyle}
                 canChooseSubtitleStyle={canChooseSubtitleStyle}

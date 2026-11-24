@@ -1,6 +1,9 @@
 import { useTranslation } from '../../hooks/useTranslations';
 import { type LegalDocType } from '../terms-modal/TermsModal';
-import { SUBTITLE_STYLE_OPTIONS } from './StudioLiteWorkspaceWizard';
+import {
+  SUBTITLE_STYLE_OPTIONS,
+  VOICE_OPTIONS,
+} from './StudioLiteWorkspaceWizard';
 import { TermsAcceptanceBox } from './TermsAcceptanceBox';
 import { getPlanWizardPolicy, type PlanTier } from './wizardPlanConfig';
 import { type WizardStepNumber } from './WizardContainer';
@@ -40,7 +43,13 @@ function WizardStep5({
 }: WizardStep5Props) {
   const { t, language } = useTranslation();
   const isSpanish = language === 'es';
+  const lang = isSpanish ? 'es' : 'en';
   const policy = getPlanWizardPolicy(planTier);
+
+  const selectedVoiceItem = VOICE_OPTIONS.find((v) => v.id === draft.voice);
+  const voiceDisplayName = selectedVoiceItem
+    ? selectedVoiceItem.voiceName || selectedVoiceItem.label[lang]
+    : draft.voice;
 
   const selectedSubtitleOption =
     SUBTITLE_STYLE_OPTIONS.find((item) => item.id === subtitleStyle) ||
@@ -51,16 +60,23 @@ function WizardStep5({
       ? 'Sin subtítulos'
       : 'Without subtitles'
     : canChooseSubtitleStyle
-    ? `${isSpanish ? 'Con subtítulos' : 'With subtitles'} · ${
-        selectedSubtitleOption.label[isSpanish ? 'es' : 'en']
-      }`
+    ? `${isSpanish ? 'Activos' : 'On'} · ${selectedSubtitleOption.label[lang]}`
     : isSpanish
-    ? 'Con subtítulos'
-    : 'With subtitles';
+    ? 'Activos'
+    : 'On';
+
+  const ratioPreviewClass =
+    draft.aspectRatio === '16:9'
+      ? styles.frame16x9
+      : draft.aspectRatio === '9:16'
+      ? styles.frame9x16
+      : styles.frame1x1;
+
+  const cleanPrompt = draft.prompt.trim();
 
   return (
     <div className={styles.stepSection}>
-      <div>
+      <div className={styles.headerBlock}>
         <h3 className={styles.stepTitle}>
           {isSpanish
             ? '5. Resumen antes de generar'
@@ -73,148 +89,267 @@ function WizardStep5({
         </p>
       </div>
 
-      <div className={styles.summaryCard}>
-        <div className={styles.summaryItem}>
-          <span className={styles.summaryLabel}>
-            {isSpanish ? 'Modo' : 'Mode'}
-          </span>
-          <div className={styles.summaryRight}>
-            <span className={styles.summaryValue}>
-              {draft.mode === 'idea'
-                ? t.studioLite.modeIdea
-                : t.studioLite.modeScript}
-            </span>
-            <button
-              type="button"
-              onClick={() => onJumpToStep(1)}
-              className={styles.editLink}
-            >
-              {isSpanish ? 'Editar' : 'Edit'}
-            </button>
-          </div>
-        </div>
-
-        <div className={styles.summaryItem}>
-          <span className={styles.summaryLabel}>{t.studioLite.presetLabel}</span>
-          <div className={styles.summaryRight}>
-            <span className={styles.summaryValue}>{presetLabel}</span>
-            <button
-              type="button"
-              onClick={() => onJumpToStep(2)}
-              className={styles.editLink}
-            >
-              {isSpanish ? 'Editar' : 'Edit'}
-            </button>
-          </div>
-        </div>
-
-        <div className={styles.summaryItem}>
-          <span className={styles.summaryLabel}>
-            {isSpanish ? 'Formato Visual' : 'Visual Format'}
-          </span>
-          <div className={styles.summaryRight}>
-            <span className={styles.summaryValue}>{visualFormatLabel}</span>
-            <button
-              type="button"
-              onClick={() => onJumpToStep(3)}
-              className={styles.editLink}
-            >
-              {isSpanish ? 'Editar' : 'Edit'}
-            </button>
-          </div>
-        </div>
-
-        <div className={styles.summaryItem}>
-          <span className={styles.summaryLabel}>
-            {t.studioLite.aspectRatioLabel}
-          </span>
-          <div className={styles.summaryRight}>
-            <span className={styles.summaryValue}>{draft.aspectRatio}</span>
-            <button
-              type="button"
-              onClick={() => onJumpToStep(4)}
-              className={styles.editLink}
-            >
-              {isSpanish ? 'Editar' : 'Edit'}
-            </button>
-          </div>
-        </div>
-
-        <div className={styles.summaryItem}>
-          <span className={styles.summaryLabel}>{t.studioLite.voiceLabel}</span>
-          <div className={styles.summaryRight}>
-            <span className={styles.summaryValue}>
-              {draft.voice} · {draft.durationSec}s
-            </span>
-            <button
-              type="button"
-              onClick={() => onJumpToStep(4)}
-              className={styles.editLink}
-            >
-              {isSpanish ? 'Editar' : 'Edit'}
-            </button>
-          </div>
-        </div>
-
-        <div className={styles.summaryItem}>
-          <span className={styles.summaryLabel}>
-            {isSpanish ? 'Subtítulos' : 'Subtitles'}
-          </span>
-          <div className={styles.summaryRight}>
-            <span className={styles.summaryValue}>{subtitleSummaryText}</span>
-            <button
-              type="button"
-              onClick={() => onJumpToStep(4)}
-              className={styles.editLink}
-            >
-              {isSpanish ? 'Editar' : 'Edit'}
-            </button>
-          </div>
-        </div>
-
-        {policy.videoCreditCost > 0 && (
+      <div className={styles.summaryGrid}>
+        <div className={styles.specsCard}>
           <div className={styles.summaryItem}>
             <span className={styles.summaryLabel}>
-              {isSpanish ? 'Costo en créditos' : 'Credit Cost'}
+              {isSpanish ? 'Modo' : 'Mode'}
             </span>
             <div className={styles.summaryRight}>
               <span className={styles.summaryValue}>
-                {policy.videoCreditCost}{' '}
-                {isSpanish ? 'créditos' : 'credits'}
+                {draft.mode === 'idea'
+                  ? t.studioLite.modeIdea
+                  : t.studioLite.modeScript}
+              </span>
+              <button
+                type="button"
+                onClick={() => onJumpToStep(1)}
+                className={styles.editLink}
+              >
+                {isSpanish ? 'Editar' : 'Edit'}
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.summaryItem}>
+            <span className={styles.summaryLabel}>
+              {t.studioLite.presetLabel}
+            </span>
+            <div className={styles.summaryRight}>
+              <span className={styles.summaryValue}>{presetLabel}</span>
+              <button
+                type="button"
+                onClick={() => onJumpToStep(2)}
+                className={styles.editLink}
+              >
+                {isSpanish ? 'Editar' : 'Edit'}
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.summaryItem}>
+            <span className={styles.summaryLabel}>
+              {isSpanish ? 'Formato Visual' : 'Visual Format'}
+            </span>
+            <div className={styles.summaryRight}>
+              <span className={styles.summaryValue}>{visualFormatLabel}</span>
+              <button
+                type="button"
+                onClick={() => onJumpToStep(3)}
+                className={styles.editLink}
+              >
+                {isSpanish ? 'Editar' : 'Edit'}
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.summaryItem}>
+            <span className={styles.summaryLabel}>
+              {t.studioLite.aspectRatioLabel}
+            </span>
+            <div className={styles.summaryRight}>
+              <span className={styles.summaryValue}>{draft.aspectRatio}</span>
+              <button
+                type="button"
+                onClick={() => onJumpToStep(4)}
+                className={styles.editLink}
+              >
+                {isSpanish ? 'Editar' : 'Edit'}
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.summaryItem}>
+            <span className={styles.summaryLabel}>
+              {t.studioLite.voiceLabel}
+            </span>
+            <div className={styles.summaryRight}>
+              <span className={styles.summaryValue}>
+                {voiceDisplayName} · {draft.durationSec}s
+              </span>
+              <button
+                type="button"
+                onClick={() => onJumpToStep(4)}
+                className={styles.editLink}
+              >
+                {isSpanish ? 'Editar' : 'Edit'}
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.summaryItem}>
+            <span className={styles.summaryLabel}>
+              {isSpanish ? 'Subtítulos' : 'Subtitles'}
+            </span>
+            <div className={styles.summaryRight}>
+              <span className={styles.summaryValue}>{subtitleSummaryText}</span>
+              <button
+                type="button"
+                onClick={() => onJumpToStep(4)}
+                className={styles.editLink}
+              >
+                {isSpanish ? 'Editar' : 'Edit'}
+              </button>
+            </div>
+          </div>
+
+          {policy.videoCreditCost > 0 && (
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>
+                {isSpanish ? 'Costo en créditos' : 'Credit Cost'}
+              </span>
+              <div className={styles.summaryRight}>
+                <span className={styles.summaryValue}>
+                  {policy.videoCreditCost}{' '}
+                  {isSpanish ? 'créditos' : 'credits'}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className={styles.sideColumn}>
+          <div className={styles.promptCard}>
+            <div className={styles.promptCardHeader}>
+              <span className={styles.promptCardLabel}>
+                {draft.mode === 'idea'
+                  ? isSpanish
+                    ? 'Idea base'
+                    : 'Base idea'
+                  : isSpanish
+                  ? 'Guion'
+                  : 'Script'}
+              </span>
+              <button
+                type="button"
+                onClick={() => onJumpToStep(1)}
+                className={styles.editLink}
+              >
+                {isSpanish ? 'Editar' : 'Edit'}
+              </button>
+            </div>
+            <p className={styles.promptPreview}>
+              {cleanPrompt ||
+                (isSpanish
+                  ? 'Sin prompt escrito aún; puedes añadirlo en el Paso 1.'
+                  : 'No prompt entered yet; you can add it in Step 1.')}
+            </p>
+          </div>
+
+          <TermsAcceptanceBox
+            accepted={acceptedTerms}
+            showError={showTermsError}
+            onChange={onAcceptedTermsChange}
+            onOpenDoc={onOpenLegalDoc}
+          />
+
+          {!isAuthenticated && (
+            <div className={styles.signupNotice}>
+              <span className={styles.signupNoticeTitle}>
+                {isSpanish
+                  ? 'Registro requerido para generar tu video'
+                  : 'Sign up required to generate your video'}
+              </span>
+              <p className={styles.signupNoticeText}>
+                {isSpanish
+                  ? 'Al pulsar generar, guardaremos tu configuración y abrirá el registro/plan (free, pay-per-video, pro o unlimited por email o Google) para continuar directo en tu Dashboard.'
+                  : 'When you click generate, we will save your setup and open registration/plan selection (free, pay-per-video, pro, or unlimited via email or Google) to continue straight into your Dashboard.'}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Franja visual dinámica para aprovechar el espacio en Laptop y Tablet */}
+      <section
+        className={styles.blueprintShowcase}
+        aria-label={
+          isSpanish
+            ? 'Vista previa del plan de producción'
+            : 'Production blueprint preview'
+        }
+      >
+        <div className={styles.blueprintVisual}>
+          <div className={`${styles.miniCanvas} ${ratioPreviewClass}`}>
+            <span className={styles.canvasRatioPill}>{draft.aspectRatio}</span>
+            {subtitlesEnabled && (
+              <span className={styles.canvasSubtitlePill}>
+                {isSpanish ? 'Subtítulos IA' : 'AI Captions'}
+              </span>
+            )}
+          </div>
+          <div className={styles.blueprintInfo}>
+            <span className={styles.blueprintEyebrow}>
+              {isSpanish
+                ? 'BLUEPRINT LISTO PARA RENDERIZAR'
+                : 'READY-TO-RENDER BLUEPRINT'}
+            </span>
+            <strong className={styles.blueprintTitle}>
+              {cleanPrompt
+                ? cleanPrompt.length > 68
+                  ? `${cleanPrompt.slice(0, 68)}…`
+                  : cleanPrompt
+                : isSpanish
+                ? 'Proyecto Studio Lite'
+                : 'Studio Lite Project'}
+            </strong>
+            <div className={styles.tagRow}>
+              <span className={styles.metaChip}>{visualFormatLabel}</span>
+              <span className={styles.metaChip}>{presetLabel}</span>
+              <span className={styles.metaChip}>
+                {voiceDisplayName} · {draft.durationSec}s
+              </span>
+              <span className={styles.metaChip}>
+                {policy.defaultResolution || '720p'}
               </span>
             </div>
           </div>
-        )}
-
-        <p className={styles.promptPreview}>
-          {draft.prompt.trim() ||
-            (isSpanish
-              ? 'Sin prompt escrito aún; puedes añadirlo en el Paso 1.'
-              : 'No prompt entered yet; you can add it in Step 1.')}
-        </p>
-      </div>
-
-      <TermsAcceptanceBox
-        accepted={acceptedTerms}
-        showError={showTermsError}
-        onChange={onAcceptedTermsChange}
-        onOpenDoc={onOpenLegalDoc}
-      />
-
-      {!isAuthenticated && (
-        <div className={styles.signupNotice}>
-          <span className={styles.signupNoticeTitle}>
-            {isSpanish
-              ? 'Registro requerido para generar tu video'
-              : 'Sign up required to generate your video'}
-          </span>
-          <p className={styles.signupNoticeText}>
-            {isSpanish
-              ? 'Al pulsar generar, guardaremos tu configuración y abrirá el registro/plan (free, pay-per-video, pro o unlimited por email o Google) para continuar directo en tu Dashboard.'
-              : 'When you click generate, we will save your setup and open registration/plan selection (free, pay-per-video, pro, or unlimited via email or Google) to continue straight into your Dashboard.'}
-          </p>
         </div>
-      )}
+
+        <div className={styles.pipelineTrack}>
+          <div className={styles.trackStep}>
+            <span className={styles.trackNum}>01</span>
+            <div className={styles.trackCopy}>
+              <span className={styles.trackTitle}>
+                {isSpanish ? 'Estructura y escenas' : 'Script & scenes'}
+              </span>
+              <span className={styles.trackDesc}>
+                {isSpanish
+                  ? `Ritmo ${presetLabel} en formato ${visualFormatLabel}`
+                  : `${presetLabel} pacing in ${visualFormatLabel} look`}
+              </span>
+            </div>
+          </div>
+
+          <div className={styles.trackStep}>
+            <span className={styles.trackNum}>02</span>
+            <div className={styles.trackCopy}>
+              <span className={styles.trackTitle}>
+                {isSpanish ? 'Voz y sincronización' : 'Voice & sync'}
+              </span>
+              <span className={styles.trackDesc}>
+                {isSpanish
+                  ? `Narración con ${voiceDisplayName} (${draft.durationSec}s)`
+                  : `Narration by ${voiceDisplayName} (${draft.durationSec}s)`}
+              </span>
+            </div>
+          </div>
+
+          <div className={styles.trackStep}>
+            <span className={styles.trackNum}>03</span>
+            <div className={styles.trackCopy}>
+              <span className={styles.trackTitle}>
+                {isSpanish ? 'Entrega en Dashboard' : 'Dashboard delivery'}
+              </span>
+              <span className={styles.trackDesc}>
+                {isSpanish
+                  ? `Video ${draft.aspectRatio} listo para ver y descargar`
+                  : `${draft.aspectRatio} video ready to preview & download`}
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

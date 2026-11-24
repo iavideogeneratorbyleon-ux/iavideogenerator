@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from '../../hooks/useTranslations';
 import { getOptionAccessState, getPlanWizardPolicy } from './wizardPlanConfig';
 import { type PlanTier } from './wizardStorage';
@@ -7,7 +8,9 @@ export interface PresetOption {
   id: string;
   label: { en: string; es: string };
   description: { en: string; es: string };
+  toneTag?: { en: string; es: string };
   imageUrl?: string;
+  videoUrl?: string;
   requiresPaidPlan?: boolean;
 }
 
@@ -17,6 +20,45 @@ interface WizardStep2Props {
   presets: PresetOption[];
   onSelectPreset: (id: string) => void;
   onLockedSelect?: (id: string) => void;
+}
+
+function formatFallbackTitle(id: string): string {
+  return id
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getToneBadge(preset: PresetOption, lang: 'es' | 'en'): string {
+  if (preset.toneTag?.[lang]) {
+    return preset.toneTag[lang];
+  }
+  const key = preset.id.toLowerCase();
+  if (key.includes('cinematic')) {
+    return lang === 'es' ? 'Dramático · Atmosférico' : 'Dramatic · Atmospheric';
+  }
+  if (key.includes('documentary')) {
+    return lang === 'es' ? 'Investigativo · Real' : 'Investigative · Grounded';
+  }
+  if (key.includes('educational')) {
+    return lang === 'es' ? 'Claro · Didáctico' : 'Clear · Articulate';
+  }
+  if (key.includes('minimalist')) {
+    return lang === 'es' ? 'Sereno · Limpio' : 'Calm · Unhurried';
+  }
+  if (key.includes('tiktok') || key.includes('viral')) {
+    return lang === 'es' ? 'Ágil · Alto impacto' : 'Upbeat · Fast-paced';
+  }
+  return lang === 'es' ? 'Balanceado' : 'Balanced';
+}
+
+function getPresetThemeClass(id: string): string {
+  const key = id.toLowerCase();
+  if (key.includes('cinematic')) return styles.themeCinematic;
+  if (key.includes('documentary')) return styles.themeDocumentary;
+  if (key.includes('educational')) return styles.themeEducational;
+  if (key.includes('minimalist')) return styles.themeMinimalist;
+  if (key.includes('tiktok') || key.includes('viral')) return styles.themeViral;
+  return styles.themeDefault;
 }
 
 function WizardStep2({
@@ -30,10 +72,11 @@ function WizardStep2({
   const lang = language === 'es' ? 'es' : 'en';
   const isSpanish = lang === 'es';
   const policy = getPlanWizardPolicy(planTier);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   return (
     <div className={styles.stepSection}>
-      <div>
+      <div className={styles.headerBlock}>
         <h3 className={styles.stepTitle}>
           {isSpanish
             ? '2. Elige el preset narrativo'
@@ -41,8 +84,8 @@ function WizardStep2({
         </h3>
         <p className={styles.stepHint}>
           {isSpanish
-            ? 'Define el ritmo y tono de la historia (cinematográfico, documental, etc.).'
-            : 'Sets the pacing and narrative tone (cinematic, documentary, etc.).'}
+            ? 'Define el ritmo, la energía y el tono visual de tu historia.'
+            : 'Sets the pacing, energy, and visual tone of your story.'}
         </p>
       </div>
 
@@ -55,6 +98,13 @@ function WizardStep2({
           );
           const isLocked = access.locked;
           const isSelected = preset.id === selectedPresetId;
+          const titleText =
+            preset.label?.[lang]?.trim() || formatFallbackTitle(preset.id);
+          const toneText = getToneBadge(preset, lang);
+          const themeClass = getPresetThemeClass(preset.id);
+          const showVideo = Boolean(
+            preset.videoUrl && (isSelected || hoveredId === preset.id)
+          );
 
           const handleClick = () => {
             if (isLocked) {
@@ -69,21 +119,35 @@ function WizardStep2({
               key={preset.id}
               type="button"
               aria-disabled={isLocked}
+              aria-pressed={isSelected}
               onClick={handleClick}
+              onMouseEnter={() => setHoveredId(preset.id)}
+              onMouseLeave={() => setHoveredId(null)}
               className={`${styles.optionCard} ${
                 isSelected ? styles.optionCardSelected : ''
               } ${isLocked ? styles.optionCardLocked : ''}`}
             >
-              <div className={styles.previewBox}>
+              <div className={`${styles.previewBox} ${themeClass}`}>
                 {preset.imageUrl && (
                   <img
                     src={preset.imageUrl}
-                    alt={preset.label[lang]}
+                    alt={titleText}
                     className={styles.previewImage}
+                    loading="lazy"
+                  />
+                )}
+                {showVideo && preset.videoUrl && (
+                  <video
+                    src={preset.videoUrl}
+                    className={styles.previewVideo}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
                   />
                 )}
                 <span className={styles.badgePill}>
-                  {isSpanish ? 'Preset' : 'Preset'}
+                  {isSpanish ? 'Estilo' : 'Style'}
                 </span>
                 {isLocked && (
                   <span className={styles.lockedTag}>
@@ -92,10 +156,13 @@ function WizardStep2({
                 )}
               </div>
 
-              <span className={styles.cardTitle}>{preset.label[lang]}</span>
-              <span className={styles.cardDesc}>
-                {preset.description[lang]}
-              </span>
+              <div className={styles.cardBody}>
+                <div className={styles.cardTitleRow}>
+                  <span className={styles.cardTitle}>{titleText}</span>
+                </div>
+                <span className={styles.tonePill}>{toneText}</span>
+                <p className={styles.cardDesc}>{preset.description[lang]}</p>
+              </div>
             </button>
           );
         })}
