@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslations';
 import UpgrateModal from '../../components/upgrate-modal/UpgrateModal';
 import StudioLiteWorkspaceWizard from '../../components/wizard/StudioLiteWorkspaceWizard';
+import RouteErrorPage from '../route-error/RouteErrorPage';
 import {
   evaluateCreditGate,
   getPlanWizardPolicy,
@@ -13,21 +14,16 @@ import {
   type PlanTier,
   type StudioLiteDraft,
 } from '../../components/wizard/wizardStorage';
+import type { AppRouteId } from '../../navigation/appRoutes';
 import type { CompletedGenerationResult } from '../dashboard/Dashboard';
 import styles from './Workspace.module.css';
 
-export type WorkspaceToolId =
-  | 'studio-lite'
-  | 'text-to-speech'
-  | 'studio-memories'
-  | 'director-studio'
-  | 'studio-blueprints';
-
 interface WorkspaceProps {
-  activeTool: WorkspaceToolId;
+  activeRoute: AppRouteId;
   initialPrompt?: string;
-  onSelectTool: (tool: WorkspaceToolId) => void;
+  onGoToStudioLite: () => void;
   onGoToDashboard: () => void;
+  onGoToLanding: () => void;
   onRequireAuthFromWizard?: (draft: StudioLiteDraft) => void;
   onCreditsChange?: (credits: number) => void;
 }
@@ -36,10 +32,11 @@ const API_BASE_URL =
   import.meta.env?.VITE_API_URL || 'http://localhost:3030';
 
 export default function Workspace({
-  activeTool,
+  activeRoute,
   initialPrompt = '',
-  onSelectTool,
+  onGoToStudioLite,
   onGoToDashboard,
+  onGoToLanding,
   onRequireAuthFromWizard,
   onCreditsChange,
 }: WorkspaceProps) {
@@ -57,7 +54,6 @@ export default function Workspace({
   const planPolicy = getPlanWizardPolicy(normalizedPlan);
 
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState<boolean>(false);
-  const [ttsText, setTtsText] = useState<string>('');
   const [credits, setCredits] = useState<number>(
     typeof (user as { credits?: number } | null)?.credits === 'number'
       ? (user as { credits?: number }).credits!
@@ -233,112 +229,20 @@ export default function Workspace({
           </div>
         )}
 
-        {activeTool === 'studio-lite' && (
+        {activeRoute === 'studio-lite' ? (
           <StudioLiteWorkspaceWizard
             initialPrompt={initialPrompt}
             onRequireAuth={handleWizardRequireAuth}
             onGenerationCompleted={handleGenerationCompleted}
             onBackToDashboard={onGoToDashboard}
           />
-        )}
-
-        {activeTool === 'text-to-speech' && (
-          <section className={styles.toolCard}>
-            <div className={styles.toolHeader}>
-              <div>
-                <span className={styles.toolEyebrow}>
-                  {isEn ? 'Workspace • Extra Tool' : 'Workspace • Herramienta Extra'}
-                </span>
-                <h1 className={styles.toolTitle}>Text to Speech</h1>
-                <p className={styles.toolSubtitle}>
-                  {isEn
-                    ? 'Draft narration text for your voiceovers and scripts.'
-                    : 'Redacta texto de narración para tus locuciones y guiones.'}
-                </p>
-              </div>
-            </div>
-
-            <label htmlFor="workspace-tts-textarea" className={styles.fieldLabel}>
-              {isEn ? 'Narration Script' : 'Texto de Narración'}
-            </label>
-            <textarea
-              id="workspace-tts-textarea"
-              className={styles.scriptTextarea}
-              rows={6}
-              value={ttsText}
-              onChange={(e) => setTtsText(e.target.value)}
-              placeholder={
-                isEn
-                  ? 'Write or paste the narration text you want to prepare...'
-                  : 'Escribe o pega el texto de narración que deseas preparar...'
-              }
-            />
-
-            <div className={styles.toolFooter}>
-              <span className={styles.charCounter}>
-                {ttsText.length} {isEn ? 'characters' : 'caracteres'}
-              </span>
-              <div className={styles.footerActions}>
-                <button
-                  type="button"
-                  className={styles.secondaryBtn}
-                  onClick={onGoToDashboard}
-                >
-                  {isEn ? 'Go to Dashboard' : 'Ir a Dashboard'}
-                </button>
-                <button
-                  type="button"
-                  className={styles.primaryBtn}
-                  onClick={() => onSelectTool('studio-lite')}
-                >
-                  {isEn ? 'Use in Studio Lite' : 'Usar en Studio Lite'}
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {(activeTool === 'studio-memories' ||
-          activeTool === 'director-studio' ||
-          activeTool === 'studio-blueprints') && (
-          <section className={styles.toolCard}>
-            <div className={styles.toolHeader}>
-              <div>
-                <span className={styles.toolEyebrow}>Workspace</span>
-                <h1 className={styles.toolTitle}>
-                  {activeTool === 'studio-memories'
-                    ? 'Studio Memories'
-                    : activeTool === 'director-studio'
-                    ? 'Director Studio'
-                    : 'Studio Blueprints'}
-                </h1>
-                <p className={styles.toolSubtitle}>
-                  {isEn
-                    ? 'This studio tool is ready to plug into your Workspace container.'
-                    : 'Esta herramienta de estudio está lista para integrarse en tu contenedor Workspace.'}
-                </p>
-              </div>
-            </div>
-
-            <div className={styles.toolFooter}>
-              <div className={styles.footerActions}>
-                <button
-                  type="button"
-                  className={styles.secondaryBtn}
-                  onClick={onGoToDashboard}
-                >
-                  {isEn ? 'Back to Dashboard' : 'Volver a Dashboard'}
-                </button>
-                <button
-                  type="button"
-                  className={styles.primaryBtn}
-                  onClick={() => onSelectTool('studio-lite')}
-                >
-                  {isEn ? 'Open Studio Lite' : 'Abrir Studio Lite'}
-                </button>
-              </div>
-            </div>
-          </section>
+        ) : (
+          <RouteErrorPage
+            routeId={activeRoute}
+            isEn={isEn}
+            onGoToStudio={onGoToStudioLite}
+            onGoToLanding={onGoToLanding}
+          />
         )}
       </main>
 

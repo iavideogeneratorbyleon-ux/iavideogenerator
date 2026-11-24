@@ -1,39 +1,32 @@
-import { useEffect, useState } from 'react';
-import { useAuth } from './context/AuthContext';
-import { useTranslation } from './hooks/useTranslations';
-import LandingPage from './pages/landing-page/LandingPage';
-import Footer from './components/footer/Footer';
-import Navbar, { type ProductMenuItem } from './components/navbar/Navbar';
-import ProductDetailModal from './components/product-detail-modal/ProductDetailModal';
-import Dashboard, {
-  type WorkspaceSection,
-} from './pages/dashboard/Dashboard';
-import Workspace from './pages/workspace/Workspace';
-import AppSidebar from './components/app-sidebar/AppSidebar';
-import RouteErrorPage from './pages/route-error/RouteErrorPage';
-import UpgrateModal from './components/upgrate-modal/UpgrateModal';
-import AuthModal from './components/auth/AuthModal';
-import { getPlanWizardPolicy } from './components/wizard/wizardPlanConfig';
+import { useEffect, useState } from "react";
+import { useAuth } from "./context/AuthContext";
+import { useTranslation } from "./hooks/useTranslations";
+import LandingPage from "./pages/landing-page/LandingPage";
+import Footer from "./components/footer/Footer";
+import Navbar, { type ProductMenuItem } from "./components/navbar/Navbar";
+import ProductDetailModal from "./components/product-detail-modal/ProductDetailModal";
+import Dashboard from "./pages/dashboard/Dashboard";
+import Workspace from "./pages/workspace/Workspace";
+import AppSidebar from "./components/app-sidebar/AppSidebar";
+import RouteErrorPage from "./pages/route-error/RouteErrorPage";
+import UpgrateModal from "./components/upgrate-modal/UpgrateModal";
+import AuthModal from "./components/auth/AuthModal";
+import { getPlanWizardPolicy } from "./components/wizard/wizardPlanConfig";
 import {
   loadWizardState,
   saveWizardState,
   type PlanTier,
   type StudioLiteDraft,
-} from './components/wizard/wizardStorage';
-import {
-  isWorkspaceRoute,
-  routeToWorkspaceSection,
-  shouldShowAppSidebar,
-  type AppRouteId,
-} from './navigation/appRoutes';
+} from "./components/wizard/wizardStorage";
+import { shouldShowAppSidebar, type AppRouteId } from "./navigation/appRoutes";
 
 function normalizePlanTier(planId: string): PlanTier {
-  if (planId === 'pay_per_video' || planId === 'pay-per-video') {
-    return 'pay_per_video';
+  if (planId === "pay_per_video" || planId === "pay-per-video") {
+    return "pay_per_video";
   }
-  if (planId === 'pro') return 'pro';
-  if (planId === 'unlimited') return 'unlimited';
-  return 'free_trial';
+  if (planId === "pro") return "pro";
+  if (planId === "unlimited") return "unlimited";
+  return "free_trial";
 }
 
 function App() {
@@ -46,33 +39,30 @@ function App() {
     logout,
   } = useAuth();
   const { language } = useTranslation();
-  const isEn = language === 'en';
+  const isEn = language === "en";
 
-  const [currentRoute, setCurrentRoute] = useState<AppRouteId>('landing');
+  const [currentRoute, setCurrentRoute] = useState<AppRouteId>("landing");
   const [isCompactLayout, setIsCompactLayout] = useState<boolean>(() =>
-    typeof window !== 'undefined' ? window.innerWidth <= 860 : false
+    typeof window !== "undefined" ? window.innerWidth <= 860 : false
   );
-  const [initialPrompt, setInitialPrompt] = useState<string>('');
+  const [initialPrompt, setInitialPrompt] = useState<string>("");
   const [upgradeModalOpen, setUpgradeModalOpen] = useState<boolean>(false);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
-  const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>(
-    'signup'
+  const [authModalMode, setAuthModalMode] = useState<"login" | "signup">(
+    "signup"
   );
-  const [selectedProduct, setSelectedProduct] = useState<ProductMenuItem | null>(
-    null
-  );
+  const [selectedProduct, setSelectedProduct] =
+    useState<ProductMenuItem | null>(null);
 
   const initialPolicy = getPlanWizardPolicy(planTier);
   const [credits, setCredits] = useState<number>(
-    typeof (user as { credits?: number } | null)?.credits === 'number'
+    typeof (user as { credits?: number } | null)?.credits === "number"
       ? (user as { credits?: number }).credits!
       : initialPolicy.initialCredits
   );
 
-  const activeView: 'landing' | 'workspace' =
-    currentRoute === 'landing' ? 'landing' : 'workspace';
-  const workspaceSection: WorkspaceSection =
-    routeToWorkspaceSection(currentRoute);
+  const activeView: "landing" | "workspace" =
+    currentRoute === "landing" ? "landing" : "workspace";
   const showSidebar = shouldShowAppSidebar(currentRoute);
   const currentPlanPolicy = getPlanWizardPolicy(normalizePlanTier(planTier));
 
@@ -80,40 +70,43 @@ function App() {
     const handleResize = () => {
       setIsCompactLayout(window.innerWidth <= 860);
     };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   useEffect(() => {
     const userCredits = (user as { credits?: number } | null)?.credits;
-    if (typeof userCredits === 'number') {
+    if (typeof userCredits === "number") {
       setCredits(userCredits);
-    } else if (!isAuthenticated && normalizePlanTier(planTier) === 'free_trial') {
-      setCredits(getPlanWizardPolicy('free_trial').initialCredits);
+    } else if (
+      !isAuthenticated &&
+      normalizePlanTier(planTier) === "free_trial"
+    ) {
+      setCredits(getPlanWizardPolicy("free_trial").initialCredits);
     }
   }, [isAuthenticated, planTier, user]);
 
   useEffect(() => {
     const handleCreditsEvent = (event: Event) => {
       const customEvent = event as CustomEvent<{ credits?: number }>;
-      if (typeof customEvent.detail?.credits === 'number') {
+      if (typeof customEvent.detail?.credits === "number") {
         setCredits(customEvent.detail.credits);
       }
     };
-    window.addEventListener('cempa:credits-updated', handleCreditsEvent);
+    window.addEventListener("cempa:credits-updated", handleCreditsEvent);
     return () =>
-      window.removeEventListener('cempa:credits-updated', handleCreditsEvent);
+      window.removeEventListener("cempa:credits-updated", handleCreditsEvent);
   }, []);
 
   useEffect(() => {
     if (isAuthenticated && authModalOpen) {
       setAuthModalOpen(false);
-      setCurrentRoute('studio-lite');
+      setCurrentRoute("studio-lite");
     }
   }, [isAuthenticated, authModalOpen]);
 
   const handleStartWizard = (promptText?: string) => {
-    if (typeof promptText === 'string') {
+    if (typeof promptText === "string") {
       setInitialPrompt(promptText);
       const current = loadWizardState(promptText);
       saveWizardState({
@@ -124,7 +117,7 @@ function App() {
         },
       });
     }
-    setCurrentRoute('studio-lite');
+    setCurrentRoute("studio-lite");
   };
 
   const handleSelectPlanFromLanding = (planId: string) => {
@@ -146,75 +139,81 @@ function App() {
   const handleSelectPlanAndContinueToAuth = (plan: PlanTier) => {
     setSelectedPlanForAuth(plan);
     setUpgradeModalOpen(false);
-    setAuthModalMode('signup');
+    setAuthModalMode("signup");
     setAuthModalOpen(true);
   };
 
   const handleLoginSuccess = () => {
     setAuthModalOpen(false);
-    setCurrentRoute('studio-lite');
+    setCurrentRoute("studio-lite");
   };
 
-  const handleNavbarSection = (section: 'products' | 'plans' | 'pricing') => {
-    if (section === 'plans' || section === 'pricing') {
+  const handleNavbarSection = (section: "products" | "plans" | "pricing") => {
+    if (section === "plans" || section === "pricing") {
       setUpgradeModalOpen(true);
       return;
     }
 
-    if (activeView !== 'landing') {
-      setCurrentRoute('landing');
+    if (activeView !== "landing") {
+      setCurrentRoute("landing");
       window.setTimeout(() => {
         const el =
-          document.getElementById('products') ||
-          document.getElementById('features');
-        el?.scrollIntoView({ behavior: 'smooth' });
+          document.getElementById("products") ||
+          document.getElementById("features");
+        el?.scrollIntoView({ behavior: "smooth" });
       }, 60);
       return;
     }
 
     const el =
-      document.getElementById('products') || document.getElementById('features');
-    el?.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById("products") ||
+      document.getElementById("features");
+    el?.scrollIntoView({ behavior: "smooth" });
   };
 
   const handleGoToProductSection = (product: ProductMenuItem) => {
     setSelectedProduct(null);
 
-    if (product.id === 'text-to-speech') {
-      setCurrentRoute('text-to-speech');
+    if (product.id === "studio-lite") {
+      setCurrentRoute("studio-lite");
       return;
     }
 
-    setCurrentRoute('studio-lite');
+    if (product.id === "text-to-speech") {
+      setCurrentRoute("text-to-speech");
+      return;
+    }
+
+    setCurrentRoute("products");
   };
 
   const handleFooterNavigate = (target: string) => {
-    if (target === 'studio-lite' || target === 'wizard') {
-      setCurrentRoute('studio-lite');
+    if (target === "studio-lite" || target === "wizard") {
+      setCurrentRoute("studio-lite");
       return;
     }
-    if (target === 'dashboard') {
-      setCurrentRoute('dashboard');
+    if (target === "dashboard") {
+      setCurrentRoute("dashboard");
       return;
     }
-    if (target === 'text-to-speech') {
-      setCurrentRoute('text-to-speech');
+    if (target === "text-to-speech") {
+      setCurrentRoute("text-to-speech");
       return;
     }
-    if (target === 'plans' || target === 'pricing') {
+    if (target === "plans" || target === "pricing") {
       setUpgradeModalOpen(true);
       return;
     }
 
     const element = document.getElementById(target);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      element.scrollIntoView({ behavior: "smooth" });
     }
   };
 
   const handleLogoutAndGoLanding = () => {
     logout();
-    setCurrentRoute('landing');
+    setCurrentRoute("landing");
   };
 
   return (
@@ -222,28 +221,28 @@ function App() {
       <Navbar
         activeView={activeView}
         credits={credits}
-        onSelectBrand={() => setCurrentRoute('landing')}
+        onSelectBrand={() => setCurrentRoute("landing")}
         onToggleView={() =>
           setCurrentRoute((prev) =>
-            prev === 'landing' ? 'studio-lite' : 'landing'
+            prev === "landing" ? "studio-lite" : "landing"
           )
         }
-        onGoToDashboard={() => setCurrentRoute('dashboard')}
+        onGoToDashboard={() => setCurrentRoute("dashboard")}
         onNavigateSection={handleNavbarSection}
         onSelectProduct={(product) => setSelectedProduct(product)}
         onOpenLogin={() => {
-          setAuthModalMode('login');
+          setAuthModalMode("login");
           setAuthModalOpen(true);
         }}
         onOpenSignup={() => {
-          setAuthModalMode('signup');
+          setAuthModalMode("signup");
           setAuthModalOpen(true);
         }}
         onOpenPlansModal={() => setUpgradeModalOpen(true)}
         onSignOut={handleLogoutAndGoLanding}
       />
 
-      {currentRoute === 'landing' ? (
+      {currentRoute === "landing" ? (
         <LandingPage
           onStartWizard={handleStartWizard}
           onSelectPlan={handleSelectPlanFromLanding}
@@ -251,10 +250,10 @@ function App() {
       ) : (
         <div
           style={{
-            display: 'flex',
-            flexDirection: isCompactLayout ? 'column' : 'row',
-            minHeight: 'calc(100vh - 64px)',
-            width: '100%',
+            display: "flex",
+            flexDirection: isCompactLayout ? "column" : "row",
+            minHeight: "calc(100vh - 64px)",
+            width: "100%",
           }}
         >
           {showSidebar && (
@@ -263,12 +262,14 @@ function App() {
               isEn={isEn}
               isAuthenticated={isAuthenticated}
               userEmail={user?.email}
-              planLabel={currentPlanPolicy.label[language === 'es' ? 'es' : 'en']}
+              planLabel={
+                currentPlanPolicy.label[language === "es" ? "es" : "en"]
+              }
               credits={credits}
-              logoutLabel={isEn ? 'Log out' : 'Cerrar sesión'}
+              logoutLabel={isEn ? "Log out" : "Cerrar sesión"}
               onNavigate={(route) => setCurrentRoute(route)}
               onOpenUpgrade={() => setUpgradeModalOpen(true)}
-              onBackToLanding={() => setCurrentRoute('landing')}
+              onBackToLanding={() => setCurrentRoute("landing")}
               onLogout={handleLogoutAndGoLanding}
             />
           )}
@@ -277,40 +278,26 @@ function App() {
             style={{
               flex: 1,
               minWidth: 0,
-              display: 'flex',
-              flexDirection: 'column',
+              display: "flex",
+              flexDirection: "column",
             }}
           >
-            {currentRoute === 'dashboard' ? (
+            {currentRoute === "dashboard" ? (
               <Dashboard
                 key={currentRoute}
-                onOpenStudioLite={() => setCurrentRoute('studio-lite')}
-                onCreditsChange={setCredits}
-              />
-            ) : isWorkspaceRoute(currentRoute) ? (
-              <Workspace
-                key={currentRoute}
-                activeTool={
-                  workspaceSection === 'text-to-speech'
-                    ? 'text-to-speech'
-                    : 'studio-lite'
-                }
-                initialPrompt={initialPrompt}
-                onSelectTool={(tool) =>
-                  setCurrentRoute(
-                    tool === 'text-to-speech' ? 'text-to-speech' : 'studio-lite'
-                  )
-                }
-                onGoToDashboard={() => setCurrentRoute('dashboard')}
-                onRequireAuthFromWizard={handleRequireAuthFromWizard}
+                onOpenStudioLite={() => setCurrentRoute("studio-lite")}
                 onCreditsChange={setCredits}
               />
             ) : (
-              <RouteErrorPage
-                routeId={currentRoute}
-                isEn={isEn}
-                onGoToStudio={() => setCurrentRoute('studio-lite')}
-                onGoToLanding={() => setCurrentRoute('landing')}
+              <Workspace
+                key={currentRoute}
+                activeRoute={currentRoute}
+                initialPrompt={initialPrompt}
+                onGoToStudioLite={() => setCurrentRoute("studio-lite")}
+                onGoToDashboard={() => setCurrentRoute("dashboard")}
+                onGoToLanding={() => setCurrentRoute("landing")}
+                onRequireAuthFromWizard={handleRequireAuthFromWizard}
+                onCreditsChange={setCredits}
               />
             )}
           </div>
