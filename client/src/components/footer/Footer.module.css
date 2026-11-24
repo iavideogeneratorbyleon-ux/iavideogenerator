@@ -1,0 +1,143 @@
+.footer {
+  border-top: 1px solid var(--border-subtle);
+  background-color: var(--bg-section-alt);
+  background-image: radial-gradient(
+    circle at 88% 0%,
+    color-mix(in srgb, var(--brand-primary) 9%, transparent),
+    transparent 45%
+  );
+  padding: 3.5rem 1rem 2rem;
+  color: var(--text-secondary);
+}
+
+@media (min-width: 640px) {
+  .footer {
+    padding: 4rem 1.5rem 2.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .footer {
+    padding: 4.5rem 2rem 2.5rem;
+  }
+}
+
+.container {
+  margin: 0 auto;
+  max-width: 72rem;
+}
+
+.topGrid {
+  display: grid;
+  gap: 2.5rem;
+}
+
+@media (min-width: 768px) {
+  .topGrid {
+    grid-template-columns: 1.5fr repeat(3, minmax(0, 1fr));
+  }
+}
+
+.brandBlock {
+  max-width: 22rem;
+}
+
+.brandWordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.brandDot {
+  height: 0.625rem;
+  width: 0.625rem;
+  border-radius: 9999px;
+  background-image: linear-gradient(135deg, var(--brand-primary), var(--brand-amber));
+}
+
+.brandDescription {
+  margin: 0.875rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+.columnTitle {
+  margin: 0 0 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brand-primary-hover);
+}
+
+.linkList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.footerLink {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 150ms ease, transform 150ms ease;
+}
+
+.footerLink:hover {
+  color: var(--brand-primary);
+  transform: translateX(2px);
+}
+
+.bottomBar {
+  margin-top: 3rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1.5rem;
+}
+
+.copyright {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border-accent);
+  background-color: var(--bg-card);
+  padding: 0.3rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-primary);
+}
+
+.statusPulse {
+  height: 0.45rem;
+  width: 0.45rem;
+  border-radius: 9999px;
+  background-color: var(--brand-primary);
+}

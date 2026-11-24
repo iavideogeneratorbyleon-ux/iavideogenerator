@@ -1,90 +1,85 @@
-import { useState, useEffect, useRef } from 'react';
-import { useAuth } from './components/auth/AuthContext';
-import LandingPage from './components/landing/LandingPage';
-import Dashboard from './components/dashboard/Dashboard';
-import Navbar from './components/landing/NavBar';
-import AuthModal from './components/auth/AuthModal';
-import WizardContainer from './components/wizard/WizardContainer'; 
-import { getPendingDraft, clearPendingDraft } from './components/wizard/wizardStorage';
+import { useTheme } from './context/ThemeContext';
+import { useTranslation } from './hooks/useTranslations';
+import LandingPage from './pages/landing-page/LandingPage';
+import Footer from './components/footer/Footer';
 
-export default function App() {
-  const { isAuthenticated, user } = useAuth();
-  const [authModalMode, setAuthModalMode] = useState<'login' | 'signup' | null>(null);
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
+function App() {
+  const { theme, toggleTheme } = useTheme();
+  const { language, toggleLanguage } = useTranslation();
 
-  // 🧭 Estado para controlar si el usuario logueado ve la Landing o su Dashboard
-  const [currentView, setCurrentView] = useState<'landing' | 'dashboard'>('landing');
+  const handleStartWizard = () => {
+    console.log('Abrir flujo de creación / Studio Lite');
+  };
 
-  // 🛡️ Referencia para detectar exclusivamente cuando ocurre un Sign Out real
-  const prevAuthRef = useRef(isAuthenticated);
+  const handleFooterNavigate = (target: string) => {
+    console.log("Navigate desde footer hasta", target)
+  }
 
-  useEffect(() => {
-    // Si el usuario ESTABA autenticado (true) y AHORA NO lo está (false), se hizo Sign Out
-    if (prevAuthRef.current && !isAuthenticated) {
-      setIsWizardOpen(false);
-      clearPendingDraft();
-      setCurrentView('landing');
-    }
-    // Actualizamos la referencia con el estado actual
-    prevAuthRef.current = isAuthenticated;
-  }, [isAuthenticated]);
-
-  // 🎁 Auto-claim: Si el usuario completa el registro y tenía un borrador pendiente, reabrimos el Wizard y lo mandaremos al Dashboard al terminar
-  useEffect(() => {
-    if (isAuthenticated) {
-      const pendingDraft = getPendingDraft();
-      if (pendingDraft) {
-        setIsWizardOpen(true);
-      }
-    }
-  }, [isAuthenticated]);
-
-  const handleOpenWizard = () => {
-    setIsWizardOpen(true);
+  const handleSelectPlan = (planId: string) => {
+    console.log('Plan seleccionado:', planId);
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0f19]">
-      <Navbar 
-        onStartWizard={handleOpenWizard} 
-        onOpenAuthModal={(mode) => setAuthModalMode(mode)} 
-        onGoHome={() => setCurrentView('landing')}
-        onGoDashboard={() => setCurrentView('dashboard')}
+    <>
+      <header
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0.75rem 1.5rem',
+          backgroundColor: 'var(--bg-prompt)',
+          borderBottom: '1px solid var(--border-subtle)',
+        }}
+      >
+        <strong style={{ fontFamily: 'var(--font-display)', color: 'var(--brand-primary)' }}>
+          Cempai.ai
+        </strong>
+
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            style={{
+              padding: '0.375rem 0.75rem',
+              borderRadius: '0.5rem',
+              border: '1px solid var(--border-accent)',
+              backgroundColor: 'var(--bg-section-alt)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              fontSize: '0.8125rem',
+            }}
+          >
+            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleLanguage}
+            style={{
+              padding: '0.375rem 0.75rem',
+              borderRadius: '0.5rem',
+              border: '1px solid var(--border-accent)',
+              backgroundColor: 'var(--bg-section-alt)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              fontSize: '0.8125rem',
+            }}
+          >
+            {language === 'en' ? 'ES' : 'EN'}
+          </button>
+        </div>
+      </header>
+
+      <LandingPage
+        onStartWizard={handleStartWizard}
+        onSelectPlan={handleSelectPlan}
       />
-
-      {isWizardOpen ? (
-        <WizardContainer 
-          onClose={() => {
-            setIsWizardOpen(false);
-            clearPendingDraft();
-          }} 
-          wizardMode={user?.plan === 'pro' ? 'pro' : 'lite'} 
-          onComplete={() => {
-            setIsWizardOpen(false);
-            clearPendingDraft();
-            setCurrentView('dashboard'); // <--- 🚀 Al terminar de generar el video, lo mandamos al Dashboard
-          }} 
-          onOpenAuthModal={(mode) => setAuthModalMode(mode)}
-          onOpenPricingModal={() => {
-            setIsWizardOpen(false);
-            window.location.hash = '#pricing';
-          }}
-        />
-      ) : (
-        isAuthenticated && currentView === 'dashboard' ? (
-          <Dashboard onStartWizard={handleOpenWizard} />
-        ) : (
-          <LandingPage onStartWizard={handleOpenWizard} />
-        )
-      )}
-
-      {authModalMode && (
-        <AuthModal 
-          isOpen={authModalMode !== null}
-          mode={authModalMode} 
-          onClose={() => setAuthModalMode(null)} 
-        />
-      )}
-    </div>
+      <Footer onNavigate={handleFooterNavigate}/>
+    </>
   );
 }
+
+export default App;

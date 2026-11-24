@@ -1,27 +1,81 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Plus Jakarta Sans', sans-serif;
-  
+  --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
   --color-bg-main: #0B0F19;
   --color-bg-surface: #1E293B;
   --color-bg-hover: #334155;
-  
+
   --color-brand-primary: #FF6B00;
   --color-brand-hover: #E05D00;
-  
+
   --color-text-main: #F8FAFC;
   --color-text-muted: #94A3B8;
-  
+
   --color-border-subtle: #1E293B;
 }
 
-body {
-  background-color: var(--color-bg-main);
-  color: var(--color-text-main);
-  font-family: var(--font-sans);
-  margin: 0;
-  padding: 0;
+/* Tokens semánticos usados por los CSS Modules de LandingPage */
+:root,
+[data-theme="dark"],
+.dark {
+  --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --bg-page: #0B0F19;
+  --bg-section-alt: #111827;
+  --bg-card: #161E2E;
+  --bg-prompt: #131B2E;
+  --bg-contrast-block: #1C2538;
+
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --text-on-contrast: #FFF8ED;
+
+  --brand-primary: #FF6B00;
+  --brand-primary-hover: #E05D00;
+  --brand-amber: #F59E0B;
+
+  --border-subtle: rgba(148, 163, 184, 0.18);
+  --border-accent: rgba(255, 107, 0, 0.45);
+  --caret-color: #FF6B00;
 }
 
+:root[data-theme="light"],
+.light {
+  --bg-page: #FAF6EF;
+  --bg-section-alt: #F3ECE0;
+  --bg-card: #FFFFFF;
+  --bg-prompt: #FFFDF9;
+  --bg-contrast-block: #181512;
+
+  --text-primary: #1B1612;
+  --text-secondary: #4E443B;
+  --text-muted: #7A6D60;
+  --text-on-contrast: #FFF8ED;
+
+  --brand-primary: #F97316;
+  --brand-primary-hover: #EA580C;
+  --brand-amber: #F59E0B;
+
+  --border-subtle: rgba(27, 22, 18, 0.14);
+  --border-accent: rgba(249, 115, 22, 0.38);
+  --caret-color: #EA580C;
+}
+
+@layer base {
+  body {
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    margin: 0;
+    padding: 0;
+  }
+}

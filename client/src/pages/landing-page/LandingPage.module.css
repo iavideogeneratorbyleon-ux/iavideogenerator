@@ -1,0 +1,23 @@
+.page {
+  min-height: 100vh;
+  background-color: var(--bg-page);
+  background-image:
+    radial-gradient(
+      circle at 90% 8%,
+      color-mix(in srgb, var(--brand-primary) 9%, transparent),
+      transparent 36%
+    ),
+    radial-gradient(
+      circle at 8% 42%,
+      color-mix(in srgb, var(--brand-amber) 6%, transparent),
+      transparent 38%
+    );
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}

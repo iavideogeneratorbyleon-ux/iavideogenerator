@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+:root {
+  --font-display: "Plus Jakarta Sans", sans-serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Marca Cempasúchil */
+  --brand-primary: #f97316;
+  --brand-primary-hover: #ea580c;
+  --brand-glow: #fb923c;
+  --brand-amber: #f59e0b;
+  --brand-ember: #9a3412;
+
+  /* Modo Claro (Default) */
+  --bg-page: #faf7f2;
+  --bg-section-alt: #f3ede4;
+  --bg-card: #ffffff;
+  --bg-contrast-block: #1a1816;
+  --bg-prompt: #ffffff;
+
+  --text-primary: #181512;
+  --text-secondary: #575049;
+  --text-muted: #857b70;
+  --text-on-contrast: #faf7f2;
+
+  --border-subtle: #e6ddd0;
+  --border-accent: rgba(249, 115, 22, 0.32);
+  --prompt-ring: rgba(249, 115, 22, 0.18);
+  --caret-color: #ea580c;
+}
+
+[data-theme="dark"] {
+  --bg-page: #121110;
+  --bg-section-alt: #1a1816;
+  --bg-card: #221f1d;
+  --bg-contrast-block: #262320;
+  --bg-prompt: #221f1d;
+
+  --text-primary: #faf7f2;
+  --text-secondary: #c7beb4;
+  --text-muted: #8e8479;
+  --text-on-contrast: #faf7f2;
+
+  --border-subtle: #36312c;
+  --border-accent: rgba(251, 146, 60, 0.38);
+  --prompt-ring: rgba(249, 115, 22, 0.24);
+  --caret-color: #fb923c;
+}
+
+@theme inline {
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-hover: var(--brand-primary-hover);
+  --color-brand-glow: var(--brand-glow);
+  --color-brand-amber: var(--brand-amber);
+  --color-brand-ember: var(--brand-ember);
+
+  --color-bg-page: var(--bg-page);
+  --color-bg-section-alt: var(--bg-section-alt);
+  --color-bg-card: var(--bg-card);
+  --color-bg-contrast-block: var(--bg-contrast-block);
+  --color-bg-prompt: var(--bg-prompt);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-on-contrast: var(--text-on-contrast);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-accent: var(--border-accent);
+}
+
+@layer base {
+  body {
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+  }
+
+  textarea, input {
+    caret-color: var(--caret-color);
+  }
+}
