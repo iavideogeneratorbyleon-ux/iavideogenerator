@@ -7,6 +7,8 @@
   flex-direction: column;
   gap: 1.5rem;
   box-shadow: 0 20px 44px -24px rgba(0, 0, 0, 0.55);
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .header {
@@ -15,6 +17,7 @@
   gap: 0.75rem;
   border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
   padding-bottom: 1.1rem;
+  flex-shrink: 0;
 }
 
 @media (min-width: 768px) {
@@ -69,6 +72,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 @media (min-width: 768px) {
@@ -142,6 +146,7 @@
   gap: 1rem;
   border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
   padding-top: 1.15rem;
+  flex-shrink: 0;
 }
 
 .backBtn {
@@ -183,3 +188,42 @@
 .nextBtn:hover {
   filter: brightness(1.06);
 }
+
+/* Laptop y tablet horizontal: alto consistente en todos los pasos sin hueco vacío ni desborde */
+@media (min-width: 861px) {
+  .workspaceShell {
+    height: calc(100dvh - 84px);
+    max-height: calc(100dvh - 84px);
+    padding: 1.15rem 1.35rem;
+    gap: 0.95rem;
+    overflow: hidden;
+  }
+
+  .header {
+    padding-bottom: 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .title {
+    font-size: 1.3rem;
+  }
+
+  .contentArea {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    padding-right: 0.35rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .contentArea > * {
+    min-height: 0;
+  }
+
+  .footerBar {
+    padding-top: 0.85rem;
+  }
+}
+
