@@ -9,7 +9,7 @@ const { generateAllScenesVisuals } = require('./visualService');
 const musicService = require('./musicService');
 const { renderFinalVideo } = require('./renderService');
 const { initJobUsage, recordStepUsage, getJobUsage } = require('./usageCostService');
-const VideoProject = require('../models/VideoProject');
+const Video = require('../models/Video');
 
 function resolveOptionalVideoService() {
   const candidateFiles = ['./videoService', './videoGeneratorService'];
@@ -280,7 +280,7 @@ async function runCompletePipeline(masterPayload = {}) {
   // Paso de Persistencia Final: Guardar proyecto completo en MongoDB Atlas
   console.log(`💾 Guardando proyecto finalizado en MongoDB Atlas...`);
   const jobUsage = getJobUsage(jobId);
-  const savedProject = await VideoProject.findOneAndUpdate(
+  const savedProject = await Video.findOneAndUpdate(
     { jobId },
     {
       ...currentPayload,

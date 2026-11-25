@@ -33,7 +33,6 @@ const VideoSchema = new mongoose.Schema(
       default: {},
     },
 
-    // Campos unificados provenientes de VideoProject para el pipeline
     jobId: {
       type: String,
       sparse: true,
