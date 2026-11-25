@@ -23,7 +23,16 @@ function resolveUserCreditPolicy(planKey = 'free_trial') {
 // 1. Guardar video al terminar el Wizard y descontar créditos de Studio Lite
 router.post('/save', async (req, res) => {
   try {
-    const { email, title, mode, aspectRatio, userId, parameters } = req.body;
+    const {
+      jobId,
+      videoUrl,
+      email,
+      title,
+      mode,
+      aspectRatio,
+      userId,
+      parameters
+    } = req.body;
 
     let validUserId = null;
     let user = null;
@@ -66,20 +75,58 @@ router.post('/save', async (req, res) => {
       await user.save();
     }
 
-    // Guardar el video asociado con los parámetros dinámicos
-    const newVideo = new Video({
-      userId: validUserId,
-      email: user.email,
-      title: title || 'Studio Lite Video',
-      mode: mode || 'idea',
-      aspectRatio: aspectRatio || parameters?.aspectRatio || '9:16',
-      parameters: parameters || {}
-    });
+    const resolvedAspectRatio =
+      aspectRatio || parameters?.aspectRatio || '9:16';
+    const resolvedTitle = title || 'Studio Lite Video';
+    const resolvedMode = mode || 'idea';
+    const resolvedParams = parameters || {};
+    const cleanJobId =
+      typeof jobId === 'string' && jobId.trim() ? jobId.trim() : null;
 
-    await newVideo.save();
+    let savedVideo;
+
+    if (cleanJobId) {
+      const updateFields = {
+        userId: validUserId,
+        email: user.email,
+        title: resolvedTitle,
+        mode: resolvedMode,
+        aspectRatio: resolvedAspectRatio,
+        parameters: resolvedParams,
+        ...(videoUrl ? { videoUrl } : {}),
+      };
+
+      savedVideo = await Video.findOneAndUpdate(
+        { jobId: cleanJobId },
+        {
+          $set: updateFields,
+          $setOnInsert: {
+            jobId: cleanJobId,
+            createdAt: new Date(),
+          },
+        },
+        {
+          upsert: true,
+          returnDocument: 'after',
+          setDefaultsOnInsert: true,
+        }
+      );
+    } else {
+      savedVideo = new Video({
+        userId: validUserId,
+        email: user.email,
+        title: resolvedTitle,
+        mode: resolvedMode,
+        aspectRatio: resolvedAspectRatio,
+        parameters: resolvedParams,
+        ...(videoUrl ? { videoUrl } : {}),
+      });
+      await savedVideo.save();
+    }
+
     return res.status(201).json({
       success: true,
-      video: newVideo,
+      video: savedVideo,
       remainingCredits: user.credits
     });
   } catch (error) {
@@ -110,6 +157,5 @@ router.get('/:email', async (req, res) => {
     return res.status(500).json({ error: 'Error al obtener los videos' });
   }
 });
-
 
 module.exports = router;

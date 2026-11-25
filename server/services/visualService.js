@@ -14,6 +14,15 @@ if (!fs.existsSync(IMAGE_OUTPUT_DIR)) {
 }
 
 const PRESETS_ALLOWING_IMAGE_TEXT = new Set(['mr_beast']);
+const ALLOWED_ASPECT_RATIOS = new Set(['16:9', '9:16', '1:1']);
+
+function normalizeAspectRatio(rawRatio, fallback = '9:16') {
+  const candidate = String(rawRatio || '').trim();
+  if (ALLOWED_ASPECT_RATIOS.has(candidate)) {
+    return candidate;
+  }
+  return ALLOWED_ASPECT_RATIOS.has(fallback) ? fallback : '9:16';
+}
 
 function normalizePresetForVisual(rawPreset) {
   return normalizeKey(
@@ -145,11 +154,15 @@ async function generateAllScenesVisuals(rawPayload) {
   const jobId = resolveJobId(masterPayload, structuredScript.scenes);
 
   // 🔍 Extracción dinámica y robusta del Aspect Ratio desde cualquier nivel del payload
-  const aspectRatio =
-    masterPayload?.userInputs?.aspectRatio ||
-    masterPayload?.visualConfig?.aspectRatio ||
-    masterPayload?.config?.aspectRatio ||
-    '9:16';
+  const aspectRatio = normalizeAspectRatio(
+    masterPayload?.videoConfig?.aspectRatio ||
+      masterPayload?.aspectRatio ||
+      masterPayload?.meta?.aspectRatio ||
+      masterPayload?.userInputs?.aspectRatio ||
+      masterPayload?.visualConfig?.aspectRatio ||
+      masterPayload?.config?.aspectRatio ||
+      '9:16'
+  );
 
   // 🎨 Extracción del Modificador de Estilo Visual (ej. vector, cinematic, etc.)
   const styleModifier =
@@ -210,9 +223,15 @@ async function generateAllScenesVisuals(rawPayload) {
 
   return {
     ...masterPayload,
+    aspectRatio,
     meta: {
       ...(masterPayload.meta || {}),
-      jobId
+      jobId,
+      aspectRatio
+    },
+    videoConfig: {
+      ...(masterPayload.videoConfig || {}),
+      aspectRatio
     },
     visual: {
       ...(masterPayload.visual || {}),

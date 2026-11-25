@@ -130,11 +130,13 @@ export default function Workspace({
     }
 
     try {
-      if (user?.email) {
+      if (user?.email && result.jobId) {
         const res = await fetch(`${API_BASE_URL}/api/videos/save`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            jobId: result.jobId,
+            videoUrl: result.videoUrl,
             email: user.email,
             userId:
               (user as { id?: string; _id?: string }).id ||

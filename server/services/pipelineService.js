@@ -12,6 +12,16 @@ const { renderFinalVideo } = require('./renderService');
 const { initJobUsage, recordStepUsage, getJobUsage } = require('./usageCostService');
 const Video = require('../models/Video');
 
+const ALLOWED_ASPECT_RATIOS = new Set(['16:9', '9:16', '1:1']);
+
+function normalizeAspectRatio(rawRatio, fallback = '9:16') {
+  const candidate = String(rawRatio || '').trim();
+  if (ALLOWED_ASPECT_RATIOS.has(candidate)) {
+    return candidate;
+  }
+  return ALLOWED_ASPECT_RATIOS.has(fallback) ? fallback : '9:16';
+}
+
 function resolveOptionalVideoService() {
   const candidateFiles = ['./videoService', './videoGeneratorService'];
   for (const relPath of candidateFiles) {
@@ -124,6 +134,14 @@ async function runCompletePipeline(masterPayload = {}) {
   );
   const planPolicy = resolvePlanPolicy(normalizedPlan);
 
+  const resolvedAspectRatio = normalizeAspectRatio(
+    safePayload?.videoConfig?.aspectRatio ||
+      safePayload?.aspectRatio ||
+      safePayload?.meta?.aspectRatio ||
+      planPolicy?.defaultAspectRatio ||
+      '9:16'
+  );
+
   const defaultVoiceModelId = resolveVoiceModelId({
     explicitModelId:
       safePayload?.voiceConfig?.modelId || safePayload?.voice?.modelId,
@@ -131,12 +149,18 @@ async function runCompletePipeline(masterPayload = {}) {
     userPlan: normalizedPlan
   });
 
+  safePayload.aspectRatio = resolvedAspectRatio;
   safePayload.meta = {
     ...safePayload.meta,
     jobId,
     userPlan: normalizedPlan,
     product: normalizedProduct,
-    preset: normalizedPreset
+    preset: normalizedPreset,
+    aspectRatio: resolvedAspectRatio
+  };
+  safePayload.videoConfig = {
+    ...(safePayload.videoConfig || {}),
+    aspectRatio: resolvedAspectRatio
   };
   safePayload.voiceConfig = {
     ...(safePayload.voiceConfig || {}),
@@ -150,7 +174,7 @@ async function runCompletePipeline(masterPayload = {}) {
   });
 
   console.log(
-    `🚀 [Pipeline Master] Iniciando flujo completo para Job ID: ${jobId} | Producto: [${normalizedProduct}] | Plan: [${normalizedPlan}] | Preset: [${normalizedPreset}] | VoiceModel: [${defaultVoiceModelId}] (maxDur=${planPolicy.maxDurationSeconds}s)`
+    `🚀 [Pipeline Master] Iniciando flujo completo para Job ID: ${jobId} | Producto: [${normalizedProduct}] | Plan: [${normalizedPlan}] | Preset: [${normalizedPreset}] | AspectRatio: [${resolvedAspectRatio}] | VoiceModel: [${defaultVoiceModelId}] (maxDur=${planPolicy.maxDurationSeconds}s)`
   );
 
   // 1. Paso de IA: Generar guion estructurado con Gemini (voiceoverText limpio + spokenText con tags)
@@ -316,8 +340,14 @@ async function runCompletePipeline(masterPayload = {}) {
   // Paso de Persistencia Final: Guardar proyecto completo en MongoDB Atlas
   console.log(`💾 Guardando proyecto finalizado en MongoDB Atlas...`);
   const jobUsage = getJobUsage(jobId);
+  const finalAspectRatio = normalizeAspectRatio(
+    currentPayload?.videoConfig?.aspectRatio ||
+      currentPayload?.aspectRatio ||
+      resolvedAspectRatio
+  );
   const persistenceDoc = sanitizeVideoPersistencePayload({
     ...currentPayload,
+    aspectRatio: finalAspectRatio,
     ...(jobUsage ? { usage: jobUsage } : {}),
     status: 'completed',
     videoUrl: renderResult.videoUrl,

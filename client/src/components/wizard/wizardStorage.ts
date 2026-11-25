@@ -60,6 +60,7 @@ export function loadWizardState(fallbackPrompt = ''): PersistedWizardState {
     const mergedDraft: StudioLiteDraft = {
       ...DEFAULT_WIZARD_DRAFT,
       ...(parsed.draft ?? {}),
+      currentStep: (parsed.draft?.currentStep as WizardStepNumber) || 1,
       prompt:
         fallbackPrompt && !parsed.draft?.prompt
           ? fallbackPrompt

@@ -25,6 +25,7 @@ interface DashboardProps {
 
 export interface VideoItem extends VideoCardData {
   _id: string;
+  jobId?: string;
   title: string;
   mode: string;
   aspectRatio: string;
@@ -32,6 +33,8 @@ export interface VideoItem extends VideoCardData {
 }
 
 export interface CompletedGenerationResult {
+  jobId?: string;
+  videoUrl?: string;
   title: string;
   prompt: string;
   presetId: string;
