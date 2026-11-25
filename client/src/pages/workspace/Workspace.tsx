@@ -44,6 +44,8 @@ export default function Workspace({
     user,
     isAuthenticated,
     planTier,
+    credits,
+    setCredits: setAuthCredits,
     setPlanTier,
     setSelectedPlanForAuth,
   } = useAuth();
@@ -54,11 +56,6 @@ export default function Workspace({
   const planPolicy = getPlanWizardPolicy(normalizedPlan);
 
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState<boolean>(false);
-  const [credits, setCredits] = useState<number>(
-    typeof (user as { credits?: number } | null)?.credits === 'number'
-      ? (user as { credits?: number }).credits!
-      : planPolicy.initialCredits
-  );
   const [creditNotice, setCreditNotice] = useState<{
     type: 'info' | 'warning';
     text: string;
@@ -67,20 +64,25 @@ export default function Workspace({
   const syncCredits = useCallback(
     (nextCredits: number) => {
       const safeCredits = Math.max(0, nextCredits);
-      setCredits(safeCredits);
+      setAuthCredits(safeCredits);
       onCreditsChange?.(safeCredits);
     },
-    [onCreditsChange]
+    [onCreditsChange, setAuthCredits]
   );
 
   useEffect(() => {
     const userCredits = (user as { credits?: number } | null)?.credits;
-    if (typeof userCredits === 'number') {
+    if (typeof userCredits === 'number' && userCredits !== credits) {
       syncCredits(userCredits);
-    } else if (!isAuthenticated && normalizedPlan === 'free_trial') {
+    } else if (
+      !isAuthenticated &&
+      normalizedPlan === 'free_trial' &&
+      credits !== planPolicy.initialCredits
+    ) {
       syncCredits(planPolicy.initialCredits);
     }
   }, [
+    credits,
     isAuthenticated,
     normalizedPlan,
     planPolicy.initialCredits,

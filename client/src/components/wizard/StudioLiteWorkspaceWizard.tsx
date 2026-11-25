@@ -1031,6 +1031,11 @@ function StudioLiteWorkspaceWizard({
     ) ||
     VISUAL_FORMATS[0];
 
+  const selectedVoice =
+    VOICE_OPTIONS.find((item) => item.id === wizardState.draft.voice) ||
+    VOICE_OPTIONS.find((item) => item.language === lang && item.tier === 'free') ||
+    VOICE_OPTIONS[0];
+
   const draftWithSubs = wizardState.draft as DraftWithSubtitles;
   const subtitlesEnabled =
     typeof draftWithSubs.subtitlesEnabled === 'boolean'
@@ -1052,6 +1057,7 @@ function StudioLiteWorkspaceWizard({
         {isProcessing ? (
           <WizardProcessingStep
             draft={wizardState.draft}
+            voiceLabel={selectedVoice?.voiceName || wizardState.draft.voice}
             onCancel={() => setIsProcessing(false)}
           />
         ) : (

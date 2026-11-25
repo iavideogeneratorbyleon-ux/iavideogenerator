@@ -52,6 +52,8 @@ export default function Dashboard({
     user,
     isAuthenticated,
     planTier,
+    credits,
+    setCredits,
     setPlanTier,
     setSelectedPlanForAuth,
   } = useAuth();
@@ -64,11 +66,6 @@ export default function Dashboard({
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loadingVideos, setLoadingVideos] = useState<boolean>(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState<boolean>(false);
-  const [credits, setCredits] = useState<number>(
-    typeof (user as { credits?: number } | null)?.credits === 'number'
-      ? (user as { credits?: number }).credits!
-      : planPolicy.initialCredits
-  );
 
   const syncCredits = useCallback(
     (nextCredits: number) => {
@@ -76,17 +73,18 @@ export default function Dashboard({
       setCredits(safeCredits);
       onCreditsChange?.(safeCredits);
     },
-    [onCreditsChange]
+    [onCreditsChange, setCredits]
   );
 
   useEffect(() => {
     const userCredits = (user as { credits?: number } | null)?.credits;
-    if (typeof userCredits === 'number') {
+    if (typeof userCredits === 'number' && userCredits !== credits) {
       syncCredits(userCredits);
-    } else if (!isAuthenticated && normalizedPlan === 'free_trial') {
+    } else if (!isAuthenticated && normalizedPlan === 'free_trial' && credits !== planPolicy.initialCredits) {
       syncCredits(planPolicy.initialCredits);
     }
   }, [
+    credits,
     isAuthenticated,
     normalizedPlan,
     planPolicy.initialCredits,
@@ -94,22 +92,38 @@ export default function Dashboard({
     user,
   ]);
 
-  const loadUserVideos = useCallback(async (email: string) => {
-    setLoadingVideos(true);
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/videos/${encodeURIComponent(email)}`
-      );
-      const data = await res.json();
-      if (data.success && Array.isArray(data.videos)) {
-        setVideos(data.videos);
+  const loadUserVideos = useCallback(
+    async (email: string) => {
+      setLoadingVideos(true);
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/videos/${encodeURIComponent(email)}`
+        );
+        const data = await res.json();
+        if (data.success && Array.isArray(data.videos)) {
+          setVideos(data.videos);
+        }
+
+        const backendCredits =
+          typeof data?.credits === 'number'
+            ? data.credits
+            : typeof data?.creditsRemaining === 'number'
+            ? data.creditsRemaining
+            : typeof data?.user?.credits === 'number'
+            ? data.user.credits
+            : undefined;
+
+        if (typeof backendCredits === 'number') {
+          syncCredits(backendCredits);
+        }
+      } catch (err) {
+        console.error('Error loading user videos:', err);
+      } finally {
+        setLoadingVideos(false);
       }
-    } catch (err) {
-      console.error('Error loading user videos:', err);
-    } finally {
-      setLoadingVideos(false);
-    }
-  }, []);
+    },
+    [syncCredits]
+  );
 
   useEffect(() => {
     if (!user?.email) {

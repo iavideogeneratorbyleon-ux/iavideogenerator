@@ -17,12 +17,14 @@ export interface AuthUser {
   name?: string;
   avatarUrl?: string;
   provider?: AuthProviderType;
+  credits?: number;
 }
 
 interface StoredAuthSession {
   user: AuthUser | null;
   planTier: PlanTier;
   selectedPlanForAuth: PlanTier;
+  credits?: number;
 }
 
 export interface AuthContextValue {
@@ -30,6 +32,8 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   planTier: PlanTier;
   selectedPlanForAuth: PlanTier;
+  credits: number;
+  setCredits: (nextCredits: number) => void;
   setSelectedPlanForAuth: (plan: PlanTier) => void;
   setPlanTier: (plan: PlanTier) => void;
   completeAuth: (userData: AuthUser, planOverride?: PlanTier) => void;
@@ -42,6 +46,7 @@ const DEFAULT_AUTH_SESSION: StoredAuthSession = {
   user: null,
   planTier: 'free_trial',
   selectedPlanForAuth: 'free_trial',
+  credits: 50,
 };
 
 function readStoredAuthSession(): StoredAuthSession {
@@ -52,10 +57,18 @@ function readStoredAuthSession(): StoredAuthSession {
     }
 
     const parsed = JSON.parse(raw) as Partial<StoredAuthSession>;
+    const restoredCredits =
+      typeof parsed.credits === 'number'
+        ? parsed.credits
+        : typeof parsed.user?.credits === 'number'
+        ? parsed.user.credits
+        : 50;
+
     return {
       user: parsed.user ?? null,
       planTier: parsed.planTier ?? 'free_trial',
       selectedPlanForAuth: parsed.selectedPlanForAuth ?? 'free_trial',
+      credits: restoredCredits,
     };
   } catch {
     return DEFAULT_AUTH_SESSION;
@@ -86,14 +99,24 @@ function AuthProvider({ children }: AuthProviderProps) {
   const [selectedPlanForAuth, setSelectedPlanForAuthState] = useState<PlanTier>(
     initialSession.selectedPlanForAuth
   );
+  const [credits, setCreditsState] = useState<number>(
+    initialSession.credits ?? 50
+  );
 
   useEffect(() => {
     writeStoredAuthSession({
       user,
       planTier,
       selectedPlanForAuth,
+      credits,
     });
-  }, [user, planTier, selectedPlanForAuth]);
+  }, [user, planTier, selectedPlanForAuth, credits]);
+
+  const setCredits = useCallback((nextCredits: number) => {
+    const safeCredits = Math.max(0, nextCredits);
+    setCreditsState(safeCredits);
+    setUser((prev) => (prev ? { ...prev, credits: safeCredits } : prev));
+  }, []);
 
   const setSelectedPlanForAuth = useCallback((plan: PlanTier) => {
     setSelectedPlanForAuthState(plan);
@@ -110,6 +133,9 @@ function AuthProvider({ children }: AuthProviderProps) {
       setUser(userData);
       setPlanTierState(resolvedPlan);
       setSelectedPlanForAuthState(resolvedPlan);
+      if (typeof userData.credits === 'number') {
+        setCreditsState(Math.max(0, userData.credits));
+      }
     },
     [selectedPlanForAuth]
   );
@@ -118,6 +144,7 @@ function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
     setPlanTierState('free_trial');
     setSelectedPlanForAuthState('free_trial');
+    setCreditsState(50);
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -126,6 +153,8 @@ function AuthProvider({ children }: AuthProviderProps) {
       isAuthenticated: Boolean(user),
       planTier,
       selectedPlanForAuth,
+      credits,
+      setCredits,
       setSelectedPlanForAuth,
       setPlanTier,
       completeAuth,
@@ -135,6 +164,8 @@ function AuthProvider({ children }: AuthProviderProps) {
       user,
       planTier,
       selectedPlanForAuth,
+      credits,
+      setCredits,
       setSelectedPlanForAuth,
       setPlanTier,
       completeAuth,

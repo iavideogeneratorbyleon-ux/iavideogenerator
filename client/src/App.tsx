@@ -34,6 +34,8 @@ function App() {
     isAuthenticated,
     planTier,
     selectedPlanForAuth,
+    credits,
+    setCredits,
     setSelectedPlanForAuth,
     logout,
   } = useAuth();
@@ -53,13 +55,6 @@ function App() {
   const [selectedProduct, setSelectedProduct] =
     useState<ProductMenuItem | null>(null);
 
-  const initialPolicy = getPlanWizardPolicy(planTier);
-  const [credits, setCredits] = useState<number>(
-    typeof (user as { credits?: number } | null)?.credits === "number"
-      ? (user as { credits?: number }).credits!
-      : initialPolicy.initialCredits
-  );
-
   const activeView: "landing" | "workspace" =
     currentRoute === "landing" ? "landing" : "workspace";
   const showSidebar = shouldShowAppSidebar(currentRoute);
@@ -75,15 +70,16 @@ function App() {
 
   useEffect(() => {
     const userCredits = (user as { credits?: number } | null)?.credits;
-    if (typeof userCredits === "number") {
+    if (typeof userCredits === "number" && userCredits !== credits) {
       setCredits(userCredits);
     } else if (
       !isAuthenticated &&
-      normalizePlanTier(planTier) === "free_trial"
+      normalizePlanTier(planTier) === "free_trial" &&
+      credits !== getPlanWizardPolicy("free_trial").initialCredits
     ) {
       setCredits(getPlanWizardPolicy("free_trial").initialCredits);
     }
-  }, [isAuthenticated, planTier, user]);
+  }, [credits, isAuthenticated, planTier, setCredits, user]);
 
   useEffect(() => {
     const handleCreditsEvent = (event: Event) => {
@@ -95,7 +91,7 @@ function App() {
     window.addEventListener("cempa:credits-updated", handleCreditsEvent);
     return () =>
       window.removeEventListener("cempa:credits-updated", handleCreditsEvent);
-  }, []);
+  }, [setCredits]);
 
   useEffect(() => {
     if (isAuthenticated && authModalOpen) {

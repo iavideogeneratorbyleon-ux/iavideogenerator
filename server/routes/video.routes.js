@@ -93,12 +93,23 @@ router.post('/save', async (req, res) => {
 router.get('/:email', async (req, res) => {
   try {
     const email = String(req.params.email || '').trim().toLowerCase();
-    const videos = await Video.find({ email }).sort({ createdAt: -1 });
-    return res.status(200).json({ success: true, videos });
+    const [videos, dbUser] = await Promise.all([
+      Video.find({ email }).sort({ createdAt: -1 }),
+      User.findOne({ email }).select('credits plan').lean(),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      videos,
+      ...(typeof dbUser?.credits === 'number'
+        ? { credits: dbUser.credits, remainingCredits: dbUser.credits }
+        : {}),
+    });
   } catch (error) {
     console.error('Error al obtener videos:', error);
     return res.status(500).json({ error: 'Error al obtener los videos' });
   }
 });
+
 
 module.exports = router;
