@@ -1,7 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const router = express.Router();
-const Video = require('../models/Videos');
+const Video = require('../models/Video');
 const User = require('../models/User');
 const { CREDIT_CONFIG, PLAN_POLICIES } = require('../config/globals');
 
