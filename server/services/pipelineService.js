@@ -1,6 +1,7 @@
 // server/services/pipelineService.js
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
 const { GLOBALS, resolveVoiceModelId } = require('../config/globals');
 const { normalizeKey, resolvePlanPolicy } = require('../utils/sharedHelpers');
 const { generateStructuredScript } = require('./llmService');
@@ -57,6 +58,41 @@ function syncVideoUrlIntoPayload(payload, fallbackResult = null) {
 
   nextPayload.video = existingVideoObj;
   return nextPayload;
+}
+
+function sanitizeVideoPersistencePayload(rawUpdate = {}) {
+  const sanitized = rawUpdate && typeof rawUpdate === 'object' ? { ...rawUpdate } : {};
+  const candidateUserId =
+    sanitized.userId ?? sanitized?.meta?.userId ?? sanitized?.user?._id ?? null;
+  const candidateEmail =
+    (typeof sanitized.email === 'string' && sanitized.email) ||
+    (typeof sanitized.userEmail === 'string' && sanitized.userEmail) ||
+    (typeof sanitized?.user?.email === 'string' && sanitized.user.email) ||
+    (typeof candidateUserId === 'string' && candidateUserId.includes('@')
+      ? candidateUserId
+      : '');
+
+  if (candidateEmail && !sanitized.email) {
+    sanitized.email = candidateEmail.trim().toLowerCase();
+  }
+
+  if (
+    candidateUserId &&
+    typeof candidateUserId === 'object' &&
+    typeof candidateUserId.toString === 'function' &&
+    mongoose.Types.ObjectId.isValid(candidateUserId.toString())
+  ) {
+    sanitized.userId = candidateUserId.toString();
+  } else if (
+    typeof candidateUserId === 'string' &&
+    mongoose.Types.ObjectId.isValid(candidateUserId)
+  ) {
+    sanitized.userId = candidateUserId;
+  } else {
+    delete sanitized.userId;
+  }
+
+  return sanitized;
 }
 
 async function runCompletePipeline(masterPayload = {}) {
@@ -280,15 +316,17 @@ async function runCompletePipeline(masterPayload = {}) {
   // Paso de Persistencia Final: Guardar proyecto completo en MongoDB Atlas
   console.log(`💾 Guardando proyecto finalizado en MongoDB Atlas...`);
   const jobUsage = getJobUsage(jobId);
+  const persistenceDoc = sanitizeVideoPersistencePayload({
+    ...currentPayload,
+    ...(jobUsage ? { usage: jobUsage } : {}),
+    status: 'completed',
+    videoUrl: renderResult.videoUrl,
+    createdAt: new Date()
+  });
+
   const savedProject = await Video.findOneAndUpdate(
     { jobId },
-    {
-      ...currentPayload,
-      ...(jobUsage ? { usage: jobUsage } : {}),
-      status: 'completed',
-      videoUrl: renderResult.videoUrl,
-      createdAt: new Date()
-    },
+    persistenceDoc,
     { upsert: true, returnDocument: 'after' }
   );
 

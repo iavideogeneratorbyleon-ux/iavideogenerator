@@ -2,6 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../hooks/useTranslations';
 import UpgrateModal from '../../components/upgrate-modal/UpgrateModal';
+import VideoCard, {
+  type PublishChannel,
+  type VideoCardData,
+} from '../../components/video-card/VideoCard';
 import {
   getPlanWizardPolicy,
   normalizePlanTier,
@@ -19,7 +23,7 @@ interface DashboardProps {
   onCreditsChange?: (credits: number) => void;
 }
 
-interface VideoItem {
+export interface VideoItem extends VideoCardData {
   _id: string;
   title: string;
   mode: string;
@@ -62,10 +66,13 @@ export default function Dashboard({
 
   const normalizedPlan = normalizePlanTier(planTier);
   const planPolicy = getPlanWizardPolicy(normalizedPlan);
+  const canRegenerateVideo = normalizedPlan !== 'free_trial';
 
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loadingVideos, setLoadingVideos] = useState<boolean>(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState<boolean>(false);
+  const [watchingVideo, setWatchingVideo] = useState<VideoCardData | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
   const syncCredits = useCallback(
     (nextCredits: number) => {
@@ -80,7 +87,11 @@ export default function Dashboard({
     const userCredits = (user as { credits?: number } | null)?.credits;
     if (typeof userCredits === 'number' && userCredits !== credits) {
       syncCredits(userCredits);
-    } else if (!isAuthenticated && normalizedPlan === 'free_trial' && credits !== planPolicy.initialCredits) {
+    } else if (
+      !isAuthenticated &&
+      normalizedPlan === 'free_trial' &&
+      credits !== planPolicy.initialCredits
+    ) {
       syncCredits(planPolicy.initialCredits);
     }
   }, [
@@ -146,19 +157,82 @@ export default function Dashboard({
     setIsUpgradeModalOpen(false);
   };
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return isEn ? 'Recently' : 'Reciente';
-    const d = new Date(dateStr);
-    return Number.isNaN(d.getTime())
-      ? isEn
-        ? 'Recently'
-        : 'Reciente'
-      : d.toLocaleDateString(isEn ? 'en-US' : 'es-MX', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        });
+  const getVideoTitle = (vid: VideoCardData) =>
+    vid.title?.trim() ||
+    vid.llmDirective?.structuredScript?.title?.trim() ||
+    (isEn ? 'Untitled Video' : 'Video sin título');
+
+  const getMediaUrl = (vid: VideoCardData) =>
+    vid.videoUrl || vid.downloadUrl || vid.url || '';
+
+  const handleWatchVideo = (vid: VideoCardData) => {
+    setWatchingVideo(vid);
   };
+
+  const handleDownloadVideo = (vid: VideoCardData) => {
+    const mediaUrl = vid.downloadUrl || vid.videoUrl || vid.url;
+    const videoName = getVideoTitle(vid);
+
+    if (!mediaUrl) {
+      setActionFeedback(
+        isEn
+          ? `"${videoName}" does not have a rendered file URL yet.`
+          : `"${videoName}" aún no tiene un archivo de video renderizado disponible.`
+      );
+      return;
+    }
+
+    const link = document.createElement('a');
+    link.href = mediaUrl;
+    link.download = `${videoName}.mp4`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setActionFeedback(
+      isEn
+        ? `Starting download for "${videoName}".`
+        : `Iniciando descarga de "${videoName}".`
+    );
+  };
+
+  const handleSelectPublishChannel = (
+    vid: VideoCardData,
+    channel: PublishChannel
+  ) => {
+    const videoName = getVideoTitle(vid);
+    const socialUrls: Record<PublishChannel, string> = {
+      tiktok: 'https://www.tiktok.com/tiktokstudio/upload',
+      instagram: 'https://www.instagram.com/',
+      youtube: 'https://studio.youtube.com/',
+    };
+    const channelNames: Record<PublishChannel, string> = {
+      tiktok: 'TikTok',
+      instagram: 'Instagram Reels',
+      youtube: 'YouTube Shorts',
+    };
+
+    window.open(socialUrls[channel], '_blank', 'noopener,noreferrer');
+    setActionFeedback(
+      isEn
+        ? `Opened ${channelNames[channel]} for "${videoName}".`
+        : `Se abrió ${channelNames[channel]} para "${videoName}".`
+    );
+  };
+
+  const handleRegenerateVideo = (vid: VideoCardData) => {
+    if (!canRegenerateVideo) return;
+    const videoName = getVideoTitle(vid);
+    setActionFeedback(
+      isEn
+        ? `Regeneration requested for "${videoName}".`
+        : `Se solicitó regenerar "${videoName}".`
+    );
+  };
+
+  const watchingMediaUrl = watchingVideo ? getMediaUrl(watchingVideo) : '';
 
   return (
     <div className={styles.shell}>
@@ -192,6 +266,19 @@ export default function Dashboard({
               </button>
             </div>
           </div>
+
+          {actionFeedback && (
+            <div className={styles.headerCard} role="status">
+              <p className={styles.headerSubtitle}>{actionFeedback}</p>
+              <button
+                type="button"
+                className={styles.secondaryCta}
+                onClick={() => setActionFeedback(null)}
+              >
+                {isEn ? 'Dismiss' : 'Cerrar'}
+              </button>
+            </div>
+          )}
 
           <div className={styles.statsGrid}>
             <div className={styles.statCard}>
@@ -266,34 +353,57 @@ export default function Dashboard({
           ) : (
             <div className={styles.projectsGrid}>
               {videos.map((vid) => (
-                <article key={vid._id} className={styles.projectCard}>
-                  <div>
-                    <div className={styles.projectMeta}>
-                      <span className={styles.aspectBadge}>
-                        {vid.aspectRatio || '9:16'}
-                      </span>
-                      <span className={styles.projectDate}>
-                        {formatDate(vid.createdAt)}
-                      </span>
-                    </div>
-                    <h3 className={styles.projectTitle}>{vid.title}</h3>
-                    <p className={styles.headerSubtitle}>
-                      {isEn ? 'Mode' : 'Modo'}: {vid.mode || 'idea'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className={styles.downloadButton}
-                    onClick={onOpenStudioLite}
-                  >
-                    {isEn ? 'Open in Studio Lite' : 'Abrir en Studio Lite'}
-                  </button>
-                </article>
+                <VideoCard
+                  key={vid._id}
+                  video={vid}
+                  canRegenerate={canRegenerateVideo}
+                  onWatch={handleWatchVideo}
+                  onDownload={handleDownloadVideo}
+                  onSelectPublishChannel={handleSelectPublishChannel}
+                  onRegenerate={handleRegenerateVideo}
+                />
               ))}
             </div>
           )}
         </div>
       </main>
+
+      {watchingVideo && (
+        <div
+          className={styles.emptyState}
+          role="dialog"
+          aria-modal="true"
+          aria-label={getVideoTitle(watchingVideo)}
+        >
+          <h3 className={styles.emptyTitle}>{getVideoTitle(watchingVideo)}</h3>
+
+          {watchingMediaUrl ? (
+            <video
+              src={watchingMediaUrl}
+              controls
+              autoPlay
+              playsInline
+              style={{ width: '100%', maxHeight: '420px', borderRadius: '12px' }}
+            />
+          ) : (
+            <p className={styles.emptyDesc}>
+              {isEn
+                ? 'This video entry is saved in your library, but no playable media URL is attached yet.'
+                : 'Este video está guardado en tu biblioteca, pero aún no tiene un archivo de video reproducible asociado.'}
+            </p>
+          )}
+
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={styles.secondaryCta}
+              onClick={() => setWatchingVideo(null)}
+            >
+              {isEn ? 'Close Player' : 'Cerrar Reproductor'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <UpgrateModal
         isOpen={isUpgradeModalOpen}
