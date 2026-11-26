@@ -70,6 +70,8 @@ const PLAN_POLICIES = {
     allowedPresets: ['default', 'cinematic', 'educational', 'minimalist'],
     allowedVisualStyles: ['realistic', 'cartoon_2d', 'minimalist_flat'],
     allowedResolutions: ['720p'],
+    allowedMediaModes: ['static_only'],
+    maxMotionImagesPerVideo: 0,
     watermarkRequired: true
   },
   pay_per_video: {
@@ -84,6 +86,8 @@ const PLAN_POLICIES = {
     allowedPresets: 'all',
     allowedVisualStyles: 'all',
     allowedResolutions: ['720p', '1080p'],
+    allowedMediaModes: ['static_only', 'motion_image'],
+    maxMotionImagesPerVideo: 2,
     watermarkRequired: false
   },
   pro: {
@@ -98,6 +102,8 @@ const PLAN_POLICIES = {
     allowedPresets: 'all',
     allowedVisualStyles: 'all',
     allowedResolutions: ['720p', '1080p'],
+    allowedMediaModes: ['static_only', 'motion_image'],
+    maxMotionImagesPerVideo: 4,
     watermarkRequired: false
   },
   unlimited: {
@@ -112,6 +118,8 @@ const PLAN_POLICIES = {
     allowedPresets: 'all',
     allowedVisualStyles: 'all',
     allowedResolutions: ['720p', '1080p'],
+    allowedMediaModes: 'all',
+    maxMotionImagesPerVideo: null,
     watermarkRequired: false
   }
 };

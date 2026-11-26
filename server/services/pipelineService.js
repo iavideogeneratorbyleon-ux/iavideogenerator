@@ -4,10 +4,7 @@ const path = require('path');
 const mongoose = require('mongoose');
 const { GLOBALS, resolveVoiceModelId } = require('../config/globals');
 const { normalizeKey, resolvePlanPolicy } = require('../utils/sharedHelpers');
-const {
-  buildNormalizedPipelinePayload,
-  resolvePipelineParameters
-} = require('../config/params/pipelineRegistry');
+const pipelineRegistry = require('../config/params/pipelineRegistry');
 const { generateStructuredScript } = require('./llmService');
 const { generateAllScenesAudio, transcribeMergedJobAudio } = require('./audioService');
 const { generateAllScenesVisuals } = require('./visualService');
@@ -17,6 +14,59 @@ const { initJobUsage, recordStepUsage, getJobUsage } = require('./usageCostServi
 const Video = require('../models/Video');
 
 const ALLOWED_ASPECT_RATIOS = new Set(['16:9', '9:16', '1:1']);
+
+function resolveParametersSafe(payload = {}, adminOverrides = {}) {
+  if (typeof pipelineRegistry.resolvePipelineParameters === 'function') {
+    return pipelineRegistry.resolvePipelineParameters(payload, adminOverrides);
+  }
+  const meta = payload?.meta || {};
+  const userInputs = payload?.userInputs || {};
+  const videoConfig = payload?.videoConfig || {};
+  return {
+    meta: {
+      userPlan: meta.userPlan || 'free_trial',
+      product: meta.product || payload?.product || 'studio_lite'
+    },
+    preset: {
+      key: meta.preset || userInputs.preset || videoConfig.preset || 'default',
+      activeVariant: meta.presetVariant || userInputs.presetVariant || videoConfig.presetVariant || null
+    },
+    format: {
+      aspectRatio: videoConfig.aspectRatio || userInputs.aspectRatio || meta.aspectRatio || '9:16',
+      resolution: videoConfig.resolution || userInputs.resolution || '1080p'
+    },
+    visualFormat: {
+      style: { key: videoConfig.visualStyle || userInputs.visualStyle || meta.visualStyle || 'realistic' },
+      mediaMode: { key: videoConfig.mediaMode || userInputs.mediaMode || meta.mediaMode || 'static_only' }
+    },
+    voiceAndScript: {}
+  };
+}
+
+function buildNormalizedPayloadSafe(rawInput = {}, adminOverrides = {}) {
+  if (typeof pipelineRegistry.buildNormalizedPipelinePayload === 'function') {
+    return pipelineRegistry.buildNormalizedPipelinePayload(rawInput, adminOverrides);
+  }
+  const base = rawInput && typeof rawInput === 'object' ? { ...rawInput } : {};
+  const resolvedParams =
+    base.resolvedParams && typeof base.resolvedParams === 'object'
+      ? base.resolvedParams
+      : resolveParametersSafe(base, adminOverrides);
+
+  return {
+    ...base,
+    meta: {
+      ...(base.meta || {})
+    },
+    userInputs: {
+      ...(base.userInputs || {})
+    },
+    videoConfig: {
+      ...(base.videoConfig || {})
+    },
+    resolvedParams
+  };
+}
 
 function normalizeAspectRatio(rawRatio, fallback = '9:16') {
   const candidate = String(rawRatio || '').trim();
@@ -55,7 +105,7 @@ function ensureResolvedParams(payload, adminOverrides = {}) {
   const resolvedParams =
     nextPayload.resolvedParams && typeof nextPayload.resolvedParams === 'object'
       ? nextPayload.resolvedParams
-      : resolvePipelineParameters(nextPayload, adminOverrides);
+      : resolveParametersSafe(nextPayload, adminOverrides);
 
   return {
     ...nextPayload,
@@ -130,7 +180,7 @@ async function runCompletePipeline(masterPayload = {}) {
       ? rawInput.adminOverrides
       : {};
 
-  const normalizedBase = buildNormalizedPipelinePayload(rawInput, adminOverrides);
+  const normalizedBase = buildNormalizedPayloadSafe(rawInput, adminOverrides);
   const jobId = normalizedBase?.meta?.jobId || `job_${Date.now()}`;
   const resolvedParams = normalizedBase.resolvedParams;
 
@@ -257,8 +307,8 @@ async function runCompletePipeline(masterPayload = {}) {
     latencyMs: Date.now() - audioStart
   });
 
-  // 3. Paso de Visuales: Renderizar imágenes por escena con Gemini 2.5
-  console.log(`3️⃣ Ejecutando Gemini 2.5 (Generación de visuales)...`);
+  // 3. Paso de Visuales: Renderizar imágenes por escena y clips de movimiento (motion_image)
+  console.log(`3️⃣ Ejecutando Gemini (Generación de visuales y movimiento)...`);
   const visualStart = Date.now();
   currentPayload = ensureResolvedParams(
     await generateAllScenesVisuals(currentPayload),
@@ -274,6 +324,23 @@ async function runCompletePipeline(masterPayload = {}) {
     imagesGenerated: visualScenes.length,
     latencyMs: Date.now() - visualStart
   });
+
+  const motionSummary = currentPayload?.visual?.motionUsageSummary;
+  const motionClipsCount = Number(currentPayload?.visual?.motionClipsGenerated || 0);
+  if (motionClipsCount > 0 && motionSummary) {
+    recordStepUsage(jobId, 'motion_generation', {
+      provider: currentPayload?.visual?.motionMockUsed ? 'mock-motion-cache' : 'google-gemini',
+      model: currentPayload?.visual?.motionMockUsed
+        ? 'mock-motion-cache'
+        : process.env.GEMINI_MOTION_IMAGE_MODEL || 'gemini-omni-1.2-flash',
+      motionClipsGenerated: motionClipsCount,
+      llmTokens: motionSummary.tokens?.total || 0,
+      inputTokens: motionSummary.tokens?.input || 0,
+      outputTokens: motionSummary.tokens?.outputVideo || 0,
+      estimatedCostUsd: motionSummary.costUsd?.total || 0,
+      latencyMs: 0
+    });
+  }
 
   // 3.5 Paso opcional de Generación de Video Base (si existe servicio de video y aún no hay video.videoUrl)
   currentPayload = syncVideoUrlIntoPayload(currentPayload, null, adminOverrides);

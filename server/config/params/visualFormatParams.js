@@ -1,3 +1,4 @@
+// server/config/params/visualFormatParams.js
 const VISUAL_STYLE_ALIASES = {
   photorealistic: 'realistic',
   '3d_render': '3d_cinematic',
@@ -262,13 +263,33 @@ function resolveVisualFormatParams({
 }
 
 function resolveSceneMediaType(mediaModeConfig = {}, sceneRole = 'body', explicitSceneMedia = null) {
+  const modeKey = mediaModeConfig?.key || 'static_only';
+  if (modeKey === 'static_only') {
+    return 'static_image';
+  }
+
+  const normalizedExplicit =
+    explicitSceneMedia === 'motion_image' || explicitSceneMedia === 'static_image'
+      ? explicitSceneMedia
+      : null;
+
+  if (normalizedExplicit) {
+    if (
+      normalizedExplicit === 'motion_image' &&
+      modeKey !== 'motion_images_only' &&
+      modeKey !== 'hybrid_stills_motion' &&
+      modeKey !== 'hybrid_full_mix'
+    ) {
+      return 'static_image';
+    }
+    return normalizedExplicit;
+  }
+
   const roleMap = mediaModeConfig?.sceneRoleMediaMap;
   if (roleMap && typeof roleMap === 'object') {
     return roleMap[sceneRole] || mediaModeConfig?.defaultSceneMedia || 'static_image';
   }
-  if (explicitSceneMedia) {
-    return explicitSceneMedia;
-  }
+
   return mediaModeConfig?.defaultSceneMedia || 'static_image';
 }
 

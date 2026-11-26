@@ -5,15 +5,50 @@ const {
   resolveVoiceModelId,
   modelSupportsAudioTags
 } = require('../config/globals');
+const pipelineRegistry = require('../config/params/pipelineRegistry');
 const {
   resolvePipelineParameters,
   resolveSceneMediaType
-} = require('../config/params/pipelineRegistry');
+} = pipelineRegistry;
 
 const { clampNumber, normalizeKey } = require('../utils/sharedHelpers');
 
 let aiClient = null;
 let SchemaType = null;
+
+function resolveMaxMotionImagesPerVideo(userPlan = 'free_trial', overrides = {}) {
+  if (typeof pipelineRegistry?.resolveMaxMotionImagesPerVideo === 'function') {
+    return pipelineRegistry.resolveMaxMotionImagesPerVideo(userPlan, overrides);
+  }
+
+  const planKey = String(userPlan || 'free_trial').trim().toLowerCase();
+  if (overrides && typeof overrides[planKey] === 'number') {
+    return overrides[planKey];
+  }
+
+  const defaultLimitsByPlan = {
+    free_trial: 0,
+    pay_per_video: 2,
+    pro: 4,
+    unlimited: Infinity
+  };
+
+  return Object.prototype.hasOwnProperty.call(defaultLimitsByPlan, planKey)
+    ? defaultLimitsByPlan[planKey]
+    : 0;
+}
+
+function resolveMaxMotionSafe(userPlan = 'free_trial', overrides = {}) {
+  try {
+    return resolveMaxMotionImagesPerVideo(userPlan, overrides);
+  } catch (_) {
+    const planKey = String(userPlan || 'free_trial').trim().toLowerCase();
+    if (planKey === 'unlimited') return Infinity;
+    if (planKey === 'pro') return 4;
+    if (planKey === 'pay_per_video') return 2;
+    return 0;
+  }
+}
 
 async function getGeminiClient() {
   if (!aiClient) {
@@ -355,24 +390,27 @@ function attachVisualConsistency(
 
   const scenes = Array.isArray(structuredScript.scenes)
     ? structuredScript.scenes.map((scene) => {
-        const sceneVisual = (scene.visualPrompt || '').trim();
-        const resolvedMediaType = resolveSceneMediaType(
-          mediaMode || {},
-          scene.role || 'body',
-          scene.mediaType || null
-        );
-        const promptSegments = Array.from(
-          new Set([visualAnchor, sceneVisual].map((s) => s.trim()).filter(Boolean))
-        );
-        const imagePrompt = promptSegments.join(' | ');
+      const sceneVisual = (scene.visualPrompt || '').trim();
+      const resolvedMediaType =
+        typeof resolveSceneMediaType === 'function'
+          ? resolveSceneMediaType(
+            mediaMode || {},
+            scene.role || 'body',
+            scene.mediaType || null
+          )
+          : scene.mediaType || 'static_image';
+      const promptSegments = Array.from(
+        new Set([visualAnchor, sceneVisual].map((s) => s.trim()).filter(Boolean))
+      );
+      const imagePrompt = promptSegments.join(' | ');
 
-        return {
-          ...scene,
-          imageDescription: String(scene.imageDescription || '').trim(),
-          mediaType: resolvedMediaType,
-          imagePrompt
-        };
-      })
+      return {
+        ...scene,
+        imageDescription: String(scene.imageDescription || '').trim(),
+        mediaType: resolvedMediaType,
+        imagePrompt
+      };
+    })
     : [];
 
   return {
@@ -387,7 +425,10 @@ async function generateStructuredScript(rawPayload) {
   const masterPayload = rawPayload?.payload || rawPayload?.data || rawPayload || {};
   const { meta = {}, userInputs = {}, orchestration = {} } = masterPayload;
   const resolvedParams =
-    masterPayload.resolvedParams || resolvePipelineParameters(masterPayload);
+    masterPayload.resolvedParams ||
+    (typeof resolvePipelineParameters === 'function'
+      ? resolvePipelineParameters(masterPayload)
+      : {});
 
   const rawPlan = resolvedParams.meta?.userPlan || meta.userPlan || 'free_trial';
   const userPlan = normalizeKey(rawPlan, {}, GLOBALS.PLAN_POLICIES, 'free_trial');
@@ -426,11 +467,11 @@ async function generateStructuredScript(rawPayload) {
       ? resolvedParams.voiceAndScript.script.endingBufferSeconds
       : typeof orchestration.endingBufferSeconds === 'number'
         ? clampNumber(
-            orchestration.endingBufferSeconds,
-            GLOBALS.SAFETY_LIMITS.endingBufferSeconds.min,
-            GLOBALS.SAFETY_LIMITS.endingBufferSeconds.max,
-            2
-          )
+          orchestration.endingBufferSeconds,
+          GLOBALS.SAFETY_LIMITS.endingBufferSeconds.min,
+          GLOBALS.SAFETY_LIMITS.endingBufferSeconds.max,
+          2
+        )
         : GLOBALS.SAFETY_LIMITS.endingBufferSeconds.defaultValue;
 
   const pacing =
@@ -482,22 +523,22 @@ async function generateStructuredScript(rawPayload) {
   );
   const voiceConfig = resolvedVoice
     ? {
-        ...resolvedVoice,
-        preset: presetKey,
-        modelId: resolvedVoiceModelId,
-        supportsAudioTags: supportsTags
-      }
+      ...resolvedVoice,
+      preset: presetKey,
+      modelId: resolvedVoiceModelId,
+      supportsAudioTags: supportsTags
+    }
     : {
-        voiceSlot: meta.voice || null,
-        voiceName: meta.voiceName || null,
-        voiceId: null,
-        language: targetLanguage,
-        profile: 'flexible_dynamic',
-        tier: 'free',
-        preset: presetKey,
-        modelId: resolvedVoiceModelId,
-        supportsAudioTags: supportsTags
-      };
+      voiceSlot: meta.voice || null,
+      voiceName: meta.voiceName || null,
+      voiceId: null,
+      language: targetLanguage,
+      profile: 'flexible_dynamic',
+      tier: 'free',
+      preset: presetKey,
+      modelId: resolvedVoiceModelId,
+      supportsAudioTags: supportsTags
+    };
 
   if (!userInputs.rawContent || !String(userInputs.rawContent).trim()) {
     throw new Error('Field "userInputs.rawContent" is required to generate the script.');
@@ -508,40 +549,34 @@ async function generateStructuredScript(rawPayload) {
 
   const systemInstruction = `You are an expert short-form video director for Cempai.ai.
 MANDATORY RULES:
-1. Active plan: "${userPlan}". Maximum allowed duration: ${planConfig.maxDurationSeconds}s. Target script duration: ${planConfig.targetDurationSeconds}s (leaving a ${endingBufferSeconds}s soft closing buffer at the end; total scene duration MUST NOT exceed ${planConfig.targetDurationSeconds}s).${
-    maxTotalWords ? ` Keep total spoken narration around or under ${maxTotalWords} words so pacing stays natural.` : ''
-  }
+1. Active plan: "${userPlan}". Maximum allowed duration: ${planConfig.maxDurationSeconds}s. Target script duration: ${planConfig.targetDurationSeconds}s (leaving a ${endingBufferSeconds}s soft closing buffer at the end; total scene duration MUST NOT exceed ${planConfig.targetDurationSeconds}s).${maxTotalWords ? ` Keep total spoken narration around or under ${maxTotalWords} words so pacing stays natural.` : ''
+    }
 2. Divide the video into ${planConfig.sceneRange} scenes with "${pacing}" pacing and tone: "${scriptTone}".
 3. Let Gemini AI naturally author the opening "hook" and closing "cta" from the topic and tone itself, without forcing rigid external hook/CTA templates or cliché marketing filler. Tag each scene with "role": "hook", "body", or "cta" so the narrative flows organically from opening curiosity/premise through the core explanation to a natural, cohesive ending aligned with the preset's mood.
 4. FORMAT, VISUAL & CHARACTER CONSISTENCY:
-   - Target aspect ratio: ${formatCfg?.aspectRatio || '9:16'}.${
-     formatCfg?.promptFraming ? `\n   - Format framing rule: ${formatCfg.promptFraming}` : ''
-   }
+   - Target aspect ratio: ${formatCfg?.aspectRatio || '9:16'}.${formatCfg?.promptFraming ? `\n   - Format framing rule: ${formatCfg.promptFraming}` : ''
+    }
    - Visual media mode: "${mediaModeCfg?.key || 'static_only'}". When a scene has "mediaType": "video_clip" or "motion_image", describe clear motion/action/camera movement in "visualPrompt"; when "static_image", focus on a strong composition ready for subtle camera motion.
-   - Define in "characterAndStyleBible" the unified visual aesthetic and exact recurring character description (appearance, age range, clothing, base expression, environment, and lighting) so the entire video feels cohesive.${
-     visualStyle
-       ? `\n   - Apply visual style "${visualStyle.label}" (${visualStyle.promptAnchor}) consistently across the visual direction.${
-           visualStyle.allowTextInImage === false
-             ? ' Avoid text, watermarks, or random letters inside the visual scene.'
-             : ''
-         }`
-       : ''
-   }
+   - Define in "characterAndStyleBible" the unified visual aesthetic and exact recurring character description (appearance, age range, clothing, base expression, environment, and lighting) so the entire video feels cohesive.${visualStyle
+      ? `\n   - Apply visual style "${visualStyle.label}" (${visualStyle.promptAnchor}) consistently across the visual direction.${visualStyle.allowTextInImage === false
+        ? ' Avoid text, watermarks, or random letters inside the visual scene.'
+        : ''
+      }`
+      : ''
+    }
    - Include in EVERY scene an "imageDescription" written naturally in ${languageLabel} describing clearly and intuitively how the generated image for that scene looks according to the script and visual action.
    - In EVERY "visualPrompt", explicitly restate the key character traits and visual style from "characterAndStyleBible", describing only the scene's specific action, camera framing, and logical progression from the previous scene.
 5. SOUND EFFECTS (SFX CUES):
-   - ${
-     sfxDirective.enabled
-       ? `SFX is ENABLED (up to ${sfxDirective.maxCuesPerVideo} cues across the video). For key moments, include an "sfxCue" object with "enabled": true, "category" (one of: ${(sfxDirective.preferredCategories || []).join(', ')}), "prompt" (concise sound effect description in English), "timing" (one of: ${(sfxDirective.allowedTimings || []).join(', ')}), and "gain" (around ${sfxDirective.defaultGain}). Set "enabled": false on non-accent scenes.`
-       : `SFX is DISABLED for this configuration. Set "sfxCue" with "enabled": false, "category": "none", "prompt": "", "timing": "on_enter", and "gain": 0 on every scene.`
-   }
+   - ${sfxDirective.enabled
+      ? `SFX is ENABLED (up to ${sfxDirective.maxCuesPerVideo} cues across the video). For key moments, include an "sfxCue" object with "enabled": true, "category" (one of: ${(sfxDirective.preferredCategories || []).join(', ')}), "prompt" (concise sound effect description in English), "timing" (one of: ${(sfxDirective.allowedTimings || []).join(', ')}), and "gain" (around ${sfxDirective.defaultGain}). Set "enabled": false on non-accent scenes.`
+      : `SFX is DISABLED for this configuration. Set "sfxCue" with "enabled": false, "category": "none", "prompt": "", "timing": "on_enter", and "gain": 0 on every scene.`
+    }
 6. CLEAN SUBTITLE TEXT VS. TAGGED SPOKEN TEXT (ELEVEN V4):
    - "voiceoverText" MUST be CLEAN plain text WITHOUT any bracketed audio tags like [whisper], [pause], or [emphasis] so subtitles stay clean and readable.
-   - "spokenText" is for voice synthesis (${resolvedVoiceModelId}). ${
-     supportsTags
-       ? `Include concise bracketed Eleven v4 delivery tags (e.g. [whisper], [slowly], [pause], [measured, steady], [low, eerie], [emphasis]) inline right before the phrases/shifts that need tone, pace, volume, or emphasis changes, guided by preset "${presetKey}" (suggested tags -> hook: ${presetTagGuide.hook || '[steady]'}, body: ${presetTagGuide.body || '[steady]'}, cta: ${presetTagGuide.cta || '[steady]'}). Keep tags natural and concise so they never sound robotic or get read as raw words.`
-       : 'Keep "spokenText" clean without bracketed tags.'
-   }
+   - "spokenText" is for voice synthesis (${resolvedVoiceModelId}). ${supportsTags
+      ? `Include concise bracketed Eleven v4 delivery tags (e.g. [whisper], [slowly], [pause], [measured, steady], [low, eerie], [emphasis]) inline right before the phrases/shifts that need tone, pace, volume, or emphasis changes, guided by preset "${presetKey}" (suggested tags -> hook: ${presetTagGuide.hook || '[steady]'}, body: ${presetTagGuide.body || '[steady]'}, cta: ${presetTagGuide.cta || '[steady]'}). Keep tags natural and concise so they never sound robotic or get read as raw words.`
+      : 'Keep "spokenText" clean without bracketed tags.'
+    }
    - CRITICAL NARRATION & SUBTITLE SYNCHRONIZATION RULES (STRICT):
      * "spokenText" MUST contain the EXACT SAME WORDS in the EXACT SAME ORDER as "voiceoverText".
      * NEVER paraphrase, summarize, shorten, expand, replace synonyms, change numbers/units, or alter wording between "voiceoverText" and "spokenText".
@@ -554,11 +589,10 @@ MANDATORY RULES:
      * "pauseBeforeMs": recommended lead-in pause in milliseconds (0 to 1500).
      * "pauseAfterMs": recommended trailing pause in milliseconds (0 to 1500).
      * "energyShift": one of "steady", "slight_up", or "slight_down".
-8. ${
-    effectiveMode === 'custom_script'
+8. ${effectiveMode === 'custom_script'
       ? 'CUSTOM_SCRIPT MODE: Preserve the user’s provided script text faithfully without rewriting its core wording; segment it into timed scenes and integrate any user-supplied opening or closing lines only if explicitly provided.'
       : 'IDEA MODE: Craft a cohesive, engaging script organically from the user’s idea, letting Gemini AI author the opening hook and closing lines naturally.'
-  }
+    }
 9. LANGUAGE RULES:
    - ${languageDirectiveText}
    - Spoken/editorial fields ("title", "hook.text", "cta.text", and every scene's "voiceoverText", "spokenText", and "imageDescription") MUST be written naturally in ${languageLabel}.
@@ -647,6 +681,7 @@ ${providedCta ? `- User-provided closing line: ${providedCta}` : '- Closing line
                     },
                     required: ['enabled', 'category', 'prompt', 'timing', 'gain']
                   },
+
                   voiceDirection: {
                     type: Type.OBJECT,
                     properties: {
@@ -704,6 +739,8 @@ ${providedCta ? `- User-provided closing line: ${providedCta}` : '- Closing line
     let cursorSec = 0;
     let activeSfxCount = 0;
     const maxSfx = Number(sfxDirective.maxCuesPerVideo || 0);
+    const maxMotionAllowed = resolveMaxMotionSafe(userPlan);
+    let activeMotionCount = 0;
     const validatedScenes = [];
     const maxAllowed = planConfig.targetDurationSeconds;
 
@@ -720,11 +757,22 @@ ${providedCta ? `- User-provided closing line: ${providedCta}` : '- Closing line
       const resolvedRole =
         scene.role ||
         (i === 0 ? 'hook' : i === structuredScript.scenes.length - 1 ? 'cta' : 'body');
-      const resolvedMediaType = resolveSceneMediaType(
-        mediaModeCfg || {},
-        resolvedRole,
-        scene.mediaType || null
-      );
+      let resolvedMediaType =
+        typeof resolveSceneMediaType === 'function'
+          ? resolveSceneMediaType(
+            mediaModeCfg || {},
+            resolvedRole,
+            scene.mediaType || null
+          )
+          : scene.mediaType || 'static_image';
+
+      if (resolvedMediaType === 'motion_image') {
+        if (maxMotionAllowed <= 0 || activeMotionCount >= maxMotionAllowed) {
+          resolvedMediaType = 'static_image';
+        } else {
+          activeMotionCount += 1;
+        }
+      }
 
       const cleanVoiceoverText = stripAudioTags(scene.voiceoverText || scene.spokenText || '');
       const normalizedDirection = normalizeVoiceDirection(scene.voiceDirection, resolvedRole);
@@ -733,12 +781,12 @@ ${providedCta ? `- User-provided closing line: ${providedCta}` : '- Closing line
         ? rawSpokenCandidate
           ? alignSpokenToVoiceover(cleanVoiceoverText, rawSpokenCandidate)
           : buildFallbackSpokenText({
-              cleanText: cleanVoiceoverText,
-              role: resolvedRole,
-              presetKey,
-              voiceDirection: normalizedDirection,
-              supportsTags: true
-            })
+            cleanText: cleanVoiceoverText,
+            role: resolvedRole,
+            presetKey,
+            voiceDirection: normalizedDirection,
+            supportsTags: true
+          })
         : stripAudioTags(rawSpokenCandidate || cleanVoiceoverText);
 
       const canEnableSfx = sfxDirective.enabled && activeSfxCount < maxSfx;
@@ -820,9 +868,9 @@ async function generateDialogueScript(rawPayload) {
     Array.isArray(userInputs.speakers) && userInputs.speakers.length >= 2
       ? userInputs.speakers
       : [
-          { name: 'Elena', speakerKey: 'speaker_a', voiceId: 'elena' },
-          { name: 'Mateo', speakerKey: 'speaker_b', voiceId: 'mateo' }
-        ];
+        { name: 'Elena', speakerKey: 'speaker_a', voiceId: 'elena' },
+        { name: 'Mateo', speakerKey: 'speaker_b', voiceId: 'mateo' }
+      ];
 
   const turnCount =
     typeof userInputs.turnCount === 'number' && userInputs.turnCount > 0
@@ -908,17 +956,17 @@ Language: ${languageLabel}`;
   const parsed = JSON.parse(response.text);
   const turns = Array.isArray(parsed.turns)
     ? parsed.turns.map((turn, index) => {
-        const matchedSpeaker = speakers[index % speakers.length] || {};
-        return {
-          turnNumber: Number(turn.turnNumber) || index + 1,
-          speaker: turn.speaker || matchedSpeaker.name || `Speaker ${index + 1}`,
-          speakerKey: turn.speakerKey || matchedSpeaker.speakerKey || `speaker_${index + 1}`,
-          voiceId: turn.voiceId || matchedSpeaker.voiceId || String(turn.speaker || '').toLowerCase(),
-          line: String(turn.line || '').trim(),
-          suggestedDurationSeconds: Number(turn.suggestedDurationSeconds) || 4,
-          voiceDirection: normalizeVoiceDirection(turn.voiceDirection, 'conversation_turn')
-        };
-      })
+      const matchedSpeaker = speakers[index % speakers.length] || {};
+      return {
+        turnNumber: Number(turn.turnNumber) || index + 1,
+        speaker: turn.speaker || matchedSpeaker.name || `Speaker ${index + 1}`,
+        speakerKey: turn.speakerKey || matchedSpeaker.speakerKey || `speaker_${index + 1}`,
+        voiceId: turn.voiceId || matchedSpeaker.voiceId || String(turn.speaker || '').toLowerCase(),
+        line: String(turn.line || '').trim(),
+        suggestedDurationSeconds: Number(turn.suggestedDurationSeconds) || 4,
+        voiceDirection: normalizeVoiceDirection(turn.voiceDirection, 'conversation_turn')
+      };
+    })
     : [];
 
   const dialogue = {
@@ -943,6 +991,7 @@ Language: ${languageLabel}`;
 }
 
 module.exports = {
+  resolveMaxMotionImagesPerVideo,
   generateStructuredScript,
   generateDialogueScript
 };

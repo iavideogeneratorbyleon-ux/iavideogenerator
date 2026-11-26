@@ -4,22 +4,129 @@ const fs = require('fs');
 const path = require('path');
 const { GoogleGenAI } = require('@google/genai');
 const { GLOBALS, resolveAiModelId } = require('../config/globals');
-const {
-  resolvePipelineParameters,
-  resolveSceneMediaType
-} = require('../config/params/pipelineRegistry');
+const pipelineRegistry = require('../config/params/pipelineRegistry');
 const { normalizeKey, retryWithBackoff } = require('../utils/sharedHelpers');
+const { generateMotionBatch } = require('./motionService');
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const IMAGE_OUTPUT_DIR = path.join(__dirname, '..', 'public', 'images');
+const VIDEO_OUTPUT_DIR = path.join(__dirname, '..', 'public', 'videos');
 const DEFAULT_IMAGE_MODEL = 'gemini-2.5-flash-image';
+const DEFAULT_MOTION_MODEL = 'gemini-omni-1.2-flash';
 
-if (!fs.existsSync(IMAGE_OUTPUT_DIR)) {
-  fs.mkdirSync(IMAGE_OUTPUT_DIR, { recursive: true });
-}
+[IMAGE_OUTPUT_DIR, VIDEO_OUTPUT_DIR].forEach((dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
 
 const PRESETS_ALLOWING_IMAGE_TEXT = new Set(['mr_beast']);
 const ALLOWED_ASPECT_RATIOS = new Set(['16:9', '9:16', '1:1']);
+
+function resolveMaxMotionImagesPerVideo(userPlan = 'free_trial', overrides = {}) {
+  if (typeof pipelineRegistry?.resolveMaxMotionImagesPerVideo === 'function') {
+    return pipelineRegistry.resolveMaxMotionImagesPerVideo(userPlan, overrides);
+  }
+
+  const planKey = String(userPlan || 'free_trial').trim().toLowerCase();
+  if (overrides && typeof overrides[planKey] === 'number') {
+    return overrides[planKey];
+  }
+
+  const defaultLimitsByPlan = {
+    free_trial: 0,
+    pay_per_video: 2,
+    pro: 4,
+    unlimited: Infinity
+  };
+
+  return Object.prototype.hasOwnProperty.call(defaultLimitsByPlan, planKey)
+    ? defaultLimitsByPlan[planKey]
+    : 0;
+}
+
+function resolveParametersSafe(payload = {}, adminOverrides = {}) {
+  if (typeof pipelineRegistry?.resolvePipelineParameters === 'function') {
+    return pipelineRegistry.resolvePipelineParameters(payload, adminOverrides);
+  }
+  return {};
+}
+
+function resolveSceneMediaTypeSafe(mediaModeConfig = {}, sceneRole = 'body', explicitSceneMedia = null) {
+  if (typeof pipelineRegistry?.resolveSceneMediaType === 'function') {
+    return pipelineRegistry.resolveSceneMediaType(mediaModeConfig, sceneRole, explicitSceneMedia);
+  }
+
+  const modeKey = mediaModeConfig?.key || 'static_only';
+  if (modeKey === 'static_only') {
+    return 'static_image';
+  }
+  if (explicitSceneMedia === 'motion_image' || explicitSceneMedia === 'static_image') {
+    if (
+      explicitSceneMedia === 'motion_image' &&
+      modeKey !== 'motion_images_only' &&
+      modeKey !== 'hybrid_stills_motion' &&
+      modeKey !== 'hybrid_full_mix'
+    ) {
+      return 'static_image';
+    }
+    return explicitSceneMedia;
+  }
+  const roleMap = mediaModeConfig?.sceneRoleMediaMap;
+  if (roleMap && typeof roleMap === 'object') {
+    return roleMap[sceneRole] || mediaModeConfig?.defaultSceneMedia || 'static_image';
+  }
+  return mediaModeConfig?.defaultSceneMedia || 'static_image';
+}
+
+function applyPlanMotionBudgetSafe(
+  scenes = [],
+  { userPlan = 'free_trial', mediaModeKey = 'static_only', maxMotionByPlanOverrides = {} } = {}
+) {
+  if (typeof pipelineRegistry?.applyPlanMotionBudget === 'function') {
+    try {
+      return pipelineRegistry.applyPlanMotionBudget(scenes, {
+        userPlan,
+        mediaModeKey,
+        maxMotionByPlanOverrides
+      });
+    } catch (_) {
+      // Si falla internamente por dependencia circular, aplicamos la misma lógica local
+    }
+  }
+
+  const list = Array.isArray(scenes) ? scenes : [];
+  if (mediaModeKey === 'static_only') {
+    return list.map((sc) => ({
+      ...sc,
+      mediaType: sc.mediaType === 'motion_image' ? 'static_image' : sc.mediaType
+    }));
+  }
+
+  const maxAllowed = resolveMaxMotionImagesPerVideo(userPlan, maxMotionByPlanOverrides);
+  if (!Number.isFinite(maxAllowed) && maxAllowed === Infinity) {
+    return list;
+  }
+  if (maxAllowed <= 0) {
+    return list.map((sc) => ({
+      ...sc,
+      mediaType: sc.mediaType === 'motion_image' ? 'static_image' : sc.mediaType
+    }));
+  }
+
+  let usedCount = 0;
+  return list.map((sc) => {
+    if (sc.mediaType !== 'motion_image') return sc;
+    if (usedCount < maxAllowed) {
+      usedCount += 1;
+      return sc;
+    }
+    return {
+      ...sc,
+      mediaType: 'static_image'
+    };
+  });
+}
 
 function extractModelString(candidate, fallback = DEFAULT_IMAGE_MODEL) {
   let extracted = '';
@@ -48,7 +155,7 @@ function ensurePayloadResolvedParams(payload = {}) {
   const resolvedParams =
     base.resolvedParams && typeof base.resolvedParams === 'object'
       ? base.resolvedParams
-      : resolvePipelineParameters(base);
+      : resolveParametersSafe(base);
   return { ...base, resolvedParams };
 }
 
@@ -162,6 +269,28 @@ function buildSceneImagePrompt(
   return parts.filter(Boolean).join('. ');
 }
 
+function buildMotionPromptFromScene(scene = {}, structuredScript = {}) {
+  const explicitMotion = String(scene?.motionPrompt || '').trim();
+  if (explicitMotion) {
+    return explicitMotion;
+  }
+
+  const baseAction = String(
+    scene?.visualPrompt || scene?.imagePrompt || scene?.imageDescription || ''
+  ).trim();
+  const styleAnchor = String(structuredScript?.styleGuide?.styleAnchor || '').trim();
+
+  return [
+    'Animate this exact reference image with smooth, natural motion inside the frame',
+    baseAction
+      ? `Motion focus: ${baseAction}`
+      : 'Subtle environmental movement, shifting light, and natural subject motion',
+    styleAnchor ? `Keep visual style consistent: ${styleAnchor}` : ''
+  ]
+    .filter(Boolean)
+    .join('. ');
+}
+
 async function generateSceneImage({
   prompt,
   aspectRatio = '9:16',
@@ -238,6 +367,7 @@ async function generateAllScenesVisuals(rawPayload) {
     rawPayload?.payload || rawPayload?.data || rawPayload
   );
   const resolvedParams = masterPayload.resolvedParams;
+  const userPlan = resolvedParams?.meta?.userPlan || masterPayload?.meta?.userPlan || 'free_trial';
   const resolvedFormat = resolvedParams?.format || null;
   const resolvedVisualFormat = resolvedParams?.visualFormat || null;
   const resolvedStyle = resolvedVisualFormat?.style || null;
@@ -298,14 +428,20 @@ async function generateAllScenesVisuals(rawPayload) {
     DEFAULT_IMAGE_MODEL
   );
 
+  const budgetedScenes = applyPlanMotionBudgetSafe(structuredScript.scenes, {
+    userPlan,
+    mediaModeKey: resolvedMediaMode?.key || 'static_only'
+  });
+
   console.log(
-    `🚀 [Visuals] Generando ${structuredScript.scenes.length} imágenes con ${resolvedImageModel} (Aspect Ratio: ${aspectRatio} | Style: ${resolvedStyle?.key || 'default'} | MediaMode: ${resolvedMediaMode?.key || 'static_only'}) para Job: ${jobId}...`
+    `🚀 [Visuals] Generando ${budgetedScenes.length} imágenes con ${resolvedImageModel} (Aspect Ratio: ${aspectRatio} | Style: ${resolvedStyle?.key || 'default'} | MediaMode: ${resolvedMediaMode?.key || 'static_only'}) para Job: ${jobId}...`
   );
 
-  const updatedScenes = [];
+  const preparedVisualScenes = [];
+  const motionQueue = [];
 
-  for (const scene of structuredScript.scenes) {
-    const resolvedMediaType = resolveSceneMediaType(
+  for (const scene of budgetedScenes) {
+    const resolvedMediaType = resolveSceneMediaTypeSafe(
       resolvedMediaMode || {},
       scene.role || 'body',
       scene.mediaType || null
@@ -331,15 +467,80 @@ async function generateAllScenesVisuals(rawPayload) {
       modelId: resolvedImageModel
     });
 
-    updatedScenes.push({
-      ...scene,
-      mediaType: resolvedMediaType,
-      visual: {
-        ...visualResult,
-        mediaType: resolvedMediaType
-      }
+    const motionPrompt =
+      resolvedMediaType === 'motion_image'
+        ? buildMotionPromptFromScene(scene, structuredScript)
+        : '';
+
+    if (resolvedMediaType === 'motion_image') {
+      motionQueue.push({
+        sceneNumber: scene.sceneNumber,
+        imagePath: path.join(IMAGE_OUTPUT_DIR, visualResult.fileName),
+        motionPrompt,
+        modelId:
+          masterPayload?.visualConfig?.motionModelId ||
+          masterPayload?.userInputs?.motionImageModelId ||
+          process.env.GEMINI_MOTION_IMAGE_MODEL ||
+          DEFAULT_MOTION_MODEL
+      });
+    }
+
+    preparedVisualScenes.push({
+      scene,
+      resolvedMediaType,
+      visualResult,
+      motionPrompt
     });
   }
+
+  const motionBatchReport =
+    motionQueue.length > 0
+      ? await generateMotionBatch({
+          jobId,
+          scenes: motionQueue,
+          aspectRatio,
+          concurrency: Number(process.env.MOTION_CONCURRENCY || 2),
+          maxRetries: 1,
+          modelId:
+            masterPayload?.visualConfig?.motionModelId ||
+            masterPayload?.userInputs?.motionImageModelId ||
+            process.env.GEMINI_MOTION_IMAGE_MODEL ||
+            DEFAULT_MOTION_MODEL
+        })
+      : null;
+
+  const updatedScenes = preparedVisualScenes.map(
+    ({ scene, resolvedMediaType, visualResult, motionPrompt }) => {
+      const motionClipResult =
+        resolvedMediaType === 'motion_image'
+          ? motionBatchReport?.resultsBySceneNumber?.[scene.sceneNumber] || null
+          : null;
+
+      const finalMediaType =
+        resolvedMediaType === 'motion_image' && motionClipResult
+          ? 'motion_image'
+          : 'static_image';
+
+      const videoMeta = motionClipResult
+        ? {
+            ...(scene.video || {}),
+            ...motionClipResult,
+            mediaType: 'motion_image'
+          }
+        : null;
+
+      return {
+        ...scene,
+        mediaType: finalMediaType,
+        motionPrompt: finalMediaType === 'motion_image' ? motionPrompt : '',
+        visual: {
+          ...visualResult,
+          mediaType: finalMediaType
+        },
+        ...(videoMeta ? { video: videoMeta } : {})
+      };
+    }
+  );
 
   console.log(
     `✅ [Visuals] Todas las imágenes generadas con éxito aplicando el estilo y formato dinámico.`
@@ -370,7 +571,10 @@ async function generateAllScenesVisuals(rawPayload) {
       mediaMode: resolvedMediaMode?.key || null,
       styleModifier: styleModifier || null,
       styleAnchor: structuredScript?.styleGuide?.styleAnchor || null,
-      avoidStyles: structuredScript?.styleGuide?.avoidStyles || null
+      avoidStyles: structuredScript?.styleGuide?.avoidStyles || null,
+      motionClipsGenerated: motionBatchReport?.succeeded || 0,
+      motionMockUsed: Boolean(motionBatchReport?.isMock),
+      motionUsageSummary: motionBatchReport?.usageCostSummary || null
     },
     ...(masterPayload.llmDirective
       ? {
@@ -396,6 +600,7 @@ async function generateAllScenesVisuals(rawPayload) {
 }
 
 module.exports = {
+  resolveMaxMotionImagesPerVideo,
   generateSceneImage,
   generateAllScenesVisuals
 };

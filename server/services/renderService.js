@@ -17,10 +17,11 @@ const {
   resolveSubtitleStyle,
   getPresetSubtitleStyle
 } = require('../utils/subtitleStyles');
+const pipelineRegistry = require('../config/params/pipelineRegistry');
 const {
   resolvePipelineParameters,
   resolveSceneMediaType
-} = require('../config/params/pipelineRegistry');
+} = pipelineRegistry;
 const { clampNumber, normalizeKey, resolvePlanPolicy } = require('../utils/sharedHelpers');
 const { renderWatermarkPng } = require('../utils/watermark');
 const { buildBaseVideoFilter } = require('../utils/cameraMotion');
@@ -36,6 +37,50 @@ const SFX_LIBRARY_DIR = path.join(PUBLIC_DIR, 'sfx');
 [VIDEO_OUTPUT_DIR, TEMP_DIR, SFX_LIBRARY_DIR].forEach((dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
+
+function resolveSceneMediaTypeSafe(
+  mediaModeConfig = {},
+  sceneRole = 'body',
+  explicitSceneMedia = null
+) {
+  if (typeof resolveSceneMediaType === 'function') {
+    return resolveSceneMediaType(
+      mediaModeConfig,
+      sceneRole,
+      explicitSceneMedia
+    );
+  }
+  if (typeof pipelineRegistry?.resolveSceneMediaType === 'function') {
+    return pipelineRegistry.resolveSceneMediaType(
+      mediaModeConfig,
+      sceneRole,
+      explicitSceneMedia
+    );
+  }
+
+  const modeKey = mediaModeConfig?.key || 'static_only';
+  if (modeKey === 'static_only') {
+    return 'static_image';
+  }
+  if (explicitSceneMedia === 'motion_image' || explicitSceneMedia === 'static_image') {
+    if (
+      explicitSceneMedia === 'motion_image' &&
+      modeKey !== 'motion_images_only' &&
+      modeKey !== 'hybrid_stills_motion' &&
+      modeKey !== 'hybrid_full_mix'
+    ) {
+      return 'static_image';
+    }
+    return explicitSceneMedia;
+  }
+
+  const roleMap = mediaModeConfig?.sceneRoleMediaMap;
+  if (roleMap && typeof roleMap === 'object') {
+    return roleMap[sceneRole] || mediaModeConfig?.defaultSceneMedia || 'static_image';
+  }
+
+  return mediaModeConfig?.defaultSceneMedia || 'static_image';
+}
 
 const PRESET_CONFIGS = {
   netflix: {
@@ -635,64 +680,6 @@ function getAudioDuration(filePath) {
   });
 }
 
-function buildVisibleMotionFilter({
-  width,
-  height,
-  duration,
-  fps,
-  presetConfig,
-  sceneIndex = 0
-}) {
-  const safeDuration = Math.max(1, Number(duration) || 4);
-  const totalFrames = Math.max(15, Math.round(safeDuration * (Number(fps) || 30)));
-  const motionType = presetConfig?.motion || 'slow_zoom_in';
-
-  const overscan = motionType === 'punch_zoom_in' ? 1.24 : 1.18;
-  const baseW = Math.ceil(width * overscan);
-  const baseH = Math.ceil(height * overscan);
-
-  let progressExpr;
-  switch (motionType) {
-    case 'punch_zoom_in':
-      progressExpr = `min(1,on/${totalFrames})`;
-      break;
-    case 'clean_zoom_out':
-      progressExpr = `max(0,1-(on/${totalFrames}))`;
-      break;
-    case 'dynamic_pan':
-    case 'smooth_drift':
-      progressExpr = sceneIndex % 2 === 0 ? `min(1,on/${totalFrames})` : `max(0,1-(on/${totalFrames}))`;
-      break;
-    case 'slow_zoom_in':
-    default:
-      progressExpr = `min(1,on/${totalFrames})`;
-      break;
-  }
-
-  const maxZoomDelta = motionType === 'punch_zoom_in' ? 0.16 : 0.12;
-  const cropWExpr = `max(${width},iw/(1+(${maxZoomDelta}*${progressExpr})))`;
-  const cropHExpr = `max(${height},ih/(1+(${maxZoomDelta}*${progressExpr})))`;
-
-  const panDirectionX = sceneIndex % 2 === 0 ? 1 : -1;
-  const panDirectionY = sceneIndex % 3 === 0 ? -1 : 1;
-
-  const cropXExpr = `(iw-ow)/2+(${panDirectionX}*((iw-ow)*0.22)*(on/${totalFrames}))`;
-  const cropYExpr = `(ih-oh)/2+(${panDirectionY}*((ih-oh)*0.18)*(on/${totalFrames}))`;
-
-  const parts = [
-    `fps=${fps}`,
-    `scale=${baseW}:${baseH}:force_original_aspect_ratio=increase`,
-    `crop=w='${cropWExpr}':h='${cropHExpr}':x='${cropXExpr}':y='${cropYExpr}':exact=1`,
-    `scale=${width}:${height}:flags=lanczos`
-  ];
-
-  if (presetConfig?.eqFilter) {
-    parts.push(presetConfig.eqFilter);
-  }
-
-  return parts.join(',');
-}
-
 function resolveRenderConfig(masterPayload = {}) {
   const payloadWithParams = ensurePayloadResolvedParams(masterPayload);
   const resolvedParams = payloadWithParams.resolvedParams || {};
@@ -1095,7 +1082,7 @@ function runFfmpegClip({
     const usesPreRenderedClip = Boolean(videoClipPath && fs.existsSync(videoClipPath));
 
     if (usesPreRenderedClip) {
-      cmd.input(videoClipPath);
+      cmd.input(videoClipPath).inputOptions(['-stream_loop', '-1']);
     } else {
       cmd.input(imagePath).inputOptions(['-loop', '1']);
     }
@@ -1432,7 +1419,7 @@ async function renderFinalVideo(rawPayload) {
       );
     }
 
-    const resolvedMediaType = resolveSceneMediaType(
+    const resolvedMediaType = resolveSceneMediaTypeSafe(
       renderConfig.mediaMode || {},
       scene.role || 'body',
       scene.mediaType || scene?.visual?.mediaType || null
