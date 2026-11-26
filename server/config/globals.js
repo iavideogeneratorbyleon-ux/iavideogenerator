@@ -67,8 +67,8 @@ const PLAN_POLICIES = {
     maxDurationSeconds: 30,
     defaultDurationSeconds: 30,
     sceneRange: '4 to 5',
-    allowedPresets: ['default', 'educational', 'minimalist'],
-    allowedVisualStyles: ['realistic', 'minimalist_flat'],
+    allowedPresets: ['default', 'cinematic', 'educational', 'minimalist'],
+    allowedVisualStyles: ['realistic', 'cartoon_2d', 'minimalist_flat'],
     allowedResolutions: ['720p'],
     watermarkRequired: true
   },
@@ -116,7 +116,7 @@ const PLAN_POLICIES = {
   }
 };
 
-// Configuración global centralizada para todos los modelos de IA del pipeline.
+// Centralized global configuration for all AI models across the pipeline.
 const AI_MODELS = {
   llm: {
     provider: 'google-gemini',
@@ -150,201 +150,20 @@ const AI_MODELS = {
     fallbackModelId: process.env.ELEVENLABS_STT_FALLBACK_MODEL || 'scribe_v3'
   },
   image: {
-    provider: process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image',
-    defaultModelId: process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image',
-    fallbackModelId: process.env.GEMINI_IMAGE_FALLBACK_MODEL || 'gemini-2.5-flash-image',
+    provider: process.env.GEMINI_IMAGE_MODEL || 'imagen-3.0-generate-002',
+    defaultModelId: process.env.GEMINI_IMAGE_MODEL || 'imagen-3.0-generate-002',
+    fallbackModelId: process.env.GEMINI_IMAGE_FALLBACK_MODEL || 'imagen-3.0-generate-002',
     byPreset: {}
   }
 };
 
-// Compatibilidad con código previo que lea VOICE_MODEL_CONFIG directamente
+// Backward compatibility for existing code reading VOICE_MODEL_CONFIG directly
 const VOICE_MODEL_CONFIG = AI_MODELS.tts;
 
-// Estilos visuales de subtítulos por preset (base inspirada en dark_mystery con identidad propia por preset)
-const PRESET_SUBTITLE_STYLES = {
-  dark_mystery: {
-    effectStyle: 'mystery_cinema',
-    style: 'mystery_cinema',
-    fontFamily: 'Cinzel',
-    fontWeight: '600',
-    fontFile: null,
-    rgba: [242, 231, 214, 255],
-    outlineRgba: [6, 6, 8, 250],
-    boxRgba: [8, 8, 12, 0],
-    showBox: false,
-    fontScale: 1.0,
-    bottomRatio9x16: 0.84,
-    bottomRatioDefault: 0.88,
-    maxLineWidthRatio: 0.82,
-    lineGapScale: 1.45
-  },
-  cinematic: {
-    effectStyle: 'cinematic_film',
-    style: 'cinematic_film',
-    fontFamily: 'Cormorant Garamond',
-    fontWeight: '600',
-    fontFile: null,
-    rgba: [248, 236, 210, 255],
-    outlineRgba: [10, 10, 12, 245],
-    boxRgba: [12, 10, 8, 0],
-    showBox: false,
-    fontScale: 1.02,
-    bottomRatio9x16: 0.84,
-    bottomRatioDefault: 0.88,
-    maxLineWidthRatio: 0.84,
-    lineGapScale: 1.4
-  },
-  netflix: {
-    effectStyle: 'netflix_series',
-    style: 'netflix_series',
-    fontFamily: 'Bebas Neue',
-    fontWeight: '700',
-    fontFile: null,
-    rgba: [255, 250, 242, 255],
-    outlineRgba: [0, 0, 0, 245],
-    boxRgba: [0, 0, 0, 0],
-    showBox: false,
-    fontScale: 1.03,
-    bottomRatio9x16: 0.84,
-    bottomRatioDefault: 0.88,
-    maxLineWidthRatio: 0.84,
-    lineGapScale: 1.35
-  },
-  documentary: {
-    effectStyle: 'documentary_clean',
-    style: 'documentary_clean',
-    fontFamily: 'Source Sans 3',
-    fontWeight: '600',
-    fontFile: null,
-    rgba: [244, 246, 248, 255],
-    outlineRgba: [12, 14, 18, 240],
-    boxRgba: [10, 12, 16, 0],
-    showBox: false,
-    fontScale: 0.99,
-    bottomRatio9x16: 0.85,
-    bottomRatioDefault: 0.89,
-    maxLineWidthRatio: 0.85,
-    lineGapScale: 1.4
-  },
-  educational: {
-    effectStyle: 'educational_clarity',
-    style: 'educational_clarity',
-    fontFamily: 'Plus Jakarta Sans',
-    fontWeight: '700',
-    fontFile: null,
-    rgba: [255, 255, 255, 255],
-    outlineRgba: [15, 23, 42, 245],
-    boxRgba: [15, 23, 42, 0],
-    showBox: false,
-    fontScale: 1.05,
-    bottomRatio9x16: 0.83,
-    bottomRatioDefault: 0.87,
-    maxLineWidthRatio: 0.85,
-    lineGapScale: 1.4
-  },
-  minimalist: {
-    effectStyle: 'minimalist_editorial',
-    style: 'minimalist_editorial',
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontFile: null,
-    rgba: [245, 245, 245, 255],
-    outlineRgba: [20, 20, 20, 225],
-    boxRgba: [18, 18, 18, 0],
-    showBox: false,
-    fontScale: 0.97,
-    bottomRatio9x16: 0.85,
-    bottomRatioDefault: 0.89,
-    maxLineWidthRatio: 0.8,
-    lineGapScale: 1.5
-  },
-  luxury_brand: {
-    effectStyle: 'luxury_champagne',
-    style: 'luxury_champagne',
-    fontFamily: 'Playfair Display',
-    fontWeight: '600',
-    fontFile: null,
-    rgba: [246, 224, 168, 255],
-    outlineRgba: [18, 15, 10, 240],
-    boxRgba: [16, 14, 10, 0],
-    showBox: false,
-    fontScale: 1.0,
-    bottomRatio9x16: 0.84,
-    bottomRatioDefault: 0.88,
-    maxLineWidthRatio: 0.82,
-    lineGapScale: 1.45
-  },
-  tech_modern: {
-    effectStyle: 'tech_cyan_sharp',
-    style: 'tech_cyan_sharp',
-    fontFamily: 'Space Grotesk',
-    fontWeight: '700',
-    fontFile: null,
-    rgba: [186, 242, 255, 255],
-    outlineRgba: [8, 14, 24, 245],
-    boxRgba: [8, 16, 28, 0],
-    showBox: false,
-    fontScale: 1.04,
-    bottomRatio9x16: 0.83,
-    bottomRatioDefault: 0.87,
-    maxLineWidthRatio: 0.85,
-    lineGapScale: 1.35
-  },
-  tiktok_viral: {
-    effectStyle: 'viral_punch',
-    style: 'viral_punch',
-    fontFamily: 'Montserrat',
-    fontWeight: '800',
-    fontFile: null,
-    rgba: [255, 255, 255, 255],
-    outlineRgba: [0, 0, 0, 255],
-    boxRgba: [20, 10, 35, 0],
-    showBox: false,
-    fontScale: 1.14,
-    bottomRatio9x16: 0.82,
-    bottomRatioDefault: 0.86,
-    maxLineWidthRatio: 0.86,
-    lineGapScale: 1.3
-  },
-  mr_beast: {
-    effectStyle: 'mr_beast_bold',
-    style: 'mr_beast_bold',
-    fontFamily: 'Anton',
-    fontWeight: '900',
-    fontFile: null,
-    rgba: [255, 238, 45, 255],
-    outlineRgba: [0, 0, 0, 255],
-    boxRgba: [0, 0, 0, 0],
-    showBox: false,
-    fontScale: 1.18,
-    bottomRatio9x16: 0.82,
-    bottomRatioDefault: 0.86,
-    maxLineWidthRatio: 0.86,
-    lineGapScale: 1.3
-  },
-  default: {
-    effectStyle: 'standard_enhanced',
-    style: 'standard_enhanced',
-    fontFamily: 'Inter',
-    fontWeight: '600',
-    fontFile: null,
-    rgba: [248, 246, 242, 255],
-    outlineRgba: [10, 10, 12, 240],
-    boxRgba: [10, 10, 12, 0],
-    showBox: false,
-    fontScale: 1.0,
-    bottomRatio9x16: 0.84,
-    bottomRatioDefault: 0.88,
-    maxLineWidthRatio: 0.84,
-    lineGapScale: 1.4
-  }
-};
-
-
-// 6 voces flexibles en Español (es) + 6 voces flexibles en Inglés (en) para Studio Lite.
-// El usuario elige la voz y luego el preset; la adaptación al preset ocurre en audioService/llmService.
+// 6 flexible voices in Spanish (es) + 6 flexible voices in English (en) for Studio Lite.
+// The user picks the voice and then the preset; preset adaptation happens in audioService/llmService.
 const VOICE_CATALOG = {
-  // --- ESPAÑOL (es) - 6 voces flexibles ---
+  // --- SPANISH (es) - 6 flexible voices ---
   es_voice_1: {
     id: 'QmPfzE500cXXHM9uQKGc',
     name: 'es_voice_1',
@@ -406,7 +225,7 @@ const VOICE_CATALOG = {
     products: ALL_PRODUCTS
   },
 
-  // --- INGLÉS (en) - 6 voces flexibles ---
+  // --- ENGLISH (en) - 6 flexible voices ---
   en_voice_1: {
     id: 'FSZ4QLofSALZxepAyq63',
     name: 'en_voice_1',
@@ -516,6 +335,555 @@ const TONE_ALIASES = {
   casual: 'storytelling'
 };
 
+// Merged 10 preset categories and sub-preset variants aligned with base presets
+const PRESET_CATEGORIES = {
+  cinematographic: {
+    key: 'cinematographic',
+    label: 'Cinematographic',
+    basePreset: 'cinematic',
+    description:
+      'Cinema lighting, depth of field, smooth camera movements, curated composition, elegant transitions, and emotional music.',
+    subPresets: [
+      'Cinematic Documentary',
+      'Epic Cinematic',
+      'Film Noir',
+      'Golden Hour',
+      'Dramatic Storytelling'
+    ]
+  },
+  educational_and_explanatory: {
+    key: 'educational_and_explanatory',
+    label: 'Educational & Explanatory',
+    basePreset: 'educational',
+    description:
+      'Scene-organized information, charts, diagrams, highlighted text, clear narration, and pacing designed for easy learning.',
+    subPresets: [
+      'Educational Explainer',
+      'Science Explained',
+      'History Explained',
+      'Animated Infographic',
+      'Whiteboard Explanation'
+    ]
+  },
+  storytelling_and_narrative: {
+    key: 'storytelling_and_narrative',
+    label: 'Storytelling & Narrative',
+    basePreset: 'cinematic',
+    description:
+      'Setup, rising action, and resolution with character and setting continuity, narrative music, and pacing shifts to sustain engagement.',
+    subPresets: [
+      'Epic Story',
+      'Fantasy Adventure',
+      'Emotional Story',
+      'Mystery',
+      'Historical Story'
+    ]
+  },
+  animation_and_entertainment: {
+    key: 'animation_and_entertainment',
+    label: 'Animation & Entertainment',
+    basePreset: 'tiktok_viral',
+    description:
+      'Stylized characters, expressive staging, dynamic motion, visual continuity, and signature effects for each animation style.',
+    subPresets: [
+      'Anime Cinematic',
+      '3D Animated Story',
+      'Cartoon Comedy',
+      'Manga Action',
+      'Claymation Story'
+    ]
+  },
+  marketing_and_product: {
+    key: 'marketing_and_product',
+    label: 'Marketing & Product',
+    basePreset: 'luxury_brand',
+    description:
+      'Product showcase, close-up shots, commercial lighting, promotional callouts, key benefits, and clear call to action.',
+    subPresets: [
+      'Product Showcase',
+      'Luxury Commercial',
+      'Brand Promotion',
+      'Product Explainer',
+      'Lifestyle Advertisement'
+    ]
+  },
+  social_and_viral: {
+    key: 'social_and_viral',
+    label: 'Social & Viral',
+    basePreset: 'tiktok_viral',
+    description:
+      'Immediate hook, fast cuts, eye-catching captions, frequent visual shifts, high-energy music, and strong CTA.',
+    subPresets: [
+      'TikTok Viral',
+      'Instagram Reels',
+      'YouTube Shorts',
+      'Fast Facts',
+      'Trending Edit'
+    ]
+  },
+  motivational_and_inspirational: {
+    key: 'motivational_and_inspirational',
+    label: 'Motivational & Inspirational',
+    basePreset: 'cinematic',
+    description:
+      'Emotional narration, rising music, aspirational imagery, standout lines, and progressive momentum.',
+    subPresets: [
+      'Motivational Speech',
+      'Success Mindset',
+      'Life Lessons',
+      'Inspirational Journey'
+    ]
+  },
+  technology_and_futuristic: {
+    key: 'technology_and_futuristic',
+    label: 'Technology & Futuristic',
+    basePreset: 'tech_modern',
+    description:
+      'Neon lighting, digital interfaces, tech effects, data animations, futuristic environments, and electronic music.',
+    subPresets: [
+      'Futuristic Technology',
+      'Cyberpunk',
+      'AI & Innovation',
+      'Sci-Fi Documentary',
+      'Digital World'
+    ]
+  },
+  travel_and_nature: {
+    key: 'travel_and_nature',
+    label: 'Travel & Nature',
+    basePreset: 'documentary',
+    description:
+      'Wide shots, aerial views, fluid camera movement, scenic landscapes, ambient music, and smooth transitions.',
+    subPresets: [
+      'Travel Cinematic',
+      'Nature Documentary',
+      'Adventure',
+      'City Exploration',
+      'Wildlife Documentary'
+    ]
+  },
+  corporate_and_business: {
+    key: 'corporate_and_business',
+    label: 'Corporate & Business',
+    basePreset: 'minimalist',
+    description:
+      'Clean design, professional typography, consistent colors, data visuals, formal narration, and structured clarity.',
+    subPresets: [
+      'Corporate Presentation',
+      'Business Overview',
+      'Startup Pitch',
+      'Professional Training',
+      'Company Profile'
+    ]
+  }
+};
+
+const PRESET_VARIANTS = {
+  // 1. Cinematographic
+  cinematic_documentary: {
+    key: 'cinematic_documentary',
+    label: 'Cinematic Documentary',
+    category: 'cinematographic',
+    basePreset: 'documentary',
+    visualStyle: 'cinematic_film',
+    motion: 'documentary_glide'
+  },
+  epic_cinematic: {
+    key: 'epic_cinematic',
+    label: 'Epic Cinematic',
+    category: 'cinematographic',
+    basePreset: 'cinematic',
+    visualStyle: 'cinematic_film',
+    motion: 'epic_sweep'
+  },
+  film_noir: {
+    key: 'film_noir',
+    label: 'Film Noir',
+    category: 'cinematographic',
+    basePreset: 'dark_mystery',
+    visualStyle: 'retro_vintage',
+    motion: 'noir_drift'
+  },
+  golden_hour: {
+    key: 'golden_hour',
+    label: 'Golden Hour',
+    category: 'cinematographic',
+    basePreset: 'cinematic',
+    visualStyle: 'realistic',
+    motion: 'golden_dolly'
+  },
+  dramatic_storytelling: {
+    key: 'dramatic_storytelling',
+    label: 'Dramatic Storytelling',
+    category: 'cinematographic',
+    basePreset: 'cinematic',
+    visualStyle: 'cinematic_film',
+    motion: 'dramatic_push'
+  },
+
+  // 2. Educational & Explanatory
+  educational_explainer: {
+    key: 'educational_explainer',
+    label: 'Educational Explainer',
+    category: 'educational_and_explanatory',
+    basePreset: 'educational',
+    visualStyle: 'minimalist_flat',
+    motion: 'explainer_pull'
+  },
+  science_explained: {
+    key: 'science_explained',
+    label: 'Science Explained',
+    category: 'educational_and_explanatory',
+    basePreset: 'educational',
+    visualStyle: '3d_render',
+    motion: 'science_reveal'
+  },
+  history_explained: {
+    key: 'history_explained',
+    label: 'History Explained',
+    category: 'educational_and_explanatory',
+    basePreset: 'documentary',
+    visualStyle: 'retro_vintage',
+    motion: 'history_pan'
+  },
+  animated_infographic: {
+    key: 'animated_infographic',
+    label: 'Animated Infographic',
+    category: 'educational_and_explanatory',
+    basePreset: 'educational',
+    visualStyle: 'minimalist_flat',
+    motion: 'infographic_step'
+  },
+  whiteboard_explanation: {
+    key: 'whiteboard_explanation',
+    label: 'Whiteboard Explanation',
+    category: 'educational_and_explanatory',
+    basePreset: 'educational',
+    visualStyle: 'minimalist_flat',
+    motion: 'whiteboard_pan'
+  },
+
+  // 3. Storytelling & Narrative
+  epic_story: {
+    key: 'epic_story',
+    label: 'Epic Story',
+    category: 'storytelling_and_narrative',
+    basePreset: 'cinematic',
+    visualStyle: 'cinematic_film',
+    motion: 'epic_sweep'
+  },
+  fantasy_adventure: {
+    key: 'fantasy_adventure',
+    label: 'Fantasy Adventure',
+    category: 'storytelling_and_narrative',
+    basePreset: 'cinematic',
+    visualStyle: 'surreal_editorial',
+    motion: 'adventure_drift'
+  },
+  emotional_story: {
+    key: 'emotional_story',
+    label: 'Emotional Story',
+    category: 'storytelling_and_narrative',
+    basePreset: 'cinematic',
+    visualStyle: 'cinematic_film',
+    motion: 'emotional_push'
+  },
+  mystery: {
+    key: 'mystery',
+    label: 'Mystery',
+    category: 'storytelling_and_narrative',
+    basePreset: 'dark_mystery',
+    visualStyle: 'cinematic_film',
+    motion: 'noir_drift'
+  },
+  historical_story: {
+    key: 'historical_story',
+    label: 'Historical Story',
+    category: 'storytelling_and_narrative',
+    basePreset: 'documentary',
+    visualStyle: 'retro_vintage',
+    motion: 'history_pan'
+  },
+
+  // 4. Animation & Entertainment
+  anime_cinematic: {
+    key: 'anime_cinematic',
+    label: 'Anime Cinematic',
+    category: 'animation_and_entertainment',
+    basePreset: 'cinematic',
+    visualStyle: 'anime',
+    motion: 'anime_glide'
+  },
+  '3d_animated_story': {
+    key: '3d_animated_story',
+    label: '3D Animated Story',
+    category: 'animation_and_entertainment',
+    basePreset: 'educational',
+    visualStyle: '3d_render',
+    motion: '3d_orbit'
+  },
+  cartoon_comedy: {
+    key: 'cartoon_comedy',
+    label: 'Cartoon Comedy',
+    category: 'animation_and_entertainment',
+    basePreset: 'mr_beast',
+    visualStyle: 'comic',
+    motion: 'comedy_pop'
+  },
+  manga_action: {
+    key: 'manga_action',
+    label: 'Manga Action',
+    category: 'animation_and_entertainment',
+    basePreset: 'mr_beast',
+    visualStyle: 'comic',
+    motion: 'action_punch'
+  },
+  claymation_story: {
+    key: 'claymation_story',
+    label: 'Claymation Story',
+    category: 'animation_and_entertainment',
+    basePreset: 'minimalist',
+    visualStyle: '3d_render',
+    motion: 'clay_wobble'
+  },
+
+  // 5. Marketing & Product
+  product_showcase: {
+    key: 'product_showcase',
+    label: 'Product Showcase',
+    category: 'marketing_and_product',
+    basePreset: 'luxury_brand',
+    visualStyle: '3d_render',
+    motion: 'showcase_arc'
+  },
+  luxury_commercial: {
+    key: 'luxury_commercial',
+    label: 'Luxury Commercial',
+    category: 'marketing_and_product',
+    basePreset: 'luxury_brand',
+    visualStyle: 'cinematic_film',
+    motion: 'luxury_silk'
+  },
+  brand_promotion: {
+    key: 'brand_promotion',
+    label: 'Brand Promotion',
+    category: 'marketing_and_product',
+    basePreset: 'luxury_brand',
+    visualStyle: 'realistic',
+    motion: 'brand_glide'
+  },
+  product_explainer: {
+    key: 'product_explainer',
+    label: 'Product Explainer',
+    category: 'marketing_and_product',
+    basePreset: 'tech_modern',
+    visualStyle: '3d_render',
+    motion: 'explainer_pull'
+  },
+  lifestyle_advertisement: {
+    key: 'lifestyle_advertisement',
+    label: 'Lifestyle Advertisement',
+    category: 'marketing_and_product',
+    basePreset: 'luxury_brand',
+    visualStyle: 'realistic',
+    motion: 'lifestyle_drift'
+  },
+
+  // 6. Social & Viral
+  instagram_reels: {
+    key: 'instagram_reels',
+    label: 'Instagram Reels',
+    category: 'social_and_viral',
+    basePreset: 'tiktok_viral',
+    visualStyle: 'realistic',
+    motion: 'viral_snap'
+  },
+  youtube_shorts: {
+    key: 'youtube_shorts',
+    label: 'YouTube Shorts',
+    category: 'social_and_viral',
+    basePreset: 'mr_beast',
+    visualStyle: 'realistic',
+    motion: 'shorts_punch'
+  },
+  fast_facts: {
+    key: 'fast_facts',
+    label: 'Fast Facts',
+    category: 'social_and_viral',
+    basePreset: 'tiktok_viral',
+    visualStyle: 'minimalist_flat',
+    motion: 'fast_pan'
+  },
+  trending_edit: {
+    key: 'trending_edit',
+    label: 'Trending Edit',
+    category: 'social_and_viral',
+    basePreset: 'tiktok_viral',
+    visualStyle: 'cinematic_film',
+    motion: 'viral_snap'
+  },
+
+  // 7. Motivational & Inspirational
+  motivational_speech: {
+    key: 'motivational_speech',
+    label: 'Motivational Speech',
+    category: 'motivational_and_inspirational',
+    basePreset: 'cinematic',
+    visualStyle: 'cinematic_film',
+    motion: 'ascend_push'
+  },
+  success_mindset: {
+    key: 'success_mindset',
+    label: 'Success Mindset',
+    category: 'motivational_and_inspirational',
+    basePreset: 'luxury_brand',
+    visualStyle: 'realistic',
+    motion: 'ascend_push'
+  },
+  life_lessons: {
+    key: 'life_lessons',
+    label: 'Life Lessons',
+    category: 'motivational_and_inspirational',
+    basePreset: 'documentary',
+    visualStyle: 'realistic',
+    motion: 'documentary_glide'
+  },
+  inspirational_journey: {
+    key: 'inspirational_journey',
+    label: 'Inspirational Journey',
+    category: 'motivational_and_inspirational',
+    basePreset: 'cinematic',
+    visualStyle: 'cinematic_film',
+    motion: 'epic_sweep'
+  },
+
+  // 8. Technology & Futuristic
+  futuristic_technology: {
+    key: 'futuristic_technology',
+    label: 'Futuristic Technology',
+    category: 'technology_and_futuristic',
+    basePreset: 'tech_modern',
+    visualStyle: '3d_render',
+    motion: 'tech_scan'
+  },
+  cyberpunk: {
+    key: 'cyberpunk',
+    label: 'Cyberpunk',
+    category: 'technology_and_futuristic',
+    basePreset: 'tech_modern',
+    visualStyle: 'surreal_editorial',
+    motion: 'cyber_pan'
+  },
+  ai_and_innovation: {
+    key: 'ai_and_innovation',
+    label: 'AI & Innovation',
+    category: 'technology_and_futuristic',
+    basePreset: 'tech_modern',
+    visualStyle: '3d_render',
+    motion: 'tech_scan'
+  },
+  sci_fi_documentary: {
+    key: 'sci_fi_documentary',
+    label: 'Sci-Fi Documentary',
+    category: 'technology_and_futuristic',
+    basePreset: 'documentary',
+    visualStyle: 'cinematic_film',
+    motion: 'scifi_drift'
+  },
+  digital_world: {
+    key: 'digital_world',
+    label: 'Digital World',
+    category: 'technology_and_futuristic',
+    basePreset: 'tech_modern',
+    visualStyle: '3d_render',
+    motion: '3d_orbit'
+  },
+
+  // 9. Travel & Nature
+  travel_cinematic: {
+    key: 'travel_cinematic',
+    label: 'Travel Cinematic',
+    category: 'travel_and_nature',
+    basePreset: 'cinematic',
+    visualStyle: 'realistic',
+    motion: 'aerial_glide'
+  },
+  nature_documentary: {
+    key: 'nature_documentary',
+    label: 'Nature Documentary',
+    category: 'travel_and_nature',
+    basePreset: 'documentary',
+    visualStyle: 'realistic',
+    motion: 'nature_pan'
+  },
+  adventure: {
+    key: 'adventure',
+    label: 'Adventure',
+    category: 'travel_and_nature',
+    basePreset: 'cinematic',
+    visualStyle: 'realistic',
+    motion: 'adventure_drift'
+  },
+  city_exploration: {
+    key: 'city_exploration',
+    label: 'City Exploration',
+    category: 'travel_and_nature',
+    basePreset: 'documentary',
+    visualStyle: 'realistic',
+    motion: 'city_pan'
+  },
+  wildlife_documentary: {
+    key: 'wildlife_documentary',
+    label: 'Wildlife Documentary',
+    category: 'travel_and_nature',
+    basePreset: 'documentary',
+    visualStyle: 'realistic',
+    motion: 'wildlife_stalk'
+  },
+
+  // 10. Corporate & Business
+  corporate_presentation: {
+    key: 'corporate_presentation',
+    label: 'Corporate Presentation',
+    category: 'corporate_and_business',
+    basePreset: 'minimalist',
+    visualStyle: 'minimalist_flat',
+    motion: 'corporate_steady'
+  },
+  business_overview: {
+    key: 'business_overview',
+    label: 'Business Overview',
+    category: 'corporate_and_business',
+    basePreset: 'minimalist',
+    visualStyle: 'minimalist_flat',
+    motion: 'corporate_steady'
+  },
+  startup_pitch: {
+    key: 'startup_pitch',
+    label: 'Startup Pitch',
+    category: 'corporate_and_business',
+    basePreset: 'tech_modern',
+    visualStyle: 'minimalist_flat',
+    motion: 'pitch_push'
+  },
+  professional_training: {
+    key: 'professional_training',
+    label: 'Professional Training',
+    category: 'corporate_and_business',
+    basePreset: 'educational',
+    visualStyle: 'minimalist_flat',
+    motion: 'explainer_pull'
+  },
+  company_profile: {
+    key: 'company_profile',
+    label: 'Company Profile',
+    category: 'corporate_and_business',
+    basePreset: 'luxury_brand',
+    visualStyle: 'realistic',
+    motion: 'brand_glide'
+  }
+};
+
 const PRESET_ALIASES = {
   tiktok: 'tiktok_viral',
   viral: 'tiktok_viral',
@@ -525,13 +893,73 @@ const PRESET_ALIASES = {
   'tech-modern': 'tech_modern',
   tech: 'tech_modern',
   'dark-mystery': 'dark_mystery',
-  mystery: 'dark_mystery',
+  mystery: 'mystery',
   documental: 'documentary',
   doc: 'documentary',
   cine: 'cinematic',
   dramatic: 'cinematic',
   educativo: 'educational',
-  explainer: 'educational'
+  explainer: 'educational',
+
+  // Category & sub-preset aliases across the 10 preset families
+  cinematographic: 'cinematic',
+  cinematic_documentary: 'cinematic_documentary',
+  epic_cinematic: 'epic_cinematic',
+  film_noir: 'film_noir',
+  golden_hour: 'golden_hour',
+  dramatic_storytelling: 'dramatic_storytelling',
+  educational_and_explanatory: 'educational',
+  educational_explainer: 'educational_explainer',
+  science_explained: 'science_explained',
+  history_explained: 'history_explained',
+  animated_infographic: 'animated_infographic',
+  whiteboard_explanation: 'whiteboard_explanation',
+  storytelling_and_narrative: 'cinematic',
+  epic_story: 'epic_story',
+  fantasy_adventure: 'fantasy_adventure',
+  emotional_story: 'emotional_story',
+  historical_story: 'historical_story',
+  animation_and_entertainment: 'tiktok_viral',
+  anime_cinematic: 'anime_cinematic',
+  '3d_animated_story': '3d_animated_story',
+  cartoon_comedy: 'cartoon_comedy',
+  manga_action: 'manga_action',
+  claymation_story: 'claymation_story',
+  marketing_and_product: 'luxury_brand',
+  product_showcase: 'product_showcase',
+  luxury_commercial: 'luxury_commercial',
+  brand_promotion: 'brand_promotion',
+  product_explainer: 'product_explainer',
+  lifestyle_advertisement: 'lifestyle_advertisement',
+  social_and_viral: 'tiktok_viral',
+  instagram_reels: 'instagram_reels',
+  youtube_shorts: 'youtube_shorts',
+  fast_facts: 'fast_facts',
+  trending_edit: 'trending_edit',
+  motivational_and_inspirational: 'cinematic',
+  motivational_speech: 'motivational_speech',
+  success_mindset: 'success_mindset',
+  life_lessons: 'life_lessons',
+  inspirational_journey: 'inspirational_journey',
+  technology_and_futuristic: 'tech_modern',
+  futuristic_technology: 'futuristic_technology',
+  cyberpunk: 'cyberpunk',
+  ai_and_innovation: 'ai_and_innovation',
+  'ai_&_innovation': 'ai_and_innovation',
+  sci_fi_documentary: 'sci_fi_documentary',
+  digital_world: 'digital_world',
+  travel_and_nature: 'documentary',
+  travel_cinematic: 'travel_cinematic',
+  nature_documentary: 'nature_documentary',
+  adventure: 'adventure',
+  city_exploration: 'city_exploration',
+  wildlife_documentary: 'wildlife_documentary',
+  corporate_and_business: 'minimalist',
+  corporate_presentation: 'corporate_presentation',
+  business_overview: 'business_overview',
+  startup_pitch: 'startup_pitch',
+  professional_training: 'professional_training',
+  company_profile: 'company_profile'
 };
 
 const BASE_PRESET_MODIFIERS = {
@@ -548,7 +976,7 @@ const BASE_PRESET_MODIFIERS = {
   default: { speedDelta: 0.0, stabilityDelta: 0.0, styleDelta: 0.0 }
 };
 
-// Parámetros base de voz por preset (10 presets + default), alineados con SAFETY_LIMITS
+// Base voice settings per preset (10 presets + default), aligned with SAFETY_LIMITS
 const PRESET_VOICE_SETTINGS = {
   dark_mystery: {
     speed: 0.96,
@@ -629,7 +1057,7 @@ const PRESET_VOICE_SETTINGS = {
   }
 };
 
-// Etiquetas orientativas para Eleven v4 por preset (10 presets + default)
+// Guidance tags for Eleven v4 per preset (10 presets + default)
 const PRESET_VOICE_TAGS = {
   dark_mystery: {
     hook: '[dark narrator voice] [emphasis]',
@@ -688,7 +1116,7 @@ const PRESET_VOICE_TAGS = {
   }
 };
 
-// Estilos visuales separables de los presets narrativos (para imagen/render)
+// Visual styles decoupled from narrative presets (for image generation and rendering)
 const VISUAL_STYLES = {
   realistic: {
     key: 'realistic',
@@ -732,10 +1160,9 @@ const VISUAL_STYLES = {
   }
 };
 
-// Ajustes finos opcionales por voz cuando una voz específica necesita matizarse en algún preset
-// Overrides de respaldo por voz (es_voice_1..6 y en_voice_1..6) en presets clave
+// Optional fine-tuning overrides per voice when a specific voice needs adjustment for a preset
 const VOICE_PRESET_OVERRIDES = {
-  // --- ESPAÑOL (es) ---
+  // --- SPANISH (es) ---
   es_voice_1: { // Issac - flexible_dynamic
     minimalist: { speed: 0.95, stability: 0.56, style: 0.14 },
     luxury_brand: { speed: 0.94, stability: 0.54, style: 0.22 }
@@ -761,7 +1188,7 @@ const VOICE_PRESET_OVERRIDES = {
     tiktok_viral: { speed: 1.00, stability: 0.48, style: 0.24 }
   },
 
-  // --- INGLÉS (en) ---
+  // --- ENGLISH (en) ---
   en_voice_1: { // Liam - flexible_dynamic
     minimalist: { speed: 0.95, stability: 0.56, style: 0.14 },
     luxury_brand: { speed: 0.94, stability: 0.54, style: 0.22 }
@@ -827,21 +1254,37 @@ function modelSupportsAudioTags(modelId) {
   return supported.some((m) => m.toLowerCase() === normalized);
 }
 
-function getPresetSubtitleStyle(rawPreset = 'default') {
+function normalizePresetToken(rawPreset = 'default') {
   const cleaned = String(rawPreset || 'default')
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, '_');
-  const aliased =
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  return (
     PRESET_ALIASES[cleaned] ||
     PRESET_ALIASES[cleaned.replace(/_/g, '-')] ||
     PRESET_ALIASES[cleaned.replace(/-/g, '_')] ||
-    cleaned;
+    cleaned ||
+    'default'
+  );
+}
 
-  if (Object.prototype.hasOwnProperty.call(PRESET_SUBTITLE_STYLES, aliased)) {
-    return PRESET_SUBTITLE_STYLES[aliased];
+function getPresetVariant(rawPreset = 'default') {
+  const normalized = normalizePresetToken(rawPreset);
+  return PRESET_VARIANTS[normalized] || null;
+}
+
+function resolveBasePresetKey(rawPreset = 'default') {
+  const normalized = normalizePresetToken(rawPreset);
+  if (PRESET_VARIANTS[normalized]) {
+    return PRESET_VARIANTS[normalized].basePreset;
   }
-  return PRESET_SUBTITLE_STYLES.default;
+  if (Object.prototype.hasOwnProperty.call(PRESET_VOICE_SETTINGS, normalized)) {
+    return normalized;
+  }
+  return 'default';
 }
 
 const GLOBALS = {
@@ -851,13 +1294,15 @@ const GLOBALS = {
   PLAN_POLICIES,
   AI_MODELS,
   VOICE_MODEL_CONFIG,
-  PRESET_SUBTITLE_STYLES,
   VOICE_CATALOG,
   STUDIO_LITE_VOICES_BY_LANG,
   VOICE_MAP,
   TONE_ALIASES,
+  PRESET_CATEGORIES,
+  PRESET_VARIANTS,
   PRESET_ALIASES,
   BASE_PRESET_MODIFIERS,
+  PRESET_VOICE_SETTINGS,
   PRESET_VOICE_TAGS,
   VISUAL_STYLES,
   VOICE_PRESET_OVERRIDES,
@@ -872,13 +1317,15 @@ module.exports = {
   PLAN_POLICIES,
   AI_MODELS,
   VOICE_MODEL_CONFIG,
-  PRESET_SUBTITLE_STYLES,
   VOICE_CATALOG,
   STUDIO_LITE_VOICES_BY_LANG,
   VOICE_MAP,
   TONE_ALIASES,
+  PRESET_CATEGORIES,
+  PRESET_VARIANTS,
   PRESET_ALIASES,
   BASE_PRESET_MODIFIERS,
+  PRESET_VOICE_SETTINGS,
   PRESET_VOICE_TAGS,
   VISUAL_STYLES,
   VOICE_PRESET_OVERRIDES,
@@ -887,5 +1334,7 @@ module.exports = {
   resolveAiModelId,
   resolveVoiceModelId,
   modelSupportsAudioTags,
-  getPresetSubtitleStyle
+  normalizePresetToken,
+  getPresetVariant,
+  resolveBasePresetKey
 };

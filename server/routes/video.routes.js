@@ -1,26 +1,40 @@
+// server/routes/video.routes.js
 const express = require('express');
 const mongoose = require('mongoose');
 const router = express.Router();
 const Video = require('../models/Video');
 const User = require('../models/User');
 const { CREDIT_CONFIG, PLAN_POLICIES } = require('../config/globals');
+const { getJobUsage } = require('../services/usageCostService');
 
-function resolveUserCreditPolicy(planKey = 'free_trial') {
+function resolveUserCreditPolicy(planKey = 'free_trial', productKey = 'studio_lite') {
   const byPlan = CREDIT_CONFIG?.byPlan || {};
-  const normalized = Object.prototype.hasOwnProperty.call(PLAN_POLICIES, planKey)
+  const byProduct = CREDIT_CONFIG?.byProduct || {};
+  const normalizedPlan = Object.prototype.hasOwnProperty.call(PLAN_POLICIES, planKey)
     ? planKey
     : 'free_trial';
-  return (
-    byPlan[normalized] || {
-      initialCredits: CREDIT_CONFIG?.freeTrialInitialCredits ?? 50,
-      videoCreditCost: CREDIT_CONFIG?.videoCreditCost ?? 30,
-      minCreditsToGenerate: CREDIT_CONFIG?.minCreditsToGenerate ?? 30,
-      unlimitedCredits: false
-    }
-  );
+
+  const planRule = byPlan[normalizedPlan] || {
+    initialCredits: CREDIT_CONFIG?.freeTrialInitialCredits ?? 50,
+    videoCreditCost: CREDIT_CONFIG?.videoCreditCost ?? 30,
+    minCreditsToGenerate: CREDIT_CONFIG?.minCreditsToGenerate ?? 30,
+    unlimitedCredits: false
+  };
+
+  const productOverride = byProduct[productKey] || null;
+  if (productOverride && !planRule.unlimitedCredits) {
+    return {
+      ...planRule,
+      videoCreditCost: productOverride.videoCreditCost ?? planRule.videoCreditCost,
+      minCreditsToGenerate:
+        productOverride.minCreditsToGenerate ?? planRule.minCreditsToGenerate
+    };
+  }
+
+  return planRule;
 }
 
-// 1. Guardar video al terminar el Wizard y descontar créditos de Studio Lite
+// 1. Guardar video al terminar el Wizard y descontar créditos
 router.post('/save', async (req, res) => {
   try {
     const {
@@ -31,7 +45,9 @@ router.post('/save', async (req, res) => {
       mode,
       aspectRatio,
       userId,
-      parameters
+      parameters,
+      resolvedParams,
+      product
     } = req.body;
 
     let validUserId = null;
@@ -56,9 +72,16 @@ router.post('/save', async (req, res) => {
       return res.status(400).json({ error: 'No se pudo asociar un usuario válido' });
     }
 
-    const planCreditRule = resolveUserCreditPolicy(user.plan);
-    const costoVideoLite = planCreditRule.videoCreditCost ?? 30;
-    const minRequired = planCreditRule.minCreditsToGenerate ?? costoVideoLite;
+    const effectiveProduct =
+      product ||
+      resolvedParams?.meta?.product ||
+      parameters?.product ||
+      parameters?.resolvedParams?.meta?.product ||
+      'studio_lite';
+
+    const planCreditRule = resolveUserCreditPolicy(user.plan, effectiveProduct);
+    const costoVideo = planCreditRule.videoCreditCost ?? 30;
+    const minRequired = planCreditRule.minCreditsToGenerate ?? costoVideo;
 
     if (!planCreditRule.unlimitedCredits && user.credits < minRequired) {
       return res.status(403).json({
@@ -70,18 +93,33 @@ router.post('/save', async (req, res) => {
     }
 
     // Descontar los créditos de la generación
-    if (!planCreditRule.unlimitedCredits && costoVideoLite > 0) {
-      user.credits -= costoVideoLite;
+    if (!planCreditRule.unlimitedCredits && costoVideo > 0) {
+      user.credits -= costoVideo;
       await user.save();
     }
 
-    const resolvedAspectRatio =
-      aspectRatio || parameters?.aspectRatio || '9:16';
-    const resolvedTitle = title || 'Studio Lite Video';
-    const resolvedMode = mode || 'idea';
-    const resolvedParams = parameters || {};
     const cleanJobId =
       typeof jobId === 'string' && jobId.trim() ? jobId.trim() : null;
+    const jobUsage = cleanJobId ? getJobUsage(cleanJobId) : null;
+
+    const effectiveResolvedParams =
+      resolvedParams || parameters?.resolvedParams || null;
+
+    const resolvedAspectRatio =
+      aspectRatio ||
+      effectiveResolvedParams?.format?.aspectRatio ||
+      parameters?.aspectRatio ||
+      '9:16';
+
+    const resolvedTitle = title || 'Studio Lite Video';
+    const resolvedMode = mode || 'idea';
+
+    const mergedParameters = {
+      ...(parameters || {}),
+      product: effectiveProduct,
+      ...(effectiveResolvedParams ? { resolvedParams: effectiveResolvedParams } : {}),
+      ...(jobUsage ? { usage: jobUsage } : {})
+    };
 
     let savedVideo;
 
@@ -92,8 +130,8 @@ router.post('/save', async (req, res) => {
         title: resolvedTitle,
         mode: resolvedMode,
         aspectRatio: resolvedAspectRatio,
-        parameters: resolvedParams,
-        ...(videoUrl ? { videoUrl } : {}),
+        parameters: mergedParameters,
+        ...(videoUrl ? { videoUrl } : {})
       };
 
       savedVideo = await Video.findOneAndUpdate(
@@ -102,13 +140,13 @@ router.post('/save', async (req, res) => {
           $set: updateFields,
           $setOnInsert: {
             jobId: cleanJobId,
-            createdAt: new Date(),
-          },
+            createdAt: new Date()
+          }
         },
         {
           upsert: true,
           returnDocument: 'after',
-          setDefaultsOnInsert: true,
+          setDefaultsOnInsert: true
         }
       );
     } else {
@@ -118,8 +156,8 @@ router.post('/save', async (req, res) => {
         title: resolvedTitle,
         mode: resolvedMode,
         aspectRatio: resolvedAspectRatio,
-        parameters: resolvedParams,
-        ...(videoUrl ? { videoUrl } : {}),
+        parameters: mergedParameters,
+        ...(videoUrl ? { videoUrl } : {})
       });
       await savedVideo.save();
     }
@@ -142,7 +180,7 @@ router.get('/:email', async (req, res) => {
     const email = String(req.params.email || '').trim().toLowerCase();
     const [videos, dbUser] = await Promise.all([
       Video.find({ email }).sort({ createdAt: -1 }),
-      User.findOne({ email }).select('credits plan').lean(),
+      User.findOne({ email }).select('credits plan').lean()
     ]);
 
     return res.status(200).json({
@@ -150,7 +188,7 @@ router.get('/:email', async (req, res) => {
       videos,
       ...(typeof dbUser?.credits === 'number'
         ? { credits: dbUser.credits, remainingCredits: dbUser.credits }
-        : {}),
+        : {})
     });
   } catch (error) {
     console.error('Error al obtener videos:', error);

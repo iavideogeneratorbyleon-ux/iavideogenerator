@@ -5,6 +5,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 const ffprobePath = require('ffprobe-static').path;
 const { GLOBALS } = require('../config/globals');
+const { resolvePipelineParameters } = require('../config/params/pipelineRegistry');
 const {
   MUSIC_CATALOG,
   PRESET_MUSIC_POOLS,
@@ -37,6 +38,15 @@ const SUPPORTED_PRESETS = [
   'default'
 ];
 
+function ensurePayloadResolvedParams(payload = {}) {
+  const base = payload && typeof payload === 'object' ? { ...payload } : {};
+  const resolvedParams =
+    base.resolvedParams && typeof base.resolvedParams === 'object'
+      ? base.resolvedParams
+      : resolvePipelineParameters(base);
+  return { ...base, resolvedParams };
+}
+
 function findFirstMp3Recursively(dirPath) {
   if (!fs.existsSync(dirPath)) return null;
   const entries = fs.readdirSync(dirPath, { withFileTypes: true });
@@ -68,14 +78,20 @@ function getMediaDuration(filePath) {
 }
 
 function resolveMusicConfig(masterPayload = {}) {
+  const resolvedParams = masterPayload?.resolvedParams || {};
+  const resolvedAudioMix = resolvedParams?.voiceAndScript?.audioMix || {};
+
   const rawPlan =
+    resolvedParams?.meta?.userPlan ||
     masterPayload?.meta?.userPlan ||
     masterPayload?.orchestration?.planApplied ||
     'free_trial';
   const userPlan = normalizeKey(rawPlan, {}, GLOBALS.PLAN_POLICIES, 'free_trial');
   const planPolicy = resolvePlanPolicy(userPlan);
   const isFreePlan = userPlan === 'free_trial';
-  const allowsCustomMusic = Boolean(planPolicy.allowCustomOverrides);
+  const allowsCustomMusic = Boolean(
+    resolvedParams?.meta?.allowsCustomOverrides ?? planPolicy.allowCustomOverrides
+  );
 
   const userId =
     masterPayload?.userId ||
@@ -89,6 +105,7 @@ function resolveMusicConfig(masterPayload = {}) {
     typeof musicConfig.enabled === 'boolean' ? musicConfig.enabled : true;
 
   const rawPreset =
+    resolvedParams?.preset?.key ||
     masterPayload?.meta?.preset ||
     masterPayload?.userInputs?.preset ||
     masterPayload?.video?.preset ||
@@ -116,16 +133,28 @@ function resolveMusicConfig(masterPayload = {}) {
     ? normalizedPreset
     : 'default';
 
-  const tone = String(masterPayload?.userInputs?.tone || '');
+  const tone = String(
+    resolvedParams?.voiceAndScript?.script?.tone ||
+      masterPayload?.userInputs?.tone ||
+      ''
+  );
   const mood = String(
     musicConfig.mood ||
       masterPayload?.musicDirection?.mood ||
       masterPayload?.script?.musicDirection?.mood ||
       ''
   );
+  const deferredTrack =
+    masterPayload?.music?.deferredUntilRender &&
+    masterPayload?.music?.preset === preset &&
+    masterPayload?.music?.userId === userId
+      ? masterPayload.music.trackKey
+      : null;
+
   const explicitTrack =
     musicConfig.track ||
     masterPayload?.musicDirection?.recommendedTrackKey ||
+    deferredTrack ||
     null;
 
   const selection = selectTrackForUserAndPreset({
@@ -143,18 +172,36 @@ function resolveMusicConfig(masterPayload = {}) {
       ? musicConfig.customMusicUrl.trim()
       : null;
 
+  const defaultVolumeCandidate =
+    typeof resolvedAudioMix.baseMusicVolume === 'number'
+      ? resolvedAudioMix.baseMusicVolume
+      : catalogItem.defaultVolume;
+
   const baseVolume =
     typeof musicConfig.volume === 'number'
       ? clampNumber(musicConfig.volume, 0.05, 0.6, 2)
-      : catalogItem.defaultVolume;
+      : clampNumber(defaultVolumeCandidate, 0.05, 0.6, 2);
 
   const duckingEnabled =
-    typeof musicConfig.ducking === 'boolean' ? musicConfig.ducking : true;
+    typeof musicConfig.ducking === 'boolean'
+      ? musicConfig.ducking
+      : typeof resolvedAudioMix.duckingEnabled === 'boolean'
+        ? resolvedAudioMix.duckingEnabled
+        : true;
 
   const fadeOutSeconds =
     typeof musicConfig.fadeOutSeconds === 'number'
       ? clampNumber(musicConfig.fadeOutSeconds, 0.6, 5, 2)
-      : 2.0;
+      : typeof resolvedAudioMix.fadeOutSeconds === 'number'
+        ? clampNumber(resolvedAudioMix.fadeOutSeconds, 0.6, 5, 2)
+        : 2.0;
+
+  const fadeInSeconds =
+    typeof musicConfig.fadeInSeconds === 'number'
+      ? clampNumber(musicConfig.fadeInSeconds, 0.2, 2.0, 2)
+      : typeof resolvedAudioMix.fadeInSeconds === 'number'
+        ? clampNumber(resolvedAudioMix.fadeInSeconds, 0.2, 2.0, 2)
+        : 1.0;
 
   return {
     userId,
@@ -170,6 +217,7 @@ function resolveMusicConfig(masterPayload = {}) {
     customMusicUrl,
     baseVolume,
     duckingEnabled,
+    fadeInSeconds,
     fadeOutSeconds
   };
 }
@@ -199,7 +247,6 @@ function resolveMusicFilePath(resolvedConfig) {
     };
   }
 
-  // Respaldo dentro de la carpeta del preset resuelto (o default)
   const presetFolder = path.join(MUSIC_LIBRARY_DIR, resolvedConfig.preset);
   const presetMp3 = findFirstMp3Recursively(presetFolder);
   if (presetMp3) {
@@ -248,7 +295,8 @@ function mixBackgroundMusicWithVideo({
   duration,
   baseVolume,
   duckingEnabled,
-  fadeOutSeconds
+  fadeInSeconds = 1.0,
+  fadeOutSeconds = 2.0
 }) {
   return new Promise((resolve, reject) => {
     const safeDuration = Math.max(1, Number(duration) || 10);
@@ -257,7 +305,7 @@ function mixBackgroundMusicWithVideo({
     );
     const fadeStart = Math.max(0, Number((safeDuration - safeFadeOut).toFixed(2)));
     const fadeInDuration = Number(
-      clampNumber(Math.min(1.0, safeDuration * 0.1), 0.3, 1.2, 2)
+      clampNumber(Math.min(fadeInSeconds, safeDuration * 0.1), 0.3, 1.2, 2)
     );
 
     const musicPrep = [
@@ -303,7 +351,9 @@ function mixBackgroundMusicWithVideo({
 }
 
 async function applyBackgroundMusic(rawPayload) {
-  const masterPayload = rawPayload?.payload || rawPayload?.data || rawPayload || {};
+  const masterPayload = ensurePayloadResolvedParams(
+    rawPayload?.payload || rawPayload?.data || rawPayload || {}
+  );
   const inputRelVideo =
     masterPayload?.video?.videoUrl ||
     masterPayload?.video?.url ||
@@ -361,6 +411,7 @@ async function applyBackgroundMusic(rawPayload) {
           source: resolvedFile?.source || 'none',
           baseVolume: resolvedConfig.baseVolume,
           duckingEnabled: resolvedConfig.duckingEnabled,
+          fadeInSeconds: resolvedConfig.fadeInSeconds,
           fadeOutSeconds: resolvedConfig.fadeOutSeconds
         }
       }
@@ -393,6 +444,7 @@ async function applyBackgroundMusic(rawPayload) {
     duration: videoDuration,
     baseVolume: resolvedConfig.baseVolume,
     duckingEnabled: resolvedConfig.duckingEnabled,
+    fadeInSeconds: resolvedConfig.fadeInSeconds,
     fadeOutSeconds: resolvedConfig.fadeOutSeconds
   });
 
@@ -422,6 +474,7 @@ async function applyBackgroundMusic(rawPayload) {
       source: resolvedFile.source,
       baseVolume: resolvedConfig.baseVolume,
       duckingEnabled: resolvedConfig.duckingEnabled,
+      fadeInSeconds: resolvedConfig.fadeInSeconds,
       fadeOutSeconds: resolvedConfig.fadeOutSeconds,
       mixedAt: new Date().toISOString()
     },
@@ -446,6 +499,7 @@ async function applyBackgroundMusic(rawPayload) {
 
 module.exports = {
   applyBackgroundMusic,
+  selectBackgroundMusic: applyBackgroundMusic,
   resolveMusicConfig,
   MUSIC_CATALOG
 };

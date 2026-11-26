@@ -5,6 +5,10 @@ const {
   resolveVoiceModelId,
   modelSupportsAudioTags
 } = require('../config/globals');
+const {
+  resolvePipelineParameters,
+  resolveSceneMediaType
+} = require('../config/params/pipelineRegistry');
 
 const { clampNumber, normalizeKey } = require('../utils/sharedHelpers');
 
@@ -20,7 +24,34 @@ async function getGeminiClient() {
   return { aiClient, Type: SchemaType };
 }
 
-function resolveVoiceFromCatalog(meta = {}, userInputs = {}) {
+function resolveRequestedLanguage(masterPayload = {}, resolvedParams = {}) {
+  const { meta = {}, userInputs = {}, videoConfig = {} } = masterPayload;
+  const candidate =
+    resolvedParams?.voiceAndScript?.language ||
+    userInputs.language ||
+    meta.language ||
+    videoConfig.language ||
+    masterPayload.language ||
+    'en';
+
+  const normalized = String(candidate || 'en').trim().toLowerCase();
+  return normalized.startsWith('es') || normalized.startsWith('spanish') || normalized.startsWith('español')
+    ? 'es'
+    : 'en';
+}
+
+function resolveVoiceFromCatalog(meta = {}, userInputs = {}, resolvedVoice = null) {
+  if (resolvedVoice && resolvedVoice.id) {
+    return {
+      voiceSlot: resolvedVoice.key || null,
+      voiceName: resolvedVoice.voiceName || resolvedVoice.key || null,
+      voiceId: resolvedVoice.id,
+      language: resolvedVoice.language || 'en',
+      profile: resolvedVoice.profile || 'flexible_dynamic',
+      tier: resolvedVoice.tier || 'free'
+    };
+  }
+
   const catalog = GLOBALS.VOICE_CATALOG || {};
   const requestedVoice = String(
     meta.voice || meta.voiceSlot || userInputs.voice || ''
@@ -61,7 +92,7 @@ function resolveVoiceFromCatalog(meta = {}, userInputs = {}) {
   return null;
 }
 
-function getPlanConfig(userPlan, requestedDuration) {
+function getPlanConfig(userPlan, requestedDuration, resolvedScript = null) {
   const policies = GLOBALS.PLAN_POLICIES || {};
   const fallbackPolicy = policies.free_trial || {
     key: 'free_trial',
@@ -74,14 +105,15 @@ function getPlanConfig(userPlan, requestedDuration) {
 
   const normalizedPlanKey = normalizeKey(userPlan, {}, policies, 'free_trial');
   const rule = policies[normalizedPlanKey] || fallbackPolicy;
-  const allowedDurations = Array.isArray(rule.allowedDurationsSec) && rule.allowedDurationsSec.length > 0
-    ? rule.allowedDurationsSec
-    : [rule.maxDurationSeconds || 30];
+  const allowedDurations =
+    Array.isArray(rule.allowedDurationsSec) && rule.allowedDurationsSec.length > 0
+      ? rule.allowedDurationsSec
+      : [rule.maxDurationSeconds || 30];
   const maxAllowedDur = rule.maxDurationSeconds || Math.max(...allowedDurations);
   const defaultDur = rule.defaultDurationSeconds || allowedDurations[0] || 30;
 
-  let targetDurationSeconds = defaultDur;
-  if (typeof requestedDuration === 'number' && requestedDuration > 0) {
+  let targetDurationSeconds = resolvedScript?.durationSeconds || defaultDur;
+  if (!resolvedScript?.durationSeconds && typeof requestedDuration === 'number' && requestedDuration > 0) {
     if (allowedDurations.includes(requestedDuration)) {
       targetDurationSeconds = requestedDuration;
     } else {
@@ -89,8 +121,13 @@ function getPlanConfig(userPlan, requestedDuration) {
     }
   }
 
+  const sceneRange = resolvedScript?.recommendedScenes
+    ? `${resolvedScript.recommendedScenes.min} to ${resolvedScript.recommendedScenes.max}`
+    : rule.sceneRange;
+
   return {
     ...rule,
+    sceneRange,
     allowedDurationsSec: allowedDurations,
     maxDurationSeconds: maxAllowedDur,
     defaultDurationSeconds: defaultDur,
@@ -107,10 +144,12 @@ function normalizePresetKey(rawPreset) {
   );
 }
 
-function resolveVisualStyle(meta = {}, userInputs = {}) {
-  const rawStyle = String(
-    meta.visualStyle || userInputs.visualStyle || ''
-  )
+function resolveVisualStyle(meta = {}, userInputs = {}, resolvedVisualFormat = null) {
+  if (resolvedVisualFormat?.style) {
+    return resolvedVisualFormat.style;
+  }
+
+  const rawStyle = String(meta.visualStyle || userInputs.visualStyle || '')
     .trim()
     .toLowerCase();
   const styles = GLOBALS.VISUAL_STYLES || {};
@@ -137,6 +176,56 @@ function normalizeVoiceDirection(rawDirection, fallbackIntent = 'steady_delivery
     pauseBeforeMs: clampNumber(src.pauseBeforeMs, 0, 1500, 0),
     pauseAfterMs: clampNumber(src.pauseAfterMs, 0, 1500, 0),
     energyShift
+  };
+}
+
+function normalizeSfxCue(rawCue, sfxDirective = {}, allowActive = false) {
+  if (!allowActive || !sfxDirective?.enabled || !rawCue || typeof rawCue !== 'object') {
+    return {
+      enabled: false,
+      category: 'none',
+      prompt: '',
+      timing: 'on_enter',
+      gain: 0
+    };
+  }
+
+  const allowedCats = Array.isArray(sfxDirective.preferredCategories) && sfxDirective.preferredCategories.length
+    ? sfxDirective.preferredCategories
+    : ['whoosh', 'ambient'];
+  const rawCat = String(rawCue.category || rawCue.type || '').trim().toLowerCase();
+  const category = allowedCats.includes(rawCat) ? rawCat : allowedCats[0] || 'whoosh';
+
+  const allowedTimings = Array.isArray(sfxDirective.allowedTimings) && sfxDirective.allowedTimings.length
+    ? sfxDirective.allowedTimings
+    : ['on_enter', 'mid_scene', 'on_beat'];
+  const rawTiming = String(rawCue.timing || 'on_enter').trim().toLowerCase();
+  const timing = allowedTimings.includes(rawTiming) ? rawTiming : 'on_enter';
+
+  const gain = clampNumber(
+    rawCue.gain ?? rawCue.volume ?? sfxDirective.defaultGain,
+    sfxDirective.minGain ?? 0.08,
+    sfxDirective.maxGain ?? 0.28,
+    sfxDirective.defaultGain ?? 0.18
+  );
+
+  const prompt = String(rawCue.prompt || rawCue.description || '').trim();
+  if (!prompt) {
+    return {
+      enabled: false,
+      category: 'none',
+      prompt: '',
+      timing,
+      gain: 0
+    };
+  }
+
+  return {
+    enabled: true,
+    category,
+    prompt,
+    timing,
+    gain
   };
 }
 
@@ -201,7 +290,6 @@ function buildFallbackSpokenText({
   const roleKey = role === 'hook' || role === 'cta' ? role : 'body';
   let result = baseText;
 
-  // Resaltar frases de énfasis si existen y están en el texto
   if (Array.isArray(voiceDirection.emphasisPhrases)) {
     for (const phrase of voiceDirection.emphasisPhrases) {
       if (!phrase || phrase.length < 2) continue;
@@ -224,28 +312,64 @@ function buildFallbackSpokenText({
   return result.replace(/\s{2,}/g, ' ').trim();
 }
 
-function attachVisualConsistency(structuredScript, visualStyle = null) {
+function extractUsageMetrics(usageMetadata = {}) {
+  const inputTokens = Number(usageMetadata?.promptTokenCount || 0);
+  const outputTokens = Number(usageMetadata?.candidatesTokenCount || 0);
+  const totalTokens = Number(usageMetadata?.totalTokenCount || inputTokens + outputTokens);
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens
+  };
+}
+
+function attachVisualConsistency(
+  structuredScript,
+  { visualStyle = null, format = null, mediaMode = null } = {}
+) {
   if (!structuredScript || typeof structuredScript !== 'object') {
     return structuredScript;
   }
 
   const rawBible = (structuredScript.characterAndStyleBible || '').trim();
-  const visualAnchor = visualStyle?.promptAnchor
-    ? `${visualStyle.promptAnchor}. ${rawBible}`.trim()
-    : rawBible;
+  const styleParts = Array.from(
+    new Set(
+      [
+        visualStyle?.promptAnchor,
+        visualStyle?.lightingAndTexture,
+        format?.promptFraming,
+        rawBible
+      ]
+        .map((part) => String(part || '').replace(/\s+/g, ' ').replace(/\.{2,}/g, '.').trim())
+        .filter(Boolean)
+    )
+  );
+  const visualAnchor = styleParts.join('. ').replace(/\.\s*\./g, '.').trim();
 
   const styleGuide = {
     styleAnchor: visualAnchor,
-    visualStyle: visualStyle?.key || null
+    visualStyle: visualStyle?.key || null,
+    aspectRatio: format?.aspectRatio || null,
+    mediaMode: mediaMode?.key || null
   };
 
   const scenes = Array.isArray(structuredScript.scenes)
     ? structuredScript.scenes.map((scene) => {
         const sceneVisual = (scene.visualPrompt || '').trim();
-        const imagePrompt = [visualAnchor, sceneVisual].filter(Boolean).join(' | ');
+        const resolvedMediaType = resolveSceneMediaType(
+          mediaMode || {},
+          scene.role || 'body',
+          scene.mediaType || null
+        );
+        const promptSegments = Array.from(
+          new Set([visualAnchor, sceneVisual].map((s) => s.trim()).filter(Boolean))
+        );
+        const imagePrompt = promptSegments.join(' | ');
 
         return {
           ...scene,
+          imageDescription: String(scene.imageDescription || '').trim(),
+          mediaType: resolvedMediaType,
           imagePrompt
         };
       })
@@ -262,10 +386,16 @@ function attachVisualConsistency(structuredScript, visualStyle = null) {
 async function generateStructuredScript(rawPayload) {
   const masterPayload = rawPayload?.payload || rawPayload?.data || rawPayload || {};
   const { meta = {}, userInputs = {}, orchestration = {} } = masterPayload;
-  const rawPlan = meta.userPlan || 'free_trial';
+  const resolvedParams =
+    masterPayload.resolvedParams || resolvePipelineParameters(masterPayload);
+
+  const rawPlan = resolvedParams.meta?.userPlan || meta.userPlan || 'free_trial';
   const userPlan = normalizeKey(rawPlan, {}, GLOBALS.PLAN_POLICIES, 'free_trial');
-  const rawPreset = meta.preset || userInputs.preset || 'default';
-  const presetKey = normalizePresetKey(rawPreset);
+  const presetKey =
+    resolvedParams.preset?.key ||
+    normalizePresetKey(meta.preset || userInputs.preset || 'default');
+  const presetVariant = resolvedParams.preset?.activeVariant || null;
+
   const scriptModelId = resolveAiModelId('llm', {
     explicitModelId: meta.scriptModelId || meta.llmModelId || userInputs.scriptModelId,
     preset: presetKey,
@@ -274,39 +404,82 @@ async function generateStructuredScript(rawPayload) {
 
   const { aiClient, Type } = await getGeminiClient();
 
-  const planConfig = getPlanConfig(userPlan, meta.targetDurationSeconds);
+  const planConfig = getPlanConfig(
+    userPlan,
+    meta.targetDurationSeconds,
+    resolvedParams.voiceAndScript?.script
+  );
   const effectiveMode =
     planConfig.allowCustomScript && userInputs.mode === 'custom_script'
       ? 'custom_script'
       : 'idea';
 
-  const rawLang = (meta.language || userInputs.language || 'en').toLowerCase();
-  const targetLanguage = rawLang.startsWith('es') ? 'es' : 'en';
+  const targetLanguage = resolveRequestedLanguage(masterPayload, resolvedParams);
   const languageLabel = targetLanguage === 'es' ? 'SPANISH (es)' : 'ENGLISH (en)';
+  const languageDirectiveText =
+    targetLanguage === 'es'
+      ? 'Write 100% of all spoken/editorial narration in natural, idiomatic Spanish ("es"). Do NOT write narration in English.'
+      : 'Write 100% of all spoken/editorial narration in natural, idiomatic English ("en").';
 
   const endingBufferSeconds =
-    typeof orchestration.endingBufferSeconds === 'number'
-      ? clampNumber(
-          orchestration.endingBufferSeconds,
-          GLOBALS.SAFETY_LIMITS.endingBufferSeconds.min,
-          GLOBALS.SAFETY_LIMITS.endingBufferSeconds.max,
-          2
-        )
-      : GLOBALS.SAFETY_LIMITS.endingBufferSeconds.defaultValue;
-  const pacing = orchestration.pacing || 'balanced';
-  const visualStyle = resolveVisualStyle(meta, userInputs);
-  const resolvedVoiceModelId = resolveVoiceModelId({
-    explicitModelId: meta.voiceModelId || userInputs.voiceModelId,
-    preset: presetKey,
-    userPlan
-  });
-  const supportsTags = modelSupportsAudioTags(resolvedVoiceModelId);
+    typeof resolvedParams.voiceAndScript?.script?.endingBufferSeconds === 'number'
+      ? resolvedParams.voiceAndScript.script.endingBufferSeconds
+      : typeof orchestration.endingBufferSeconds === 'number'
+        ? clampNumber(
+            orchestration.endingBufferSeconds,
+            GLOBALS.SAFETY_LIMITS.endingBufferSeconds.min,
+            GLOBALS.SAFETY_LIMITS.endingBufferSeconds.max,
+            2
+          )
+        : GLOBALS.SAFETY_LIMITS.endingBufferSeconds.defaultValue;
+
+  const pacing =
+    resolvedParams.voiceAndScript?.script?.pacing ||
+    orchestration.pacing ||
+    'balanced';
+  const scriptTone =
+    resolvedParams.voiceAndScript?.script?.tone ||
+    userInputs.tone ||
+    'engaging';
+  const maxTotalWords = resolvedParams.voiceAndScript?.script?.maxTotalWords || null;
+
+  const formatCfg = resolvedParams.format || null;
+  const visualFormatCfg = resolvedParams.visualFormat || null;
+  const visualStyle = resolveVisualStyle(meta, userInputs, visualFormatCfg);
+  const mediaModeCfg = visualFormatCfg?.mediaMode || null;
+  const sfxDirective = resolvedParams.voiceAndScript?.sfxDirective || {
+    enabled: false,
+    maxCuesPerVideo: 0,
+    preferredCategories: [],
+    allowedTimings: ['on_enter', 'mid_scene', 'on_beat'],
+    defaultGain: 0.18,
+    minGain: 0.08,
+    maxGain: 0.28
+  };
+
+  const resolvedVoiceModelId =
+    resolvedParams.voiceAndScript?.voice?.modelId ||
+    resolveVoiceModelId({
+      explicitModelId: meta.voiceModelId || userInputs.voiceModelId,
+      preset: presetKey,
+      userPlan
+    });
+  const supportsTags =
+    typeof resolvedParams.voiceAndScript?.voice?.supportsAudioTags === 'boolean'
+      ? resolvedParams.voiceAndScript.voice.supportsAudioTags
+      : modelSupportsAudioTags(resolvedVoiceModelId);
+
   const presetTagGuide =
+    resolvedParams.voiceAndScript?.voice?.tags ||
     (GLOBALS.PRESET_VOICE_TAGS && GLOBALS.PRESET_VOICE_TAGS[presetKey]) ||
     (GLOBALS.PRESET_VOICE_TAGS && GLOBALS.PRESET_VOICE_TAGS.default) ||
     {};
 
-  const resolvedVoice = resolveVoiceFromCatalog(meta, userInputs);
+  const resolvedVoice = resolveVoiceFromCatalog(
+    meta,
+    userInputs,
+    resolvedParams.voiceAndScript?.voice
+  );
   const voiceConfig = resolvedVoice
     ? {
         ...resolvedVoice,
@@ -335,18 +508,34 @@ async function generateStructuredScript(rawPayload) {
 
   const systemInstruction = `You are an expert short-form video director for Cempai.ai.
 MANDATORY RULES:
-1. Active plan: "${userPlan}". Maximum allowed duration: ${planConfig.maxDurationSeconds}s. Target script duration: ${planConfig.targetDurationSeconds}s (leaving a ${endingBufferSeconds}s soft closing buffer at the end; total scene duration MUST NOT exceed ${planConfig.targetDurationSeconds}s).
-2. Divide the video into ${planConfig.sceneRange} scenes with "${pacing}" pacing.
-3. ALWAYS include a strong opening "hook" and a cohesive closing "cta" (never end abruptly). Tag each scene with "role": "hook", "body", or "cta".
-   - IMPORTANT FOR CTA & PRESET COHERENCE: Maintain the preset's overall mood and restraint throughout the entire arc, INCLUDING the "cta". For atmospheric, mysterious, documentary, or dramatic presets (such as "dark_mystery", "cinematic", "documentary"), do NOT switch to a bright, upbeat, or hype commercial outro; keep the CTA aligned with the preset's tone and tension.
-4. VISUAL & CHARACTER CONSISTENCY:
+1. Active plan: "${userPlan}". Maximum allowed duration: ${planConfig.maxDurationSeconds}s. Target script duration: ${planConfig.targetDurationSeconds}s (leaving a ${endingBufferSeconds}s soft closing buffer at the end; total scene duration MUST NOT exceed ${planConfig.targetDurationSeconds}s).${
+    maxTotalWords ? ` Keep total spoken narration around or under ${maxTotalWords} words so pacing stays natural.` : ''
+  }
+2. Divide the video into ${planConfig.sceneRange} scenes with "${pacing}" pacing and tone: "${scriptTone}".
+3. Let Gemini AI naturally author the opening "hook" and closing "cta" from the topic and tone itself, without forcing rigid external hook/CTA templates or cliché marketing filler. Tag each scene with "role": "hook", "body", or "cta" so the narrative flows organically from opening curiosity/premise through the core explanation to a natural, cohesive ending aligned with the preset's mood.
+4. FORMAT, VISUAL & CHARACTER CONSISTENCY:
+   - Target aspect ratio: ${formatCfg?.aspectRatio || '9:16'}.${
+     formatCfg?.promptFraming ? `\n   - Format framing rule: ${formatCfg.promptFraming}` : ''
+   }
+   - Visual media mode: "${mediaModeCfg?.key || 'static_only'}". When a scene has "mediaType": "video_clip" or "motion_image", describe clear motion/action/camera movement in "visualPrompt"; when "static_image", focus on a strong composition ready for subtle camera motion.
    - Define in "characterAndStyleBible" the unified visual aesthetic and exact recurring character description (appearance, age range, clothing, base expression, environment, and lighting) so the entire video feels cohesive.${
      visualStyle
-       ? `\n   - Apply visual style "${visualStyle.label}" (${visualStyle.promptAnchor}) consistently across the visual direction.`
+       ? `\n   - Apply visual style "${visualStyle.label}" (${visualStyle.promptAnchor}) consistently across the visual direction.${
+           visualStyle.allowTextInImage === false
+             ? ' Avoid text, watermarks, or random letters inside the visual scene.'
+             : ''
+         }`
        : ''
    }
+   - Include in EVERY scene an "imageDescription" written naturally in ${languageLabel} describing clearly and intuitively how the generated image for that scene looks according to the script and visual action.
    - In EVERY "visualPrompt", explicitly restate the key character traits and visual style from "characterAndStyleBible", describing only the scene's specific action, camera framing, and logical progression from the previous scene.
-5. CLEAN SUBTITLE TEXT VS. TAGGED SPOKEN TEXT (ELEVEN V4):
+5. SOUND EFFECTS (SFX CUES):
+   - ${
+     sfxDirective.enabled
+       ? `SFX is ENABLED (up to ${sfxDirective.maxCuesPerVideo} cues across the video). For key moments, include an "sfxCue" object with "enabled": true, "category" (one of: ${(sfxDirective.preferredCategories || []).join(', ')}), "prompt" (concise sound effect description in English), "timing" (one of: ${(sfxDirective.allowedTimings || []).join(', ')}), and "gain" (around ${sfxDirective.defaultGain}). Set "enabled": false on non-accent scenes.`
+       : `SFX is DISABLED for this configuration. Set "sfxCue" with "enabled": false, "category": "none", "prompt": "", "timing": "on_enter", and "gain": 0 on every scene.`
+   }
+6. CLEAN SUBTITLE TEXT VS. TAGGED SPOKEN TEXT (ELEVEN V4):
    - "voiceoverText" MUST be CLEAN plain text WITHOUT any bracketed audio tags like [whisper], [pause], or [emphasis] so subtitles stay clean and readable.
    - "spokenText" is for voice synthesis (${resolvedVoiceModelId}). ${
      supportsTags
@@ -358,37 +547,41 @@ MANDATORY RULES:
      * NEVER paraphrase, summarize, shorten, expand, replace synonyms, change numbers/units, or alter wording between "voiceoverText" and "spokenText".
      * Only insert bracketed vocal delivery tags ([...]) around or between the exact words of "voiceoverText".
      * If all [...] tags are stripped from "spokenText", the remaining words must match "voiceoverText" word-for-word.
-6. VOICE DIRECTION METADATA:
+7. VOICE DIRECTION METADATA:
    - For each scene, include a "voiceDirection" object:
      * "intent": short delivery intent (e.g. "hook_attention", "explain_point", "emphasize_contrast", "call_to_action").
      * "emphasisPhrases": array of 1 to 3 key short phrases from "voiceoverText" to stress naturally.
      * "pauseBeforeMs": recommended lead-in pause in milliseconds (0 to 1500).
      * "pauseAfterMs": recommended trailing pause in milliseconds (0 to 1500).
      * "energyShift": one of "steady", "slight_up", or "slight_down".
-7. ${
+8. ${
     effectiveMode === 'custom_script'
-      ? 'CUSTOM_SCRIPT MODE: Preserve the user’s provided script text faithfully without rewriting its core wording; segment it into timed scenes and integrate the hook/CTA if provided.'
-      : 'IDEA MODE: Craft a cohesive, engaging script from the user’s idea.'
+      ? 'CUSTOM_SCRIPT MODE: Preserve the user’s provided script text faithfully without rewriting its core wording; segment it into timed scenes and integrate any user-supplied opening or closing lines only if explicitly provided.'
+      : 'IDEA MODE: Craft a cohesive, engaging script organically from the user’s idea, letting Gemini AI author the opening hook and closing lines naturally.'
   }
-8. LANGUAGE RULES:
-   - Spoken/editorial fields ("title", "hook.text", "cta.text", and every scene's "voiceoverText" and "spokenText") MUST be written naturally in ${languageLabel}.
+9. LANGUAGE RULES:
+   - ${languageDirectiveText}
+   - Spoken/editorial fields ("title", "hook.text", "cta.text", and every scene's "voiceoverText", "spokenText", and "imageDescription") MUST be written naturally in ${languageLabel}.
    - AI visual generation fields ("characterAndStyleBible" and every scene's "visualPrompt") MUST ALWAYS be written in clear, detailed ENGLISH regardless of the spoken language.`;
 
   const userPrompt = `
 Generate the structured video script using these inputs:
-- Spoken Output Language: ${languageLabel}
+- Spoken Output Language: ${languageLabel} (${languageDirectiveText})
 - Plan Tier: ${userPlan}
 - Mode: ${effectiveMode}
-- Tone: ${userInputs.tone || 'engaging'}
-- Preset Style: ${presetKey}
+- Tone: ${scriptTone}
+- Preset Style: ${presetKey}${presetVariant ? ` (Variant: ${presetVariant})` : ''}
+- Aspect Ratio: ${formatCfg?.aspectRatio || '9:16'}
+- Visual Media Mode: ${mediaModeCfg?.key || 'static_only'}
 - Visual Style Override: ${visualStyle ? visualStyle.key : 'preset_default'}
+- SFX Enabled: ${sfxDirective.enabled} (Max Cues: ${sfxDirective.maxCuesPerVideo})
 - Voice Model ID: ${resolvedVoiceModelId}
 - Voice Slot: ${voiceConfig.voiceSlot || 'default'}
 - Voice Name: ${voiceConfig.voiceName || 'default'}
 - Voice Profile: ${voiceConfig.profile || 'flexible_dynamic'}
 - Base Idea / Script: ${userInputs.rawContent}
-- Requested Hook: ${providedHook || 'Generate a high-retention opening hook'}
-- Requested CTA: ${providedCta || 'Generate a cohesive closing call-to-action that preserves the preset mood'}
+${providedHook ? `- User-provided opening line: ${providedHook}` : '- Opening hook: Let Gemini AI write an organic, natural opening line directly from the topic and tone in ' + languageLabel}
+${providedCta ? `- User-provided closing line: ${providedCta}` : '- Closing line (CTA): Let Gemini AI write a natural, cohesive closing line that fits the topic and preset mood in ' + languageLabel}
 - Target Duration Seconds: ${planConfig.targetDurationSeconds}
 - Ending Buffer Seconds: ${endingBufferSeconds}
 - Pacing: ${pacing}
@@ -396,7 +589,7 @@ Generate the structured video script using these inputs:
 
   try {
     console.log(
-      `🚀 [Pipeline LLM] Plan: [${userPlan}] | Mode: [${effectiveMode}] | Lang: [${targetLanguage.toUpperCase()}] | Voice: [${voiceConfig.voiceSlot || 'none'}:${voiceConfig.voiceName || 'none'}] | Model: [${resolvedVoiceModelId}] | Preset: [${presetKey}] | Target: ${planConfig.targetDurationSeconds}s`
+      `🚀 [Pipeline LLM] Plan: [${userPlan}] | Mode: [${effectiveMode}] | Lang: [${targetLanguage.toUpperCase()}] | Preset: [${presetKey}${presetVariant ? `:${presetVariant}` : ''}] | Ratio: [${formatCfg?.aspectRatio || '9:16'}] | MediaMode: [${mediaModeCfg?.key || 'static_only'}] | SFX: [${sfxDirective.enabled ? `on(max=${sfxDirective.maxCuesPerVideo})` : 'off'}] | Target: ${planConfig.targetDurationSeconds}s`
     );
 
     const response = await aiClient.models.generateContent({
@@ -435,12 +628,25 @@ Generate the structured video script using these inputs:
                 properties: {
                   sceneNumber: { type: Type.INTEGER },
                   role: { type: Type.STRING },
+                  mediaType: { type: Type.STRING },
                   startSeconds: { type: Type.NUMBER },
                   endSeconds: { type: Type.NUMBER },
                   durationSeconds: { type: Type.NUMBER },
                   voiceoverText: { type: Type.STRING },
                   spokenText: { type: Type.STRING },
+                  imageDescription: { type: Type.STRING },
                   visualPrompt: { type: Type.STRING },
+                  sfxCue: {
+                    type: Type.OBJECT,
+                    properties: {
+                      enabled: { type: Type.BOOLEAN },
+                      category: { type: Type.STRING },
+                      prompt: { type: Type.STRING },
+                      timing: { type: Type.STRING },
+                      gain: { type: Type.NUMBER }
+                    },
+                    required: ['enabled', 'category', 'prompt', 'timing', 'gain']
+                  },
                   voiceDirection: {
                     type: Type.OBJECT,
                     properties: {
@@ -470,6 +676,7 @@ Generate the structured video script using these inputs:
                   'durationSeconds',
                   'voiceoverText',
                   'spokenText',
+                  'imageDescription',
                   'visualPrompt'
                 ]
               }
@@ -491,9 +698,12 @@ Generate the structured video script using these inputs:
       throw new Error('Empty response returned by Gemini.');
     }
 
+    const usageMetrics = extractUsageMetrics(response.usageMetadata);
     const structuredScript = JSON.parse(response.text);
 
     let cursorSec = 0;
+    let activeSfxCount = 0;
+    const maxSfx = Number(sfxDirective.maxCuesPerVideo || 0);
     const validatedScenes = [];
     const maxAllowed = planConfig.targetDurationSeconds;
 
@@ -510,6 +720,11 @@ Generate the structured video script using these inputs:
       const resolvedRole =
         scene.role ||
         (i === 0 ? 'hook' : i === structuredScript.scenes.length - 1 ? 'cta' : 'body');
+      const resolvedMediaType = resolveSceneMediaType(
+        mediaModeCfg || {},
+        resolvedRole,
+        scene.mediaType || null
+      );
 
       const cleanVoiceoverText = stripAudioTags(scene.voiceoverText || scene.spokenText || '');
       const normalizedDirection = normalizeVoiceDirection(scene.voiceDirection, resolvedRole);
@@ -526,15 +741,24 @@ Generate the structured video script using these inputs:
             })
         : stripAudioTags(rawSpokenCandidate || cleanVoiceoverText);
 
+      const canEnableSfx = sfxDirective.enabled && activeSfxCount < maxSfx;
+      const normalizedSfxCue = normalizeSfxCue(scene.sfxCue, sfxDirective, canEnableSfx);
+      if (normalizedSfxCue.enabled) {
+        activeSfxCount += 1;
+      }
+
       validatedScenes.push({
         sceneNumber: i + 1,
         role: resolvedRole,
+        mediaType: resolvedMediaType,
         startSeconds,
         endSeconds,
         durationSeconds: finalDur,
         voiceoverText: cleanVoiceoverText,
         spokenText: finalSpokenText,
+        imageDescription: String(scene.imageDescription || '').trim(),
         visualPrompt: scene.visualPrompt,
+        sfxCue: normalizedSfxCue,
         voiceSlot: voiceConfig.voiceSlot,
         voiceName: voiceConfig.voiceName,
         voiceId: voiceConfig.voiceId,
@@ -544,14 +768,20 @@ Generate the structured video script using these inputs:
       cursorSec = endSeconds;
     }
 
+    structuredScript.title = String(structuredScript.title || '').trim() || 'Studio Lite Video';
     structuredScript.scenes = validatedScenes;
     structuredScript.totalDurationSeconds = Number(cursorSec.toFixed(2));
     structuredScript.endingBufferSeconds = endingBufferSeconds;
 
-    const enrichedScript = attachVisualConsistency(structuredScript, visualStyle);
+    const enrichedScript = attachVisualConsistency(structuredScript, {
+      visualStyle,
+      format: formatCfg,
+      mediaMode: mediaModeCfg
+    });
 
     return {
       ...masterPayload,
+      title: enrichedScript.title,
       llmDirective: {
         ...(masterPayload.llmDirective || {}),
         provider: 'google-gemini',
@@ -560,9 +790,14 @@ Generate the structured video script using these inputs:
         planApplied: userPlan,
         effectiveMode,
         preset: presetKey,
+        presetVariant,
+        aspectRatio: formatCfg?.aspectRatio || '9:16',
+        mediaMode: mediaModeCfg?.key || 'static_only',
         visualStyle: visualStyle?.key || null,
+        sfxEnabled: sfxDirective.enabled,
         voiceModelId: resolvedVoiceModelId,
         voiceConfig,
+        usageMetadata: usageMetrics,
         structuredScript: enrichedScript
       }
     };
@@ -578,8 +813,7 @@ async function generateDialogueScript(rawPayload) {
   const masterPayload = rawPayload?.payload || rawPayload?.data || rawPayload;
   const { meta = {}, userInputs = {} } = masterPayload;
 
-  const rawLang = (meta.language || userInputs.language || 'en').toLowerCase();
-  const targetLanguage = rawLang.startsWith('es') ? 'es' : 'en';
+  const targetLanguage = resolveRequestedLanguage(masterPayload, {});
   const languageLabel = targetLanguage === 'es' ? 'SPANISH (es)' : 'ENGLISH (en)';
 
   const speakers =
@@ -670,6 +904,7 @@ Language: ${languageLabel}`;
     throw new Error('Empty dialogue response returned by Gemini.');
   }
 
+  const usageMetrics = extractUsageMetrics(response.usageMetadata);
   const parsed = JSON.parse(response.text);
   const turns = Array.isArray(parsed.turns)
     ? parsed.turns.map((turn, index) => {
@@ -694,12 +929,14 @@ Language: ${languageLabel}`;
 
   return {
     ...masterPayload,
+    title: dialogue.title,
     dialogue,
     llmDirective: {
       ...(masterPayload.llmDirective || {}),
       provider: 'google-gemini',
       model: 'gemini-3.8-flash',
       language: targetLanguage,
+      usageMetadata: usageMetrics,
       dialogue
     }
   };

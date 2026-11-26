@@ -10,6 +10,9 @@ const {
   modelSupportsAudioTags
 } = require('../config/globals');
 const {
+  resolvePipelineParameters
+} = require('../config/params/pipelineRegistry');
+const {
   clampNumber,
   normalizeKey,
   sanitizePlainText,
@@ -40,6 +43,26 @@ const PRESET_ALIASES = GLOBALS.PRESET_ALIASES;
 const PRESET_VOICE_MODIFIERS = GLOBALS.BASE_PRESET_MODIFIERS || {};
 const PRESET_VOICE_SETTINGS = GLOBALS.PRESET_VOICE_SETTINGS || {};
 const VOICE_PRESET_OVERRIDES = GLOBALS.VOICE_PRESET_OVERRIDES || {};
+
+function ensurePayloadResolvedParams(payload = {}) {
+  const base = payload && typeof payload === 'object' ? { ...payload } : {};
+  const resolvedParams =
+    base.resolvedParams && typeof base.resolvedParams === 'object'
+      ? base.resolvedParams
+      : resolvePipelineParameters(base);
+  return { ...base, resolvedParams };
+}
+
+function getSubtitleSegmentationConfig(payload = {}) {
+  const syncCfg = payload?.resolvedParams?.subtitles?.sync || {};
+  const styleCfg = payload?.resolvedParams?.subtitles?.style || {};
+  const maxWords = Number(styleCfg.maxWordsPerLine) || Number(syncCfg.maxWordsPerSegment) || 6;
+  return {
+    maxWords,
+    minWordsForBreak: Number(syncCfg.minWordsForStrongBreak) || 3,
+    minWordsForComma: Number(syncCfg.minWordsForCommaBreak) || 4
+  };
+}
 
 function normalizePresetForAudio(rawPreset) {
   return normalizeKey(
@@ -96,7 +119,6 @@ function normalizeTextForSpeech(text = '', { preserveTags = true } = {}) {
     return sanitizePlainText(stripBracketTags(raw));
   }
 
-  // Protegemos temporalmente etiquetas válidas [tag] para que sanitizePlainText no las borre
   const tokens = [];
   const protectedText = raw.replace(/\[[^\]]+\]/g, (match) => {
     const token = `__ELEVEN_TAG_${tokens.length}__`;
@@ -300,7 +322,14 @@ function buildSrtFromSegments(segments = []) {
     .join('\n\n');
 }
 
-async function transcribeAudioWithScribeV3({ filePath, apiKey, language = '', modelId = null, signal }) {
+async function transcribeAudioWithScribeV3({
+  filePath,
+  apiKey,
+  language = '',
+  modelId = null,
+  segmentationConfig = null,
+  signal
+}) {
   const resolvedSttModelId = resolveAiModelId('stt', { explicitModelId: modelId }) || 'scribe_v3';
   const audioBytes = fs.readFileSync(filePath);
   const formData = new FormData();
@@ -331,11 +360,12 @@ async function transcribeAudioWithScribeV3({ filePath, apiKey, language = '', mo
 
   const data = await response.json();
   const words = extractCleanSpokenWords(data?.words || []);
-  const segments = buildSubtitleSegmentsFromScribeWords(words, {
+  const segCfg = segmentationConfig || {
     maxWords: 6,
     minWordsForBreak: 3,
     minWordsForComma: 4
-  });
+  };
+  const segments = buildSubtitleSegmentsFromScribeWords(words, segCfg);
   return {
     text: cleanSubtitleTokenText(data?.text || ''),
     words,
@@ -344,26 +374,11 @@ async function transcribeAudioWithScribeV3({ filePath, apiKey, language = '', mo
   };
 }
 
-async function probeMp3DurationSeconds(filePath) {
-  try {
-    const { stdout } = await execFileAsync(ffmpegPath, ['-i', filePath]);
-    void stdout;
-  } catch (err) {
-    const stderr = String(err?.stderr || err?.message || '');
-    const match = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
-    if (match) {
-      const h = Number(match[1]) || 0;
-      const m = Number(match[2]) || 0;
-      const s = Number(match[3]) || 0;
-      return h * 3600 + m * 60 + s;
-    }
-  }
-  return 0;
-}
-
 async function transcribeMergedJobAudio(payload = {}) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  const masterPayload = payload?.payload || payload?.data || payload || {};
+  const masterPayload = ensurePayloadResolvedParams(
+    payload?.payload || payload?.data || payload || {}
+  );
   const structuredScript =
     masterPayload?.llmDirective?.structuredScript ||
     masterPayload?.structuredScript ||
@@ -385,6 +400,7 @@ async function transcribeMergedJobAudio(payload = {}) {
   }
 
   const language =
+    masterPayload?.resolvedParams?.voiceAndScript?.language ||
     masterPayload?.meta?.language ||
     masterPayload?.userInputs?.language ||
     masterPayload?.llmDirective?.language ||
@@ -397,11 +413,14 @@ async function transcribeMergedJobAudio(payload = {}) {
       masterPayload?.meta?.sttModelId
   });
 
+  const segCfg = getSubtitleSegmentationConfig(masterPayload);
+
   const scribeResult = await transcribeAudioWithScribeV3({
     filePath: mergedFilePath,
     apiKey,
     language,
-    modelId: sttModelId
+    modelId: sttModelId,
+    segmentationConfig: segCfg
   });
 
   let cursor = 0;
@@ -437,11 +456,7 @@ async function transcribeMergedJobAudio(payload = {}) {
         end: Number(Math.max(0.15, Math.min(win.dur, w.end - win.startSec)).toFixed(2))
       }));
 
-    const sceneSegments = buildSubtitleSegmentsFromScribeWords(sceneWords, {
-      maxWords: 6,
-      minWordsForBreak: 3,
-      minWordsForComma: 4
-    });
+    const sceneSegments = buildSubtitleSegmentsFromScribeWords(sceneWords, segCfg);
 
     return {
       ...sc,
@@ -485,10 +500,14 @@ function applyVoiceDirectionToScene({
   voiceDirection,
   voiceSettings,
   modelId,
+  supportsTagsOverride = null,
   preset = 'default',
   sceneRole = 'body'
 }) {
-  const preserveTags = modelSupportsAudioTags(modelId);
+  const preserveTags =
+    typeof supportsTagsOverride === 'boolean'
+      ? supportsTagsOverride
+      : modelSupportsAudioTags(modelId);
   let spokenText = normalizeTextForSpeech(text, { preserveTags });
   const nextSettings = { ...voiceSettings };
 
@@ -604,8 +623,16 @@ function applyVoiceDirectionToScene({
   return { spokenText, voiceSettings: nextSettings };
 }
 
+function resolveVoiceId({ requestedVoiceId, userPlan = 'free_trial', resolvedVoiceObj = null }) {
+  if (resolvedVoiceObj && resolvedVoiceObj.id) {
+    return {
+      voiceId: resolvedVoiceObj.id,
+      voiceKey: resolvedVoiceObj.key || 'resolved',
+      voiceName: resolvedVoiceObj.voiceName || resolvedVoiceObj.key || null,
+      downgradedFromPro: false
+    };
+  }
 
-function resolveVoiceId({ requestedVoiceId, userPlan = 'free_trial' }) {
   const defaultFreeId = process.env.ELEVENLABS_DEFAULT_VOICE_ID || 'xfcOcwRJ5AZQ8qZsQMw2';
   const policy = resolvePlanPolicy(userPlan);
   const isPaidPlan = Boolean(policy.allowProVoices);
@@ -663,7 +690,45 @@ function resolveVoiceId({ requestedVoiceId, userPlan = 'free_trial' }) {
   };
 }
 
-function getVoiceTuningByTone(tone = 'engaging', preset = 'default', voiceKey = 'default') {
+function getVoiceTuningByTone(
+  tone = 'engaging',
+  preset = 'default',
+  voiceKey = 'default',
+  resolvedSettings = null
+) {
+  if (resolvedSettings && typeof resolvedSettings === 'object') {
+    return {
+      stability: clampNumber(
+        resolvedSettings.stability ?? 0.65,
+        GLOBALS.SAFETY_LIMITS.voiceStability.min,
+        GLOBALS.SAFETY_LIMITS.voiceStability.max,
+        2
+      ),
+      similarity_boost: clampNumber(
+        resolvedSettings.similarity_boost ?? 0.78,
+        GLOBALS.SAFETY_LIMITS.voiceSimilarity.min,
+        GLOBALS.SAFETY_LIMITS.voiceSimilarity.max,
+        2
+      ),
+      style: clampNumber(
+        resolvedSettings.style ?? 0,
+        GLOBALS.SAFETY_LIMITS.voiceStyle.min,
+        GLOBALS.SAFETY_LIMITS.voiceStyle.max,
+        2
+      ),
+      use_speaker_boost:
+        typeof resolvedSettings.use_speaker_boost === 'boolean'
+          ? resolvedSettings.use_speaker_boost
+          : true,
+      speed: clampNumber(
+        resolvedSettings.speed ?? 0.98,
+        GLOBALS.SAFETY_LIMITS.voiceSpeed.min,
+        GLOBALS.SAFETY_LIMITS.voiceSpeed.max,
+        2
+      )
+    };
+  }
+
   const normalizedTone = normalizeKey(tone, TONE_ALIASES, {}, 'engaging');
   const normalizedPreset = normalizePresetForAudio(preset);
 
@@ -825,6 +890,8 @@ async function generateSceneAudio({
   sceneNumber,
   modelId,
   sttModelId = null,
+  supportsTags = null,
+  segmentationConfig = null,
   preset = 'default',
   sceneRole = 'body',
   voiceSettings = { stability: 0.5, similarity_boost: 0.75 },
@@ -866,6 +933,7 @@ async function generateSceneAudio({
     voiceDirection,
     voiceSettings: baseSafeVoiceSettings,
     modelId: resolvedModelId,
+    supportsTagsOverride: supportsTags,
     preset,
     sceneRole
   });
@@ -876,6 +944,7 @@ async function generateSceneAudio({
   const timestampsUrl = `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}/with-timestamps`;
   let buffer = null;
   let subtitleSegments = [];
+  const maxWordsPerSeg = segmentationConfig?.maxWords || 6;
 
   try {
     const tsResponse = await fetch(timestampsUrl, {
@@ -901,7 +970,7 @@ async function generateSceneAudio({
         subtitleSegments = buildSubtitleSegmentsFromAlignment(
           alignment,
           cleanSubtitleText || stripBracketTags(text),
-          6
+          maxWordsPerSeg
         );
       }
     }
@@ -941,7 +1010,7 @@ async function generateSceneAudio({
 
   let scribeData = {
     words: [],
-    segments: []
+    segments: subtitleSegments
   };
 
   try {
@@ -949,7 +1018,8 @@ async function generateSceneAudio({
       await transcribeAudioWithScribeV3({
         filePath,
         apiKey,
-        modelId: sttModelId
+        modelId: sttModelId,
+        segmentationConfig
       });
   }
   catch (err) {
@@ -966,13 +1036,13 @@ async function generateSceneAudio({
     voiceSettingsUsed: safeVoiceSettings,
 
     subtitleSegments:
-      scribeData.segments,
+      scribeData.segments && scribeData.segments.length ? scribeData.segments : subtitleSegments,
 
     words:
       scribeData.words,
 
     subtitleSource:
-      "scribe_v3"
+      scribeData.segments && scribeData.segments.length ? "scribe_v3" : "timestamps_fallback"
   };
 }
 
@@ -1025,7 +1095,12 @@ async function mergeAudioFiles({ fileNames, mergedFileName }) {
 }
 
 async function generateAllScenesAudio(rawPayload) {
-  const masterPayload = rawPayload?.payload || rawPayload?.data || rawPayload;
+  const masterPayload = ensurePayloadResolvedParams(
+    rawPayload?.payload || rawPayload?.data || rawPayload
+  );
+  const resolvedParams = masterPayload.resolvedParams;
+  const resolvedVoiceAndScript = resolvedParams?.voiceAndScript || {};
+  const resolvedVoiceObj = resolvedVoiceAndScript.voice || null;
 
   const structuredScript =
     masterPayload?.llmDirective?.structuredScript ||
@@ -1046,13 +1121,19 @@ async function generateAllScenesAudio(rawPayload) {
     {};
 
   const jobId = masterPayload?.meta?.jobId || rawPayload?.meta?.jobId || `job_${Date.now()}`;
-  const userPlan = masterPayload?.meta?.userPlan || rawPayload?.meta?.userPlan || 'free_trial';
+  const userPlan =
+    resolvedParams?.meta?.userPlan ||
+    masterPayload?.meta?.userPlan ||
+    rawPayload?.meta?.userPlan ||
+    'free_trial';
   const tone =
+    resolvedVoiceAndScript?.script?.tone ||
     masterPayload?.userInputs?.tone ||
     masterPayload?.script?.tone ||
     rawPayload?.userInputs?.tone ||
     'engaging';
   const preset = normalizePresetForAudio(
+    resolvedParams?.preset?.key ||
     llmVoiceConfig.preset ||
     masterPayload?.llmDirective?.preset ||
     masterPayload?.meta?.preset ||
@@ -1064,11 +1145,14 @@ async function generateAllScenesAudio(rawPayload) {
     'default'
   );
   const endingBufferSeconds =
-    typeof masterPayload?.orchestration?.endingBufferSeconds === 'number'
-      ? masterPayload.orchestration.endingBufferSeconds
-      : structuredScript.endingBufferSeconds ?? 1.5;
+    typeof resolvedVoiceAndScript?.script?.endingBufferSeconds === 'number'
+      ? resolvedVoiceAndScript.script.endingBufferSeconds
+      : typeof masterPayload?.orchestration?.endingBufferSeconds === 'number'
+        ? masterPayload.orchestration.endingBufferSeconds
+        : structuredScript.endingBufferSeconds ?? 1.5;
 
   const requestedVoiceId =
+    resolvedVoiceObj?.id ||
     masterPayload?.userInputs?.voiceId ||
     masterPayload?.voiceConfig?.voiceId ||
     masterPayload?.voice?.voiceId ||
@@ -1084,6 +1168,7 @@ async function generateAllScenesAudio(rawPayload) {
     process.env.ELEVENLABS_DEFAULT_VOICE_ID;
 
   const explicitModelId =
+    resolvedVoiceObj?.modelId ||
     masterPayload?.voiceConfig?.modelId ||
     masterPayload?.voice?.modelId ||
     llmVoiceConfig.modelId ||
@@ -1096,6 +1181,11 @@ async function generateAllScenesAudio(rawPayload) {
     userPlan
   });
 
+  const supportsTags =
+    typeof resolvedVoiceObj?.supportsAudioTags === 'boolean'
+      ? resolvedVoiceObj.supportsAudioTags
+      : modelSupportsAudioTags(modelId);
+
   const sttModelId = resolveAiModelId('stt', {
     explicitModelId:
       masterPayload?.subtitles?.modelId ||
@@ -1103,13 +1193,24 @@ async function generateAllScenesAudio(rawPayload) {
       masterPayload?.meta?.sttModelId
   });
 
-  const resolvedVoice = resolveVoiceId({ requestedVoiceId, userPlan });
+  const segmentationConfig = getSubtitleSegmentationConfig(masterPayload);
+
+  const resolvedVoice = resolveVoiceId({
+    requestedVoiceId,
+    userPlan,
+    resolvedVoiceObj
+  });
   const resolvedVoiceName =
     resolvedVoice.voiceName ||
     llmVoiceConfig.voiceName ||
     masterPayload?.meta?.voiceName ||
     null;
-  const baseTuning = getVoiceTuningByTone(tone, preset, resolvedVoice.voiceKey);
+  const baseTuning = getVoiceTuningByTone(
+    tone,
+    preset,
+    resolvedVoice.voiceKey,
+    resolvedVoiceObj?.settings || null
+  );
 
   if (resolvedVoice.downgradedFromPro) {
     console.warn(
@@ -1194,6 +1295,8 @@ async function generateAllScenesAudio(rawPayload) {
       voiceId: resolvedVoice.voiceId,
       modelId,
       sttModelId,
+      supportsTags,
+      segmentationConfig,
       preset,
       sceneRole: scene.role || 'body',
       voiceSettings: sceneVoiceSettings,
@@ -1249,7 +1352,9 @@ async function generateAllScenesAudio(rawPayload) {
 }
 
 async function generateDialogueAudio(rawPayload) {
-  const payload = rawPayload?.payload || rawPayload?.data || rawPayload || {};
+  const payload = ensurePayloadResolvedParams(
+    rawPayload?.payload || rawPayload?.data || rawPayload || {}
+  );
   const dialogueObj = payload.dialogue || payload;
   const turns = Array.isArray(dialogueObj.turns) ? dialogueObj.turns : [];
 
@@ -1258,7 +1363,11 @@ async function generateDialogueAudio(rawPayload) {
   }
 
   const jobId = payload?.meta?.jobId || payload.jobId || `dialogue_${Date.now()}`;
-  const userPlan = payload?.meta?.userPlan || payload.userPlan || 'free_trial';
+  const userPlan =
+    payload?.resolvedParams?.meta?.userPlan ||
+    payload?.meta?.userPlan ||
+    payload.userPlan ||
+    'free_trial';
   const tone = payload?.userInputs?.tone || payload.tone || 'storytelling';
   const preset = normalizePresetForAudio(payload.preset || 'default');
   const modelId = resolveVoiceModelId({

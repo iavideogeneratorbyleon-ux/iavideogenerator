@@ -4,6 +4,10 @@ const path = require('path');
 const mongoose = require('mongoose');
 const { GLOBALS, resolveVoiceModelId } = require('../config/globals');
 const { normalizeKey, resolvePlanPolicy } = require('../utils/sharedHelpers');
+const {
+  buildNormalizedPipelinePayload,
+  resolvePipelineParameters
+} = require('../config/params/pipelineRegistry');
 const { generateStructuredScript } = require('./llmService');
 const { generateAllScenesAudio, transcribeMergedJobAudio } = require('./audioService');
 const { generateAllScenesVisuals } = require('./visualService');
@@ -46,8 +50,21 @@ function resolveOptionalVideoService() {
   return null;
 }
 
-function syncVideoUrlIntoPayload(payload, fallbackResult = null) {
+function ensureResolvedParams(payload, adminOverrides = {}) {
   const nextPayload = payload && typeof payload === 'object' ? { ...payload } : {};
+  const resolvedParams =
+    nextPayload.resolvedParams && typeof nextPayload.resolvedParams === 'object'
+      ? nextPayload.resolvedParams
+      : resolvePipelineParameters(nextPayload, adminOverrides);
+
+  return {
+    ...nextPayload,
+    resolvedParams
+  };
+}
+
+function syncVideoUrlIntoPayload(payload, fallbackResult = null, adminOverrides = {}) {
+  const nextPayload = ensureResolvedParams(payload, adminOverrides);
   const existingVideoObj =
     nextPayload.video && typeof nextPayload.video === 'object'
       ? { ...nextPayload.video }
@@ -106,91 +123,122 @@ function sanitizeVideoPersistencePayload(rawUpdate = {}) {
 }
 
 async function runCompletePipeline(masterPayload = {}) {
-  const safePayload =
+  const rawInput =
     masterPayload && typeof masterPayload === 'object' ? masterPayload : {};
-  const jobId = safePayload?.meta?.jobId || `job_${Date.now()}`;
-  const normalizedPlan = normalizeKey(
-    safePayload?.meta?.userPlan,
-    {},
-    GLOBALS.PLAN_POLICIES,
-    'free_trial'
-  );
-  const normalizedProduct = normalizeKey(
-    safePayload?.meta?.product || safePayload?.product,
-    {},
-    GLOBALS.PRODUCTS,
-    'studio_lite'
-  );
-  const rawPreset =
-    safePayload?.meta?.preset ||
-    safePayload?.userInputs?.preset ||
-    safePayload?.videoConfig?.preset ||
-    'default';
-  const normalizedPreset = normalizeKey(
-    rawPreset,
-    GLOBALS.PRESET_ALIASES || {},
-    GLOBALS.BASE_PRESET_MODIFIERS || {},
-    'default'
-  );
+  const adminOverrides =
+    rawInput.adminOverrides && typeof rawInput.adminOverrides === 'object'
+      ? rawInput.adminOverrides
+      : {};
+
+  const normalizedBase = buildNormalizedPipelinePayload(rawInput, adminOverrides);
+  const jobId = normalizedBase?.meta?.jobId || `job_${Date.now()}`;
+  const resolvedParams = normalizedBase.resolvedParams;
+
+  const normalizedPlan =
+    resolvedParams?.meta?.userPlan ||
+    normalizeKey(rawInput?.meta?.userPlan, {}, GLOBALS.PLAN_POLICIES, 'free_trial');
+  const normalizedProduct =
+    resolvedParams?.meta?.product ||
+    normalizeKey(
+      rawInput?.meta?.product || rawInput?.product,
+      {},
+      GLOBALS.PRODUCTS,
+      'studio_lite'
+    );
+  const normalizedPreset = resolvedParams?.preset?.key || 'default';
+  const normalizedVisualStyle = resolvedParams?.visualFormat?.style?.key || 'realistic';
+  const normalizedMediaMode = resolvedParams?.visualFormat?.mediaMode?.key || 'static_only';
   const planPolicy = resolvePlanPolicy(normalizedPlan);
 
   const resolvedAspectRatio = normalizeAspectRatio(
-    safePayload?.videoConfig?.aspectRatio ||
-      safePayload?.aspectRatio ||
-      safePayload?.meta?.aspectRatio ||
+    resolvedParams?.format?.aspectRatio ||
+      normalizedBase?.videoConfig?.aspectRatio ||
       planPolicy?.defaultAspectRatio ||
       '9:16'
   );
 
-  const defaultVoiceModelId = resolveVoiceModelId({
-    explicitModelId:
-      safePayload?.voiceConfig?.modelId || safePayload?.voice?.modelId,
-    preset: normalizedPreset,
-    userPlan: normalizedPlan
-  });
+  const defaultVoiceModelId =
+    resolvedParams?.voiceAndScript?.voice?.modelId ||
+    resolveVoiceModelId({
+      explicitModelId:
+        normalizedBase?.voiceConfig?.modelId || normalizedBase?.voice?.modelId,
+      preset: normalizedPreset,
+      userPlan: normalizedPlan
+    });
 
-  safePayload.aspectRatio = resolvedAspectRatio;
-  safePayload.meta = {
-    ...safePayload.meta,
-    jobId,
-    userPlan: normalizedPlan,
-    product: normalizedProduct,
-    preset: normalizedPreset,
-    aspectRatio: resolvedAspectRatio
-  };
-  safePayload.videoConfig = {
-    ...(safePayload.videoConfig || {}),
-    aspectRatio: resolvedAspectRatio
-  };
-  safePayload.voiceConfig = {
-    ...(safePayload.voiceConfig || {}),
-    modelId: defaultVoiceModelId
+  let currentPayload = {
+    ...normalizedBase,
+    aspectRatio: resolvedAspectRatio,
+    meta: {
+      ...normalizedBase.meta,
+      jobId,
+      userPlan: normalizedPlan,
+      product: normalizedProduct,
+      preset: normalizedPreset,
+      visualStyle: normalizedVisualStyle,
+      mediaMode: normalizedMediaMode,
+      aspectRatio: resolvedAspectRatio
+    },
+    videoConfig: {
+      ...(normalizedBase.videoConfig || {}),
+      aspectRatio: resolvedAspectRatio,
+      visualStyle: normalizedVisualStyle,
+      mediaMode: normalizedMediaMode
+    },
+    voiceConfig: {
+      ...(normalizedBase.voiceConfig || {}),
+      modelId: defaultVoiceModelId
+    },
+    resolvedParams
   };
 
   initJobUsage(jobId, {
-    userId: safePayload?.meta?.userId || safePayload?.userId || null,
+    userId: currentPayload?.meta?.userId || currentPayload?.userId || null,
     userPlan: normalizedPlan,
     product: normalizedProduct
   });
 
   console.log(
-    `🚀 [Pipeline Master] Iniciando flujo completo para Job ID: ${jobId} | Producto: [${normalizedProduct}] | Plan: [${normalizedPlan}] | Preset: [${normalizedPreset}] | AspectRatio: [${resolvedAspectRatio}] | VoiceModel: [${defaultVoiceModelId}] (maxDur=${planPolicy.maxDurationSeconds}s)`
+    `🚀 [Pipeline Master] Iniciando flujo completo para Job ID: ${jobId} | Producto: [${normalizedProduct}] | Plan: [${normalizedPlan}] | Preset: [${normalizedPreset}] | Style: [${normalizedVisualStyle}] | MediaMode: [${normalizedMediaMode}] | AspectRatio: [${resolvedAspectRatio}] | VoiceModel: [${defaultVoiceModelId}] (maxDur=${planPolicy.maxDurationSeconds}s)`
   );
 
-  // 1. Paso de IA: Generar guion estructurado con Gemini (voiceoverText limpio + spokenText con tags)
+  // 1. Paso de IA: Generar guion estructurado con Gemini (voiceoverText limpio + spokenText con tags + mediaType + sfxCue)
   console.log(`1️⃣ Ejecutando Gemini (Generación de guion)...`);
   const llmStart = Date.now();
-  let currentPayload = await generateStructuredScript(safePayload);
+  currentPayload = ensureResolvedParams(
+    await generateStructuredScript(currentPayload),
+    adminOverrides
+  );
+  const generatedScenes =
+    currentPayload?.llmDirective?.structuredScript?.scenes || [];
+  const activeSfxCount = generatedScenes.filter(
+    (sc) => sc?.sfxCue?.enabled === true
+  ).length;
+  const usageMeta =
+    currentPayload?.llmDirective?.usageMetadata ||
+    currentPayload?.llmDirective?.usage ||
+    {};
+  const scriptTokens = Number(
+    usageMeta.totalTokens ??
+      (Number(usageMeta.inputTokens || 0) + Number(usageMeta.outputTokens || 0))
+  );
   recordStepUsage(jobId, 'script_generation', {
-    provider: 'google-gemini',
+    provider: currentPayload?.llmDirective?.provider || 'google-gemini',
     model: currentPayload?.llmDirective?.model || 'gemini-3.8-flash',
+    llmTokens: Number.isFinite(scriptTokens) ? scriptTokens : 0,
+    inputTokens: Number(usageMeta.inputTokens || 0),
+    outputTokens: Number(usageMeta.outputTokens || 0),
+    sfxCuesCount: activeSfxCount,
     latencyMs: Date.now() - llmStart
   });
 
   // 2. Paso de Audio: Generar los MP3 por escena con ElevenLabs (preservando etiquetas en spokenText)
   console.log(`2️⃣ Ejecutando ElevenLabs (Síntesis de voz)...`);
   const audioStart = Date.now();
-  currentPayload = await generateAllScenesAudio(currentPayload);
+  currentPayload = ensureResolvedParams(
+    await generateAllScenesAudio(currentPayload),
+    adminOverrides
+  );
   const audioScenes =
     currentPayload?.llmDirective?.structuredScript?.scenes ||
     currentPayload?.scenes ||
@@ -212,7 +260,10 @@ async function runCompletePipeline(masterPayload = {}) {
   // 3. Paso de Visuales: Renderizar imágenes por escena con Gemini 2.5
   console.log(`3️⃣ Ejecutando Gemini 2.5 (Generación de visuales)...`);
   const visualStart = Date.now();
-  currentPayload = await generateAllScenesVisuals(currentPayload);
+  currentPayload = ensureResolvedParams(
+    await generateAllScenesVisuals(currentPayload),
+    adminOverrides
+  );
   const visualScenes =
     currentPayload?.llmDirective?.structuredScript?.scenes ||
     currentPayload?.scenes ||
@@ -225,7 +276,7 @@ async function runCompletePipeline(masterPayload = {}) {
   });
 
   // 3.5 Paso opcional de Generación de Video Base (si existe servicio de video y aún no hay video.videoUrl)
-  currentPayload = syncVideoUrlIntoPayload(currentPayload);
+  currentPayload = syncVideoUrlIntoPayload(currentPayload, null, adminOverrides);
   const optionalVideoFn = resolveOptionalVideoService();
   if (!currentPayload?.video?.videoUrl && typeof optionalVideoFn === 'function') {
     console.log(`🎬 Ejecutando generador de video base antes de música...`);
@@ -233,7 +284,8 @@ async function runCompletePipeline(masterPayload = {}) {
     const videoGenResult = await optionalVideoFn(currentPayload);
     currentPayload = syncVideoUrlIntoPayload(
       videoGenResult?.payload || videoGenResult || currentPayload,
-      videoGenResult
+      videoGenResult,
+      adminOverrides
     );
     recordStepUsage(jobId, 'video_generation', {
       provider: currentPayload?.video?.provider || 'video-generator',
@@ -252,7 +304,8 @@ async function runCompletePipeline(masterPayload = {}) {
     const musicResult = await musicFn(currentPayload);
     currentPayload = syncVideoUrlIntoPayload(
       musicResult?.payload || musicResult || currentPayload,
-      musicResult
+      musicResult,
+      adminOverrides
     );
     recordStepUsage(jobId, 'background_music', {
       provider: 'ffmpeg-music',
@@ -270,32 +323,46 @@ async function runCompletePipeline(masterPayload = {}) {
   let renderResult = await renderFinalVideo(currentPayload);
   const scriptDuration = Number(
     currentPayload?.llmDirective?.structuredScript?.totalDurationSeconds ||
+      currentPayload?.resolvedParams?.voiceAndScript?.script?.durationSeconds ||
       currentPayload?.meta?.targetDurationSeconds ||
       0
   );
   const endingBuffer = Number(
-    currentPayload?.orchestration?.endingBufferSeconds ||
-      currentPayload?.llmDirective?.structuredScript?.endingBufferSeconds ||
+    currentPayload?.resolvedParams?.voiceAndScript?.script?.endingBufferSeconds ??
+      currentPayload?.orchestration?.endingBufferSeconds ??
+      currentPayload?.llmDirective?.structuredScript?.endingBufferSeconds ??
       0
   );
   const estimatedRenderSeconds = Math.max(0, scriptDuration + endingBuffer);
   recordStepUsage(jobId, 'video_render', {
     provider: 'ffmpeg',
-    model: renderResult?.resolution || '1080p',
+    model: renderResult?.resolution || currentPayload?.resolvedParams?.format?.resolution || '1080p',
     videoClipsGenerated: visualScenes.length,
     renderDurationSeconds: estimatedRenderSeconds,
     latencyMs: Date.now() - renderStart
   });
 
   // Inyectar resultados del render al payload final
-  currentPayload.renderResult = renderResult;
+  const { payload: _omitRenderPayload, ...cleanRenderResult } = renderResult || {};
+  currentPayload.renderResult = cleanRenderResult;
   if (renderResult?.payload && typeof renderResult.payload === 'object') {
-    currentPayload = {
-      ...renderResult.payload,
-      renderResult
+    currentPayload = ensureResolvedParams(
+      {
+        ...renderResult.payload,
+        renderResult: cleanRenderResult
+      },
+      adminOverrides
+    );
+  }
+  delete currentPayload.config;
+  delete currentPayload.visualConfig;
+  if (currentPayload.userInputs && typeof currentPayload.userInputs === 'object') {
+    currentPayload.userInputs = {
+      ...currentPayload.userInputs,
+      aspectRatio: resolvedAspectRatio
     };
   }
-  currentPayload = syncVideoUrlIntoPayload(currentPayload, renderResult);
+  currentPayload = syncVideoUrlIntoPayload(currentPayload, renderResult, adminOverrides);
   if (renderResult?.videoFileName && currentPayload.video) {
     currentPayload.video.fileName = renderResult.videoFileName;
   }
@@ -314,7 +381,8 @@ async function runCompletePipeline(masterPayload = {}) {
 
     currentPayload = syncVideoUrlIntoPayload(
       musicPostResult?.payload || musicPostResult || currentPayload,
-      musicPostResult
+      musicPostResult,
+      adminOverrides
     );
 
     if (musicPostResult?.videoUrl) {
@@ -324,7 +392,8 @@ async function runCompletePipeline(masterPayload = {}) {
         videoFileName: musicPostResult.videoFileName || renderResult.videoFileName,
         musicApplied: Boolean(musicPostResult.musicApplied)
       };
-      currentPayload.renderResult = renderResult;
+      const { payload: _omitPostRenderPayload, ...cleanPostRenderResult } = renderResult;
+      currentPayload.renderResult = cleanPostRenderResult;
     }
 
     recordStepUsage(jobId, 'background_music_mix', {
@@ -341,7 +410,8 @@ async function runCompletePipeline(masterPayload = {}) {
   console.log(`💾 Guardando proyecto finalizado en MongoDB Atlas...`);
   const jobUsage = getJobUsage(jobId);
   const finalAspectRatio = normalizeAspectRatio(
-    currentPayload?.videoConfig?.aspectRatio ||
+    currentPayload?.resolvedParams?.format?.aspectRatio ||
+      currentPayload?.videoConfig?.aspectRatio ||
       currentPayload?.aspectRatio ||
       resolvedAspectRatio
   );
@@ -367,5 +437,6 @@ async function runCompletePipeline(masterPayload = {}) {
 }
 
 module.exports = {
-  runCompletePipeline
+  runCompletePipeline,
+  transcribeMergedJobAudio
 };

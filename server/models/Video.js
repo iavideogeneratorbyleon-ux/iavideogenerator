@@ -20,6 +20,11 @@ const VideoSchema = new mongoose.Schema(
       required: true,
       default: 'Studio Lite Video',
     },
+    product: {
+      type: String,
+      default: 'studio_lite',
+      index: true,
+    },
     mode: {
       type: String,
       default: 'idea',
@@ -28,11 +33,22 @@ const VideoSchema = new mongoose.Schema(
       type: String,
       default: '9:16',
     },
+    videoUrl: {
+      type: String,
+      default: null,
+    },
     parameters: {
       type: Object,
       default: {},
     },
-
+    resolvedParams: {
+      type: Object,
+      default: null,
+    },
+    usage: {
+      type: Object,
+      default: null,
+    },
     jobId: {
       type: String,
       sparse: true,
@@ -42,6 +58,7 @@ const VideoSchema = new mongoose.Schema(
       userId: { type: String },
       userPlan: { type: String, default: 'free_trial' },
       language: { type: String, default: 'en' },
+      product: { type: String, default: 'studio_lite' },
     },
     userInputs: {
       mode: { type: String },

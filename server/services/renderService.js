@@ -1,3 +1,4 @@
+// server/services/renderService.js
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
@@ -5,10 +6,24 @@ const zlib = require('zlib');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 const ffprobePath = require('ffprobe-static').path;
-const { GLOBALS, getPresetSubtitleStyle } = require('../config/globals');
+const {
+  GLOBALS,
+  VISUAL_STYLES,
+  normalizePresetToken,
+  getPresetVariant,
+  resolveBasePresetKey
+} = require('../config/globals');
+const {
+  resolveSubtitleStyle,
+  getPresetSubtitleStyle
+} = require('../utils/subtitleStyles');
+const {
+  resolvePipelineParameters,
+  resolveSceneMediaType
+} = require('../config/params/pipelineRegistry');
 const { clampNumber, normalizeKey, resolvePlanPolicy } = require('../utils/sharedHelpers');
-const { buildBaseVideoFilter } = require('../utils/cameraMotion');
 const { renderWatermarkPng } = require('../utils/watermark');
+const { buildBaseVideoFilter } = require('../utils/cameraMotion');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 ffmpeg.setFfprobePath(ffprobePath);
@@ -16,8 +31,9 @@ ffmpeg.setFfprobePath(ffprobePath);
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const VIDEO_OUTPUT_DIR = path.join(PUBLIC_DIR, 'videos');
 const TEMP_DIR = path.join(PUBLIC_DIR, 'temp_render');
+const SFX_LIBRARY_DIR = path.join(PUBLIC_DIR, 'sfx');
 
-[VIDEO_OUTPUT_DIR, TEMP_DIR].forEach((dir) => {
+[VIDEO_OUTPUT_DIR, TEMP_DIR, SFX_LIBRARY_DIR].forEach((dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -26,87 +42,84 @@ const PRESET_CONFIGS = {
     key: 'netflix',
     label: 'Netflix',
     motion: 'slow_zoom_in',
-    eqFilter: 'eq=contrast=1.06:brightness=-0.02:saturation=0.95',
-    paidSubtitles: getPresetSubtitleStyle('netflix')
+    eqFilter: 'eq=contrast=1.06:brightness=-0.02:saturation=0.95'
   },
   mr_beast: {
     key: 'mr_beast',
     label: 'Mr Beast',
     motion: 'punch_zoom_in',
-    eqFilter: 'eq=contrast=1.12:brightness=0.02:saturation=1.22',
-    paidSubtitles: getPresetSubtitleStyle('mr_beast')
+    eqFilter: 'eq=contrast=1.12:brightness=0.02:saturation=1.22'
   },
   tiktok_viral: {
     key: 'tiktok_viral',
     label: 'TikTok Viral',
     motion: 'dynamic_pan',
-    eqFilter: 'eq=contrast=1.08:brightness=0.01:saturation=1.15',
-    paidSubtitles: getPresetSubtitleStyle('tiktok_viral')
+    eqFilter: 'eq=contrast=1.08:brightness=0.01:saturation=1.15'
   },
   luxury: {
     key: 'luxury',
     label: 'Luxury',
     motion: 'smooth_drift',
-    eqFilter: 'eq=contrast=1.05:brightness=-0.01:saturation=0.92',
-    paidSubtitles: getPresetSubtitleStyle('luxury_brand')
+    eqFilter: 'eq=contrast=1.05:brightness=-0.01:saturation=0.92'
   },
   luxury_brand: {
     key: 'luxury_brand',
     label: 'Luxury Brand',
     motion: 'smooth_drift',
-    eqFilter: 'eq=contrast=1.05:brightness=-0.01:saturation=0.92',
-    paidSubtitles: getPresetSubtitleStyle('luxury_brand')
+    eqFilter: 'eq=contrast=1.05:brightness=-0.01:saturation=0.92'
   },
   tech: {
     key: 'tech',
     label: 'Tech',
     motion: 'clean_zoom_out',
-    eqFilter: 'eq=contrast=1.09:brightness=0.0:saturation=1.05',
-    paidSubtitles: getPresetSubtitleStyle('tech_modern')
+    eqFilter: 'eq=contrast=1.09:brightness=0.0:saturation=1.05'
   },
   tech_modern: {
     key: 'tech_modern',
     label: 'Tech Modern',
     motion: 'clean_zoom_out',
-    eqFilter: 'eq=contrast=1.09:brightness=0.0:saturation=1.05',
-    paidSubtitles: getPresetSubtitleStyle('tech_modern')
+    eqFilter: 'eq=contrast=1.09:brightness=0.0:saturation=1.05'
   },
   dark_mystery: {
     key: 'dark_mystery',
     label: 'Dark Mystery',
     motion: 'slow_zoom_in',
-    eqFilter: 'eq=contrast=1.08:brightness=-0.03:saturation=0.9',
-    paidSubtitles: getPresetSubtitleStyle('dark_mystery')
+    eqFilter: 'eq=contrast=1.08:brightness=-0.03:saturation=0.9'
   },
   documentary: {
     key: 'documentary',
     label: 'Documentary',
     motion: 'slow_zoom_in',
-    eqFilter: 'eq=contrast=1.05:brightness=-0.01:saturation=0.95',
-    paidSubtitles: getPresetSubtitleStyle('documentary')
+    eqFilter: 'eq=contrast=1.05:brightness=-0.01:saturation=0.95'
   },
   cinematic: {
     key: 'cinematic',
     label: 'Cinematic',
     motion: 'smooth_drift',
-    eqFilter: 'eq=contrast=1.08:brightness=-0.02:saturation=0.96',
-    paidSubtitles: getPresetSubtitleStyle('cinematic')
+    eqFilter: 'eq=contrast=1.08:brightness=-0.02:saturation=0.96'
   },
   educational: {
     key: 'educational',
     label: 'Educational',
     motion: 'clean_zoom_out',
-    eqFilter: 'eq=contrast=1.05:brightness=0.01:saturation=1.04',
-    paidSubtitles: getPresetSubtitleStyle('educational')
+    eqFilter: 'eq=contrast=1.05:brightness=0.01:saturation=1.04'
   },
   default: {
     key: 'default',
     label: 'Default',
     motion: 'slow_zoom_in',
-    eqFilter: 'eq=contrast=1.03:brightness=0.0:saturation=1.04',
-    paidSubtitles: getPresetSubtitleStyle('default')
+    eqFilter: 'eq=contrast=1.03:brightness=0.0:saturation=1.04'
   }
 };
+
+function ensurePayloadResolvedParams(payload = {}) {
+  const base = payload && typeof payload === 'object' ? { ...payload } : {};
+  const resolvedParams =
+    base.resolvedParams && typeof base.resolvedParams === 'object'
+      ? base.resolvedParams
+      : resolvePipelineParameters(base);
+  return { ...base, resolvedParams };
+}
 
 function resolveOptionalCanvasModule() {
   for (const modName of ['@napi-rs/canvas', 'canvas']) {
@@ -163,7 +176,7 @@ function rgbaArrayToCss([r = 255, g = 255, b = 255, a = 255] = []) {
   return `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${alpha})`;
 }
 
-function wrapCanvasLines(ctx, text, maxWidthPx) {
+function wrapCanvasLines(ctx, text, maxWidthPx, maxLines = 3) {
   const words = sanitizeSubtitleRenderText(text).split(/\s+/).filter(Boolean);
   if (!words.length) return [];
 
@@ -195,7 +208,18 @@ function wrapCanvasLines(ctx, text, maxWidthPx) {
   }
 
   if (current) lines.push(current);
-  return lines.slice(0, 3);
+  return lines.slice(0, Math.max(1, maxLines));
+}
+
+function resolveEffectiveSubtitleStyle({ presetConfig, subtitleParams }) {
+  const fallbackStyle = getPresetSubtitleStyle(
+    subtitleParams?.styleKey || presetConfig?.key || 'default',
+    subtitleParams?.variantKey || null
+  );
+  return {
+    ...fallbackStyle,
+    ...(subtitleParams?.style || {})
+  };
 }
 
 function renderSubtitleWithCanvas({
@@ -205,7 +229,8 @@ function renderSubtitleWithCanvas({
   height,
   aspectRatio,
   subtitleMode,
-  presetConfig
+  presetConfig,
+  subtitleParams = null
 }) {
   if (!OPTIONAL_CANVAS?.mod) return null;
 
@@ -216,7 +241,8 @@ function renderSubtitleWithCanvas({
     ctx.clearRect(0, 0, width, height);
 
     const isPaidStyled = subtitleMode === 'preset_styled';
-    const paidStyle = presetConfig?.paidSubtitles || getPresetSubtitleStyle('default');
+    const paidStyle = resolveEffectiveSubtitleStyle({ presetConfig, subtitleParams });
+    const maxLines = Number(subtitleParams?.sync?.maxLines || subtitleParams?.sync?.maxLinesPerCue) || 3;
 
     const baseFontSize =
       aspectRatio === '9:16'
@@ -242,7 +268,7 @@ function renderSubtitleWithCanvas({
 
     const widthRatio = isPaidStyled ? (paidStyle.maxLineWidthRatio || 0.84) : 0.84;
     const maxLineWidthPx = Math.round(width * widthRatio);
-    const lines = wrapCanvasLines(ctx, cleanText, maxLineWidthPx);
+    const lines = wrapCanvasLines(ctx, cleanText, maxLineWidthPx, maxLines);
     if (!lines.length) return null;
 
     const gapScale = isPaidStyled ? (paidStyle.lineGapScale || 1.4) : 1.4;
@@ -295,7 +321,6 @@ function renderSubtitleWithCanvas({
   }
 }
 
-// Mapa de glifos 5x7 para codificar texto limpio en PNG transparente sin dependencias externas
 const BITMAP_5X7 = {
   ' ': ['00000', '00000', '00000', '00000', '00000', '00000', '00000'],
   A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
@@ -307,7 +332,7 @@ const BITMAP_5X7 = {
   G: ['01110', '10001', '10000', '10111', '10001', '10001', '01111'],
   H: ['10001', '10001', '10001', '11111', '10001', '10001', '10001'],
   I: ['01110', '00100', '00100', '00100', '00100', '00100', '01110'],
-  J: ['00111', '00010', '00010', '00010', '10010', '10010', '01100'],
+  J: ['00111', '00010', '00010', '00010', '00010', '10010', '01100'],
   K: ['10001', '10010', '10100', '11000', '10100', '10010', '10001'],
   L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
   M: ['10001', '11011', '10101', '10101', '10001', '10001', '10001'],
@@ -386,8 +411,8 @@ function encodeRgbaToPngBuffer(width, height, rgba) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 6; // RGBA
+  ihdr[8] = 8;
+  ihdr[9] = 6;
   ihdr[10] = 0;
   ihdr[11] = 0;
   ihdr[12] = 0;
@@ -396,7 +421,7 @@ function encodeRgbaToPngBuffer(width, height, rgba) {
   const raw = Buffer.alloc((stride + 1) * height);
   for (let y = 0; y < height; y++) {
     const rowStart = y * (stride + 1);
-    raw[rowStart] = 0; // filter type 0
+    raw[rowStart] = 0;
     rgba.copy(raw, rowStart + 1, y * stride, (y + 1) * stride);
   }
 
@@ -424,7 +449,7 @@ function normalizeGlyphChar(ch) {
   return BITMAP_5X7[folded] ? folded : '?';
 }
 
-function wrapBitmapLines(text, maxCharsPerLine) {
+function wrapBitmapLines(text, maxCharsPerLine, maxLines = 3) {
   const words = sanitizeSubtitleRenderText(text).split(/\s+/).filter(Boolean);
   if (!words.length) return [];
 
@@ -449,7 +474,7 @@ function wrapBitmapLines(text, maxCharsPerLine) {
   }
 
   if (current) lines.push(current);
-  return lines.slice(0, 3);
+  return lines.slice(0, Math.max(1, maxLines));
 }
 
 function blendPixel(rgba, width, height, x, y, [r, g, b, a]) {
@@ -519,7 +544,8 @@ function renderSubtitleSegmentPng({
   height,
   aspectRatio,
   subtitleMode,
-  presetConfig
+  presetConfig,
+  subtitleParams = null
 }) {
   const cleanText = sanitizeSubtitleRenderText(text);
   if (!cleanText) return null;
@@ -531,12 +557,14 @@ function renderSubtitleSegmentPng({
     height,
     aspectRatio,
     subtitleMode,
-    presetConfig
+    presetConfig,
+    subtitleParams
   });
   if (canvasRendered) return canvasRendered;
 
   const isPaidStyled = subtitleMode === 'preset_styled';
-  const paidStyle = presetConfig?.paidSubtitles || getPresetSubtitleStyle('default');
+  const paidStyle = resolveEffectiveSubtitleStyle({ presetConfig, subtitleParams });
+  const maxLines = Number(subtitleParams?.sync?.maxLines || subtitleParams?.sync?.maxLinesPerCue) || 3;
 
   const baseScale = aspectRatio === '9:16' ? Math.max(3, Math.round(width / 160)) : Math.max(3, Math.round(height / 180));
   const scale = isPaidStyled
@@ -554,7 +582,7 @@ function renderSubtitleSegmentPng({
   const maxLineWidthPx = Math.round(width * widthRatio);
   const charAdvance = 6 * scale;
   const maxCharsPerLine = Math.max(10, Math.floor(maxLineWidthPx / charAdvance));
-  const lines = wrapBitmapLines(cleanText, maxCharsPerLine);
+  const lines = wrapBitmapLines(cleanText, maxCharsPerLine, maxLines);
   if (!lines.length) return null;
 
   const gapScale = isPaidStyled ? (paidStyle.lineGapScale || 1.4) : 1.4;
@@ -607,18 +635,85 @@ function getAudioDuration(filePath) {
   });
 }
 
+function buildVisibleMotionFilter({
+  width,
+  height,
+  duration,
+  fps,
+  presetConfig,
+  sceneIndex = 0
+}) {
+  const safeDuration = Math.max(1, Number(duration) || 4);
+  const totalFrames = Math.max(15, Math.round(safeDuration * (Number(fps) || 30)));
+  const motionType = presetConfig?.motion || 'slow_zoom_in';
+
+  const overscan = motionType === 'punch_zoom_in' ? 1.24 : 1.18;
+  const baseW = Math.ceil(width * overscan);
+  const baseH = Math.ceil(height * overscan);
+
+  let progressExpr;
+  switch (motionType) {
+    case 'punch_zoom_in':
+      progressExpr = `min(1,on/${totalFrames})`;
+      break;
+    case 'clean_zoom_out':
+      progressExpr = `max(0,1-(on/${totalFrames}))`;
+      break;
+    case 'dynamic_pan':
+    case 'smooth_drift':
+      progressExpr = sceneIndex % 2 === 0 ? `min(1,on/${totalFrames})` : `max(0,1-(on/${totalFrames}))`;
+      break;
+    case 'slow_zoom_in':
+    default:
+      progressExpr = `min(1,on/${totalFrames})`;
+      break;
+  }
+
+  const maxZoomDelta = motionType === 'punch_zoom_in' ? 0.16 : 0.12;
+  const cropWExpr = `max(${width},iw/(1+(${maxZoomDelta}*${progressExpr})))`;
+  const cropHExpr = `max(${height},ih/(1+(${maxZoomDelta}*${progressExpr})))`;
+
+  const panDirectionX = sceneIndex % 2 === 0 ? 1 : -1;
+  const panDirectionY = sceneIndex % 3 === 0 ? -1 : 1;
+
+  const cropXExpr = `(iw-ow)/2+(${panDirectionX}*((iw-ow)*0.22)*(on/${totalFrames}))`;
+  const cropYExpr = `(ih-oh)/2+(${panDirectionY}*((ih-oh)*0.18)*(on/${totalFrames}))`;
+
+  const parts = [
+    `fps=${fps}`,
+    `scale=${baseW}:${baseH}:force_original_aspect_ratio=increase`,
+    `crop=w='${cropWExpr}':h='${cropHExpr}':x='${cropXExpr}':y='${cropYExpr}':exact=1`,
+    `scale=${width}:${height}:flags=lanczos`
+  ];
+
+  if (presetConfig?.eqFilter) {
+    parts.push(presetConfig.eqFilter);
+  }
+
+  return parts.join(',');
+}
+
 function resolveRenderConfig(masterPayload = {}) {
+  const payloadWithParams = ensurePayloadResolvedParams(masterPayload);
+  const resolvedParams = payloadWithParams.resolvedParams || {};
+  const resolvedFormat = resolvedParams.format || {};
+  const resolvedVisualFormat = resolvedParams.visualFormat || {};
+  const resolvedSubtitles = resolvedParams.subtitles || {};
+  const resolvedVoiceAndScript = resolvedParams.voiceAndScript || {};
+
   const rawPlan =
-    masterPayload?.meta?.userPlan ||
-    masterPayload?.orchestration?.planApplied ||
+    resolvedParams?.meta?.userPlan ||
+    payloadWithParams?.meta?.userPlan ||
+    payloadWithParams?.orchestration?.planApplied ||
     'free_trial';
   const userPlan = normalizeKey(rawPlan, {}, GLOBALS.PLAN_POLICIES, 'free_trial');
   const planPolicy = resolvePlanPolicy(userPlan);
   const isFreePlan = userPlan === 'free_trial';
 
   const requestedResolution =
-    masterPayload?.videoConfig?.resolution ||
-    masterPayload?.userInputs?.resolution ||
+    resolvedFormat.resolution ||
+    payloadWithParams?.videoConfig?.resolution ||
+    payloadWithParams?.userInputs?.resolution ||
     (isFreePlan ? '720p' : '1080p');
 
   const resolution = isFreePlan
@@ -628,50 +723,117 @@ function resolveRenderConfig(masterPayload = {}) {
       : '1080p';
 
   const aspectRatio =
-    masterPayload?.visual?.aspectRatio ||
-    masterPayload?.userInputs?.aspectRatio ||
-    masterPayload?.visualConfig?.aspectRatio ||
-    masterPayload?.config?.aspectRatio ||
+    resolvedFormat.aspectRatio ||
+    payloadWithParams?.visual?.aspectRatio ||
+    payloadWithParams?.userInputs?.aspectRatio ||
+    payloadWithParams?.visualConfig?.aspectRatio ||
+    payloadWithParams?.config?.aspectRatio ||
     '9:16';
 
-  const rawPreset =
-    masterPayload?.videoConfig?.preset ||
-    masterPayload?.userInputs?.preset ||
-    masterPayload?.visual?.preset ||
-    masterPayload?.llmDirective?.preset ||
-    masterPayload?.meta?.preset ||
-    masterPayload?.config?.preset ||
+  const rawPresetCandidate =
+    resolvedParams?.presetVariant ||
+    payloadWithParams?.presetVariant ||
+    resolvedParams?.videoConfig?.presetVariant ||
+    resolvedParams?.preset?.key ||
+    payloadWithParams?.videoConfig?.preset ||
+    payloadWithParams?.userInputs?.preset ||
+    payloadWithParams?.visual?.preset ||
+    payloadWithParams?.llmDirective?.preset ||
+    payloadWithParams?.meta?.preset ||
+    payloadWithParams?.config?.preset ||
     'default';
 
-  const presetKey = normalizePresetKey(rawPreset);
+  const variantMeta = getPresetVariant(rawPresetCandidate);
+  const resolvedVariantKey = variantMeta ? variantMeta.key : null;
+  const resolvedBasePreset = variantMeta
+    ? variantMeta.basePreset
+    : resolveBasePresetKey(rawPresetCandidate);
+
+  const presetKey = normalizePresetKey(resolvedBasePreset);
   const presetConfig = PRESET_CONFIGS[presetKey] || PRESET_CONFIGS.default;
 
-  const subtitlesEnabled =
-    typeof masterPayload?.videoConfig?.subtitles?.enabled === 'boolean'
-      ? masterPayload.videoConfig.subtitles.enabled
-      : typeof masterPayload?.videoConfig?.subtitles === 'boolean'
-        ? masterPayload.videoConfig.subtitles
-        : typeof masterPayload?.config?.subtitles === 'boolean'
-          ? masterPayload.config.subtitles
-          : typeof masterPayload?.userInputs?.subtitles === 'boolean'
-            ? masterPayload.userInputs.subtitles
-            : true;
+  const rawVisualStyleCandidate =
+    resolvedVisualFormat?.style ||
+    resolvedParams?.visualStyle ||
+    payloadWithParams?.visualStyle ||
+    variantMeta?.visualStyle ||
+    null;
 
-  // free_trial usa subtítulos sencillos; planes de pago usan estilo coherente con el preset elegido
-  const subtitleMode = isFreePlan ? 'static' : 'preset_styled';
+  const normalizedVisualStyleKey = rawVisualStyleCandidate
+    ? normalizePresetToken(
+        typeof rawVisualStyleCandidate === 'object'
+          ? rawVisualStyleCandidate.key || rawVisualStyleCandidate.id || ''
+          : rawVisualStyleCandidate
+      )
+    : null;
+
+  const visualStyleConfig =
+    (normalizedVisualStyleKey && VISUAL_STYLES[normalizedVisualStyleKey]) || null;
+
+  const subtitlesEnabled =
+    typeof resolvedSubtitles.enabled === 'boolean'
+      ? resolvedSubtitles.enabled
+      : typeof payloadWithParams?.videoConfig?.subtitles?.enabled === 'boolean'
+        ? payloadWithParams.videoConfig.subtitles.enabled
+        : typeof payloadWithParams?.videoConfig?.subtitles === 'boolean'
+          ? payloadWithParams.videoConfig.subtitles
+          : typeof payloadWithParams?.config?.subtitles === 'boolean'
+            ? payloadWithParams.config.subtitles
+            : typeof payloadWithParams?.userInputs?.subtitles === 'boolean'
+              ? payloadWithParams.userInputs.subtitles
+              : true;
+
+  const resolvedSubtitlePack = resolveSubtitleStyle({
+    preset: presetConfig.key,
+    presetVariant: resolvedVariantKey,
+    aspectRatio,
+    resolution,
+    plan: userPlan
+  });
+
+  const subtitleMode =
+    resolvedSubtitles?.videoMeta?.mode ||
+    resolvedSubtitlePack.videoMeta.mode ||
+    (isFreePlan ? 'static' : 'preset_styled');
+
+  const subtitleEffectStyle =
+    resolvedSubtitles?.style?.effectStyle ||
+    resolvedSubtitlePack.style.effectStyle;
+
+  const mergedSubtitlesParams = {
+    ...resolvedSubtitlePack,
+    ...resolvedSubtitles,
+    style: {
+      ...resolvedSubtitlePack.style,
+      ...(resolvedSubtitles.style || {})
+    },
+    sync: {
+      ...resolvedSubtitlePack.sync,
+      ...(resolvedSubtitles.sync || {})
+    },
+    videoMeta: {
+      ...resolvedSubtitlePack.videoMeta,
+      ...(resolvedSubtitles.videoMeta || {}),
+      enabled: subtitlesEnabled,
+      mode: subtitleMode,
+      effectStyle: subtitleEffectStyle
+    }
+  };
 
   const watermark =
-    typeof masterPayload?.videoConfig?.watermark === 'boolean'
+    typeof payloadWithParams?.videoConfig?.watermark === 'boolean'
       ? isFreePlan || !planPolicy.allowCustomOverrides
         ? true
-        : masterPayload.videoConfig.watermark
+        : payloadWithParams.videoConfig.watermark
       : isFreePlan;
 
   const rawEndingBuffer =
-    typeof masterPayload?.orchestration?.endingBufferSeconds === 'number'
-      ? masterPayload.orchestration.endingBufferSeconds
-      : masterPayload?.llmDirective?.structuredScript?.endingBufferSeconds ??
-        GLOBALS.SAFETY_LIMITS.endingBufferSeconds.defaultValue;
+    typeof resolvedVoiceAndScript?.script?.endingBufferSeconds === 'number'
+      ? resolvedVoiceAndScript.script.endingBufferSeconds
+      : typeof payloadWithParams?.orchestration?.endingBufferSeconds === 'number'
+        ? payloadWithParams.orchestration.endingBufferSeconds
+        : payloadWithParams?.llmDirective?.structuredScript?.endingBufferSeconds ??
+          GLOBALS.SAFETY_LIMITS.endingBufferSeconds.defaultValue;
 
   const minBuffer = GLOBALS.SAFETY_LIMITS.endingBufferSeconds.min ?? 1;
   const maxBuffer = GLOBALS.SAFETY_LIMITS.endingBufferSeconds.max ?? 4;
@@ -689,21 +851,47 @@ function resolveRenderConfig(masterPayload = {}) {
     isFreePlan,
     resolution,
     aspectRatio,
+    width: resolvedFormat.width || null,
+    height: resolvedFormat.height || null,
+    safeZones: resolvedFormat.safeZones || {
+      topMarginRatio: 0.08,
+      bottomMarginRatio: 0.12
+    },
+    fps: Number(resolvedFormat.fps) || 30,
     preset: presetConfig.key,
-    presetLabel: presetConfig.label,
+    presetKey: presetConfig.key,
+    presetLabel: variantMeta?.label || presetConfig.label,
+    presetVariant: resolvedVariantKey,
+    presetCategory: variantMeta?.category || null,
     presetConfig,
-    fps: 30,
+    visualStyle: visualStyleConfig ? visualStyleConfig.key : normalizedVisualStyleKey,
+    visualStyleConfig,
+    mediaMode: resolvedVisualFormat?.mediaMode || null,
     watermark,
     subtitles: {
       enabled: subtitlesEnabled,
       mode: subtitleMode,
-      effectStyle: isFreePlan ? 'static_basic' : presetConfig.paidSubtitles.style
+      effectStyle: subtitleEffectStyle,
+      styleKey: mergedSubtitlesParams.styleKey,
+      variantKey: mergedSubtitlesParams.variantKey,
+      resolvedParams: mergedSubtitlesParams
     },
+    sfxDirective: resolvedVoiceAndScript?.sfxDirective || { enabled: false },
     endingBufferSeconds
   };
 }
 
-function getTargetDimensions(aspectRatio = '9:16', resolution = '1080p') {
+function getTargetDimensions(aspectRatio = '9:16', resolution = '1080p', explicitDims = null) {
+  if (
+    explicitDims &&
+    Number.isFinite(Number(explicitDims.width)) &&
+    Number.isFinite(Number(explicitDims.height)) &&
+    Number(explicitDims.width) > 0 &&
+    Number(explicitDims.height) > 0
+  ) {
+    return { width: Number(explicitDims.width), height: Number(explicitDims.height) };
+  }
+
   const is720 = resolution === '720p';
 
   switch (aspectRatio) {
@@ -789,7 +977,6 @@ function buildSyncedWordBlocks(words = [], duration = 5, { maxWords = 4, maxPaus
     if (typeof nextWordStart === 'number' && Number.isFinite(nextWordStart)) {
       endTime = Math.min(endTime, Math.max(first.start + 0.25, nextWordStart - 0.03));
     } else {
-      // Último bloque de la escena: margen extra para que no se corte la última palabra
       endTime = endTime + 0.18;
     }
     endTime = Math.min(duration, Math.max(first.start + 0.3, endTime));
@@ -835,34 +1022,24 @@ function resolveSceneSubtitleSegments({
   subtitleSegments,
   words = [],
   text,
-  duration
+  duration,
+  subtitleParams = null
 }) {
-  // PRIORIDAD ABSOLUTA:
-  // palabras provenientes de Scribe
-  if (
-    Array.isArray(words) &&
-    words.length > 0
-  ) {
-    return buildSyncedWordBlocks(
-      words,
-      duration,
-      {
-        maxWords: 4,
-        maxPauseSec: 0.35
-      }
-    );
+  const syncCfg = subtitleParams?.sync || {};
+  const maxWords = Number(syncCfg.maxWordsPerCue || syncCfg.maxWordsPerSegment) || 4;
+  const maxPauseSec = Number(syncCfg.maxPauseSeconds) || 0.35;
+
+  if (Array.isArray(words) && words.length > 0) {
+    return buildSyncedWordBlocks(words, duration, {
+      maxWords,
+      maxPauseSec
+    });
   }
 
-  // FALLBACK:
-  // alignment de Eleven
-  if (
-    Array.isArray(subtitleSegments) &&
-    subtitleSegments.length > 0
-  ) {
+  if (Array.isArray(subtitleSegments) && subtitleSegments.length > 0) {
     return subtitleSegments;
   }
 
-  // ÚLTIMA OPCIÓN
   console.warn(
     `⚠️ [Subtitles] No words ni subtitleSegments disponibles. Usando timing estimado.`
   );
@@ -870,32 +1047,70 @@ function resolveSceneSubtitleSegments({
   return buildTimedChunks({
     text,
     duration,
-    maxWords: 6
+    maxWords: Number(subtitleParams?.style?.maxWordsPerLine) || 6
   });
+}
+
+function resolveSceneSfxFile(sfxCue, sfxDirective = {}) {
+  if (!sfxCue || sfxCue.enabled !== true || !sfxDirective?.enabled) {
+    return null;
+  }
+
+  const candidatePaths = [
+    sfxCue.filePath,
+    sfxCue.audioUrl ? path.join(PUBLIC_DIR, String(sfxCue.audioUrl).replace(/^\/+/, '')) : null,
+    sfxCue.fileName ? path.join(SFX_LIBRARY_DIR, String(sfxCue.fileName).replace(/^\/+/, '')) : null
+  ].filter(Boolean);
+
+  for (const fullPath of candidatePaths) {
+    if (fs.existsSync(fullPath)) {
+      const volume = clampNumber(
+        Number(sfxCue.volume ?? sfxDirective.defaultVolume ?? 0.25),
+        0.02,
+        1.0,
+        2
+      );
+      const offsetSec = Math.max(0, Number(sfxCue.offsetSeconds ?? 0) || 0);
+      return { path: fullPath, volume, offsetSec };
+    }
+  }
+
+  return null;
 }
 
 function runFfmpegClip({
   imagePath,
+  videoClipPath = null,
   audioPath,
   duration,
   outputClipPath,
   fps,
   baseVideoFilter,
   overlayAssets = [],
-  padAudioSeconds = 0
+  padAudioSeconds = 0,
+  sfxAsset = null
 }) {
   return new Promise((resolve, reject) => {
-    const cmd = ffmpeg()
-      .input(imagePath)
-      .inputOptions(['-loop', '1'])
-      .input(audioPath);
+    const cmd = ffmpeg();
+    const usesPreRenderedClip = Boolean(videoClipPath && fs.existsSync(videoClipPath));
 
+    if (usesPreRenderedClip) {
+      cmd.input(videoClipPath);
+    } else {
+      cmd.input(imagePath).inputOptions(['-loop', '1']);
+    }
+
+    cmd.input(audioPath);
+
+    const overlayStartIndex = 2;
     overlayAssets.forEach((asset) => {
       cmd.input(asset.pngPath).inputOptions(['-loop', '1']);
     });
 
-    if (padAudioSeconds > 0) {
-      cmd.audioFilters(`apad=pad_dur=${padAudioSeconds}`);
+    const hasSfx = Boolean(sfxAsset?.path && fs.existsSync(sfxAsset.path));
+    const sfxInputIndex = overlayStartIndex + overlayAssets.length;
+    if (hasSfx) {
+      cmd.input(sfxAsset.path);
     }
 
     const outputOptions = [
@@ -907,12 +1122,14 @@ function runFfmpegClip({
       `-t ${duration}`
     ];
 
+    const complexParts = [];
+
     if (overlayAssets.length > 0) {
-      const complexParts = [`[0:v]${baseVideoFilter}[v0]`];
+      complexParts.push(`[0:v]${baseVideoFilter}[v0]`);
       let currentLabel = 'v0';
 
       overlayAssets.forEach((asset, idx) => {
-        const inputIdx = idx + 2; // 0: image, 1: audio, 2+: PNG overlays
+        const inputIdx = overlayStartIndex + idx;
         const nextLabel = idx === overlayAssets.length - 1 ? 'vout' : `v${idx + 1}`;
         const enableClause =
           typeof asset.start === 'number' && typeof asset.end === 'number'
@@ -923,11 +1140,49 @@ function runFfmpegClip({
         );
         currentLabel = nextLabel;
       });
+    } else if (usesPreRenderedClip) {
+      complexParts.push(`[0:v]${baseVideoFilter}[vout]`);
+    }
 
+    const voiceChain =
+      padAudioSeconds > 0
+        ? `[1:a]apad=pad_dur=${padAudioSeconds}[voice_ready]`
+        : `[1:a]aresample=async=1[voice_ready]`;
+
+    if (hasSfx) {
+      const delayMs = Math.round((sfxAsset.offsetSec || 0) * 1000);
+      complexParts.push(voiceChain);
+      complexParts.push(
+        `[${sfxInputIndex}:a]volume=${sfxAsset.volume},adelay=${delayMs}|${delayMs}[sfx_ready]`
+      );
+      complexParts.push(
+        `[voice_ready][sfx_ready]amix=inputs=2:duration=first:dropout_transition=1:normalize=0[aout]`
+      );
+    } else if (overlayAssets.length > 0 || usesPreRenderedClip) {
+      complexParts.push(voiceChain);
+    }
+
+    if (complexParts.length > 0) {
       cmd.complexFilter(complexParts.join(';'));
-      outputOptions.push('-map', '[vout]', '-map', '1:a');
+      if (overlayAssets.length > 0 || usesPreRenderedClip) {
+        outputOptions.push('-map', '[vout]');
+      } else {
+        cmd.videoFilters(baseVideoFilter);
+        outputOptions.push('-map', '0:v');
+      }
+
+      if (hasSfx) {
+        outputOptions.push('-map', '[aout]');
+      } else if (overlayAssets.length > 0 || usesPreRenderedClip) {
+        outputOptions.push('-map', '[voice_ready]');
+      } else {
+        outputOptions.push('-map', '1:a');
+      }
     } else {
       cmd.videoFilters(baseVideoFilter);
+      if (padAudioSeconds > 0) {
+        cmd.audioFilters(`apad=pad_dur=${padAudioSeconds}`);
+      }
       outputOptions.push('-map', '0:v', '-map', '1:a');
     }
 
@@ -941,6 +1196,8 @@ function runFfmpegClip({
 
 async function renderSceneClip({
   imagePath,
+  videoClipPath = null,
+  resolvedMediaType = null,
   audioPath,
   duration,
   outputClipPath,
@@ -948,6 +1205,7 @@ async function renderSceneClip({
   subtitleText,
   subtitleSegments = [],
   subtitleWords = [],
+  sfxAsset = null,
   sceneIndex,
   jobId,
   sceneNumber,
@@ -958,20 +1216,40 @@ async function renderSceneClip({
 }) {
   const { width, height } = getTargetDimensions(
     renderConfig.aspectRatio,
-    renderConfig.resolution
+    renderConfig.resolution,
+    { width: renderConfig.width, height: renderConfig.height }
   );
   const is720 = renderConfig.resolution === '720p';
 
-  const baseVideoFilter = buildBaseVideoFilter({
-    width,
-    height,
-    duration,
-    fps: renderConfig.fps,
-    presetConfig: renderConfig.presetConfig,
-    globalStartSec,
-    globalEndSec,
-    totalVideoDuration
-  });
+  const usesPreRenderedClip = Boolean(videoClipPath && fs.existsSync(videoClipPath));
+  const zoomRule = renderConfig.mediaMode?.applyCameraZoomInRender ?? 'by_scene_type';
+  const sceneMediaType =
+    resolvedMediaType || (usesPreRenderedClip ? 'video_clip' : 'static_image');
+
+  const shouldApplyCameraMotion =
+    !usesPreRenderedClip &&
+    (zoomRule === true ||
+      zoomRule === 'all' ||
+      (zoomRule === 'by_scene_type' &&
+        (sceneMediaType === 'static_image' || sceneMediaType === 'motion_image')));
+
+  const baseVideoFilter = usesPreRenderedClip
+    ? `fps=${renderConfig.fps},scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}${renderConfig.presetConfig?.eqFilter ? `,${renderConfig.presetConfig.eqFilter}` : ''}`
+    : buildBaseVideoFilter({
+        width,
+        height,
+        duration,
+        fps: renderConfig.fps,
+        presetConfig: renderConfig.presetConfig,
+        presetKey: renderConfig.presetKey || renderConfig.preset,
+        variant: renderConfig.presetVariant || null,
+        sceneIndex,
+        safeZones: renderConfig.safeZones,
+        applyCameraMotion: shouldApplyCameraMotion,
+        globalStartSec,
+        globalEndSec,
+        totalVideoDuration
+      });
 
   const overlayAssets = [];
 
@@ -997,7 +1275,8 @@ async function renderSceneClip({
           subtitleSegments,
           words: subtitleWords,
           text: subtitleText,
-          duration
+          duration,
+          subtitleParams: renderConfig.subtitles.resolvedParams
         })
       : [];
 
@@ -1010,7 +1289,8 @@ async function renderSceneClip({
       height,
       aspectRatio: renderConfig.aspectRatio,
       subtitleMode: renderConfig.subtitles.mode,
-      presetConfig: renderConfig.presetConfig
+      presetConfig: renderConfig.presetConfig,
+      subtitleParams: renderConfig.subtitles.resolvedParams
     });
     if (builtPath) {
       overlayAssets.push({
@@ -1024,29 +1304,34 @@ async function renderSceneClip({
   try {
     await runFfmpegClip({
       imagePath,
+      videoClipPath,
       audioPath,
       duration,
       outputClipPath,
       fps: renderConfig.fps,
       baseVideoFilter,
       overlayAssets,
-      padAudioSeconds
+      padAudioSeconds,
+      sfxAsset
     });
   } catch (err) {
     console.warn(
-      `⚠️ [Render] Falló overlay en escena ${sceneIndex + 1}, reintentando clip base sin overlays:`,
+      `⚠️ [Render] Falló overlay/mezcla en escena ${sceneIndex + 1}, reintentando clip base:`,
       err?.message || err
     );
 
+    const fallbackFilter = `fps=${renderConfig.fps},scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
     await runFfmpegClip({
       imagePath,
+      videoClipPath: null,
       audioPath,
       duration,
       outputClipPath,
       fps: renderConfig.fps,
-      baseVideoFilter,
+      baseVideoFilter: fallbackFilter,
       overlayAssets: [],
-      padAudioSeconds
+      padAudioSeconds,
+      sfxAsset: null
     });
   } finally {
     overlayAssets.forEach((asset) => {
@@ -1088,7 +1373,10 @@ function concatSceneClips({ clipPaths, outputVideoPath, jobId }) {
 }
 
 async function renderFinalVideo(rawPayload) {
-  const masterPayload = rawPayload?.payload || rawPayload?.data || rawPayload || {};
+  const masterPayload = ensurePayloadResolvedParams(
+    rawPayload?.payload || rawPayload?.data || rawPayload || {}
+  );
+  const resolvedParams = masterPayload.resolvedParams;
   const structuredScript =
     masterPayload?.llmDirective?.structuredScript ||
     masterPayload?.structuredScript ||
@@ -1108,7 +1396,8 @@ async function renderFinalVideo(rawPayload) {
   const renderConfig = resolveRenderConfig(masterPayload);
   const { width, height } = getTargetDimensions(
     renderConfig.aspectRatio,
-    renderConfig.resolution
+    renderConfig.resolution,
+    { width: renderConfig.width, height: renderConfig.height }
   );
 
   console.log(
@@ -1123,6 +1412,7 @@ async function renderFinalVideo(rawPayload) {
     const isLastScene = i === scenes.length - 1;
     const relImage = scene?.visual?.imageUrl || scene?.imageUrl;
     const relAudio = scene?.audio?.audioUrl || scene?.audioUrl;
+    const relClip = scene?.video?.clipUrl || scene?.video?.videoUrl || scene?.clipUrl || null;
 
     if (!relImage || !relAudio) {
       throw new Error(
@@ -1132,12 +1422,28 @@ async function renderFinalVideo(rawPayload) {
 
     const imagePath = path.join(PUBLIC_DIR, relImage.replace(/^\/+/, ''));
     const audioPath = path.join(PUBLIC_DIR, relAudio.replace(/^\/+/, ''));
+    const clipCandidatePath = relClip
+      ? path.join(PUBLIC_DIR, String(relClip).replace(/^\/+/, ''))
+      : null;
 
     if (!fs.existsSync(imagePath) || !fs.existsSync(audioPath)) {
       throw new Error(
         `No existen en disco los archivos de la escena ${scene.sceneNumber}: ${imagePath} o ${audioPath}`
       );
     }
+
+    const resolvedMediaType = resolveSceneMediaType(
+      renderConfig.mediaMode || {},
+      scene.role || 'body',
+      scene.mediaType || scene?.visual?.mediaType || null
+    );
+
+    const useClipInput =
+      (resolvedMediaType === 'video_clip' || resolvedMediaType === 'motion_image') &&
+      clipCandidatePath &&
+      fs.existsSync(clipCandidatePath);
+
+    const sfxAsset = resolveSceneSfxFile(scene.sfxCue, renderConfig.sfxDirective);
 
     const audioDuration = await getAudioDuration(audioPath);
     const sceneDuration = isLastScene
@@ -1152,14 +1458,17 @@ async function renderFinalVideo(rawPayload) {
       scene,
       isLastScene,
       imagePath,
+      videoClipPath: useClipInput ? clipCandidatePath : null,
+      resolvedMediaType,
       audioPath,
+      sfxAsset,
       sceneDuration,
       globalStartSec,
       globalEndSec
     });
   }
 
-  const totalVideoDuration = Math.max(0.1, cursorSec);
+  const totalVideoDuration = cursorSec;
   const clipPaths = [];
 
   for (let i = 0; i < preparedScenes.length; i++) {
@@ -1168,6 +1477,8 @@ async function renderFinalVideo(rawPayload) {
 
     await renderSceneClip({
       imagePath: item.imagePath,
+      videoClipPath: item.videoClipPath,
+      resolvedMediaType: item.resolvedMediaType,
       audioPath: item.audioPath,
       duration: item.sceneDuration,
       outputClipPath: clipPath,
@@ -1175,6 +1486,7 @@ async function renderFinalVideo(rawPayload) {
       subtitleText: item.scene.voiceoverText,
       subtitleSegments: item.scene?.audio?.subtitleSegments || item.scene?.subtitleSegments || [],
       subtitleWords: item.scene?.audio?.words || item.scene?.words || [],
+      sfxAsset: item.sfxAsset,
       sceneIndex: i,
       jobId,
       sceneNumber: item.scene.sceneNumber,
@@ -1201,6 +1513,10 @@ async function renderFinalVideo(rawPayload) {
 
   const updatedPayload = {
     ...masterPayload,
+    resolvedParams: {
+      ...resolvedParams,
+      subtitles: renderConfig.subtitles.resolvedParams
+    },
     meta: {
       ...(masterPayload.meta || {}),
       jobId
@@ -1211,14 +1527,22 @@ async function renderFinalVideo(rawPayload) {
       fileName: videoFileName,
       videoUrl,
       preset: renderConfig.preset,
+      presetVariant: renderConfig.presetVariant,
       presetLabel: renderConfig.presetLabel,
+      visualStyle: renderConfig.visualStyle,
       resolution: renderConfig.resolution,
       width,
       height,
       fps: renderConfig.fps,
       aspectRatio: renderConfig.aspectRatio,
       watermark: renderConfig.watermark,
-      subtitles: renderConfig.subtitles,
+      subtitles: {
+        enabled: renderConfig.subtitles.enabled,
+        mode: renderConfig.subtitles.mode,
+        effectStyle: renderConfig.subtitles.effectStyle,
+        styleKey: renderConfig.subtitles.styleKey,
+        variantKey: renderConfig.subtitles.variantKey
+      },
       endingBufferSeconds: renderConfig.endingBufferSeconds,
       renderedAt: new Date().toISOString()
     }
@@ -1228,6 +1552,8 @@ async function renderFinalVideo(rawPayload) {
     videoFileName,
     videoUrl,
     preset: renderConfig.preset,
+    presetVariant: renderConfig.presetVariant,
+    visualStyle: renderConfig.visualStyle,
     resolution: renderConfig.resolution,
     subtitlesEnabled: renderConfig.subtitles.enabled,
     subtitleMode: renderConfig.subtitles.mode,
